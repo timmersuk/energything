@@ -131,10 +131,10 @@ No SQL, raw error text, credential value or provider response is returned.
 ## Task 04 discovery extension
 
 The existing GET routes and record/status fields remain unchanged. Provider status
-additionally has optional `streams`, containing `{stream,state,occurred_at}` for
+additionally has optional `streams`, containing `{stream,state,message,occurred_at}` for
 stored Octopus discovery. Streams are independently `discovering`, `selected`,
 `unavailable`, `selection_required`, `conflict` or `failed`; occurrence is UTC.
-No account payload, raw identity or provider error is included. Configuration
+The message supplies static selection/recovery guidance. No account payload, raw identity or provider error is included. Configuration
 validity and stored discovery remain distinct, including after credentials are
 removed. These states and existing retained records are rendered on `/`.
 

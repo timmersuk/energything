@@ -3,6 +3,7 @@ package web
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/timmersuk/energything/internal/config"
@@ -82,6 +83,7 @@ type sourceView struct {
 type discoveryView struct {
 	Stream   string `json:"stream"`
 	State    string `json:"state"`
+	Message  string `json:"message"`
 	Occurred string `json:"occurred_at"`
 }
 type providerView struct {
@@ -133,10 +135,29 @@ func statusData(ctx context.Context, store recordStore, c config.Config, build s
 		}
 		for _, d := range discovery {
 			if d.Provider == p.name {
-				v.Streams = append(v.Streams, discoveryView{d.Stream, d.State, instant(d.Occurred)})
+				v.Streams = append(v.Streams, discoveryView{Stream: d.Stream, State: d.State, Message: discoveryMessage(d.Stream, d.State), Occurred: instant(d.Occurred)})
 			}
 		}
 		out.Providers = append(out.Providers, v)
 	}
 	return out, nil
+}
+
+func discoveryMessage(stream, state string) string {
+	switch state {
+	case "selection_required":
+		return "Set paired OCTOPUS_" + strings.ToUpper(stream) + "_MPAN and OCTOPUS_" + strings.ToUpper(stream) + "_SERIAL to a matching confirmed meter, then rerun one-shot collection."
+	case "conflict":
+		return "Conflicting discovered meter descriptions; resolve discovery before selecting this stream."
+	case "unavailable":
+		return "No confirmed meter is available for this direction."
+	case "failed":
+		return "Discovery failed; check Octopus credentials and network access, then rerun one-shot collection."
+	case "discovering":
+		return "One-shot account discovery is running."
+	case "selected":
+		return "A confirmed meter is selected."
+	default:
+		return ""
+	}
 }

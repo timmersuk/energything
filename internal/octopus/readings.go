@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"net/url"
+	"sort"
 
 	"time"
 )
@@ -102,14 +103,14 @@ func (c *Client) Fetch(ctx context.Context, m Meter, from, to time.Time) (Window
 		}
 		out.Readings = append(out.Readings, rows...)
 		// Count is required and must be stable across pages, including duplicates.
-		var pageCount int
-		if raw, ok := envelope["count"]; !ok || json.Unmarshal(raw, &pageCount) != nil || pageCount < 0 || pageCount > MaxRecords {
+		var pageCount *int
+		if raw, ok := envelope["count"]; !ok || json.Unmarshal(raw, &pageCount) != nil || pageCount == nil || *pageCount < 0 || *pageCount > MaxRecords {
 			return out, problem("protocol", "incomplete", page)
 		}
 		if count < 0 {
-			count = pageCount
+			count = *pageCount
 		}
-		if count != pageCount {
+		if count != *pageCount {
 			return out, problem("protocol", "conflict", page)
 		}
 		raw, ok := envelope["next"]
@@ -122,7 +123,15 @@ func (c *Client) Fetch(ctx context.Context, m Meter, from, to time.Time) (Window
 				return out, problem("protocol", "invalid", page)
 			}
 		}
-		digest := sha256.Sum256(results)
+		// Compare the result set independent of whitespace, object-key or row order.
+		canonicalRows := []string{}
+		for _, v := range selected.([]any) {
+			b, _ := json.Marshal(v)
+			canonicalRows = append(canonicalRows, string(b))
+		}
+		sort.Strings(canonicalRows)
+		canonicalData, _ := json.Marshal(canonicalRows)
+		digest := sha256.Sum256(canonicalData)
 		if len(rows) > 0 && contents[digest] {
 			return out, problem("pagination", "conflict", page)
 		}

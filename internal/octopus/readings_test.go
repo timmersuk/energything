@@ -284,3 +284,64 @@ type cancelBody struct{ cancel context.CancelFunc }
 
 func (b cancelBody) Read([]byte) (int, error) { b.cancel(); return 0, context.Canceled }
 func (cancelBody) Close() error               { return nil }
+func TestNullCountAndCanonicalRepeatedPages(t *testing.T) {
+	c := client(func(*http.Request) (*http.Response, error) {
+		return response(200, `{"count":null,"results":[],"next":null}`), nil
+	})
+	if _, err := c.Fetch(context.Background(), meter, from, from.Add(Slot)); err == nil {
+		t.Fatal("null count accepted")
+	}
+	calls := 0
+	c = client(func(r *http.Request) (*http.Response, error) {
+		calls++
+		rows := []string{row(from, "1"), row(from.Add(Slot), "2")}
+		if calls == 2 {
+			rows[0], rows[1] = rows[1], rows[0]
+		}
+		body := page(rows, "", 4)
+		if calls == 1 {
+			body = page(rows, nextURL(r), 4)
+		} else {
+			var v any
+			json.Unmarshal([]byte(body), &v)
+			b, _ := json.MarshalIndent(v, "", " ")
+			body = string(b)
+		}
+		return response(200, body), nil
+	})
+	_, err := c.Fetch(context.Background(), meter, from, from.Add(2*Slot))
+	var e *Error
+	if !errors.As(err, &e) || e.Class != "pagination" || calls != 2 {
+		t.Fatal(err, calls)
+	}
+}
+
+type bodyTimeout struct{}
+
+func (bodyTimeout) Error() string            { return "PRIVATE TIMEOUT" }
+func (bodyTimeout) Timeout() bool            { return true }
+func (bodyTimeout) Read([]byte) (int, error) { return 0, bodyTimeout{} }
+func (bodyTimeout) Close() error             { return nil }
+func TestBodyTimeoutUsesOneRetryBudget(t *testing.T) {
+	for _, succeed := range []bool{true, false} {
+		calls := 0
+		c := client(func(*http.Request) (*http.Response, error) {
+			calls++
+			if succeed && calls == 2 {
+				return response(200, page(nil, "", 0)), nil
+			}
+			return &http.Response{StatusCode: 200, Header: http.Header{}, Body: bodyTimeout{}}, nil
+		})
+		w, err := c.Fetch(context.Background(), meter, from, from.Add(Slot))
+		if succeed {
+			if err != nil || calls != 2 || len(w.Retries) != 1 || w.Retries[0].Code != "timeout" {
+				t.Fatal(w, err, calls)
+			}
+		} else {
+			var e *Error
+			if !errors.As(err, &e) || e.Code != "timeout" || calls != 3 || len(w.Evidence) != 0 {
+				t.Fatal(w, err, calls)
+			}
+		}
+	}
+}

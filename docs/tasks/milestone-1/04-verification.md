@@ -106,5 +106,12 @@ The explicit one-shot collects only one bounded unit per selected direction.
 
 ## Required review
 
-Pending final two-axis review against fixed main `79ffae9`; findings and resulting
-checks will be recorded here before opening the separate PR. No merge is authorized.
+The code-review skill ran independent Standards and Spec agents against fixed
+main `79ffae9`. Standards found one issue: response-body timeouts bypassed retries;
+no material judgement-call smells. Spec found two issues: null count accepted as
+zero and repeated-page hashing depending on whitespace/object order. All three
+were corrected. Regression tests cover timeout then success/exhaustion, canonical
+repeated pages with different formatting/row order, and null count through typed
+collection with no checkpoint. Static selection/recovery guidance was also added
+to the stored discovery UI. Final checks and actual-build acceptance were rerun.
+No merge is authorized.

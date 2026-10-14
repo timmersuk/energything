@@ -87,76 +87,76 @@ func destination(raw, path string, query url.Values) error {
 	return nil
 }
 func (c *Client) get(ctx context.Context, raw, path string, q url.Values, page int, retries *[]Retry) ([]byte, error) {
-	if err := destination(raw, path, q); err != nil {
+	if destination(raw, path, q) != nil {
 		return nil, problem("pagination", "invalid", page)
 	}
 	for attempt := 0; attempt < 3; attempt++ {
 		if ctx.Err() != nil {
 			return nil, problem("network", "cancelled", page)
 		}
-		req, e := http.NewRequestWithContext(ctx, http.MethodGet, raw, nil)
-		if e != nil {
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, raw, nil)
+		if err != nil {
 			return nil, problem("protocol", "invalid", page)
 		}
 		req.SetBasicAuth(c.key, "")
-		response, e := c.http.Do(req)
+		response, requestErr := c.http.Do(req)
 		status := 0
-		code := "io"
-		class := "network"
+		code, class := "io", "network"
 		delay := time.Duration(1<<attempt)*time.Second + c.jitter()
 		deferred := time.Time{}
-		if e == nil {
+		if requestErr == nil {
 			status = response.StatusCode
+			retryAfter := response.Header.Get("Retry-After")
 			if status == 200 {
-				b, err := io.ReadAll(io.LimitReader(response.Body, MaxBody+1))
+				body, bodyErr := io.ReadAll(io.LimitReader(response.Body, MaxBody+1))
 				response.Body.Close()
-				if err != nil {
-					if ctx.Err() != nil {
-						return nil, problem("network", "cancelled", page)
+				if bodyErr == nil {
+					if len(body) > MaxBody || !json.Valid(body) {
+						return nil, problem("protocol", "invalid", page)
 					}
-					var timeout interface{ Timeout() bool }
-					if errors.As(err, &timeout) && timeout.Timeout() {
-						return nil, problem("network", "timeout", page)
-					}
+					return body, nil
+				}
+				if ctx.Err() != nil {
+					return nil, problem("network", "cancelled", page)
+				}
+				var timeout interface{ Timeout() bool }
+				if !errors.As(bodyErr, &timeout) || !timeout.Timeout() {
 					return nil, problem("protocol", "incomplete", page)
 				}
-				if len(b) > MaxBody || !json.Valid(b) {
+				requestErr = bodyErr // Discard the incomplete body and use this page's budget.
+			} else {
+				response.Body.Close()
+				switch {
+				case status == 401 || status == 403:
+					return nil, problem("authentication", "unauthorized", page)
+				case status == 429:
+					class, code = "rate_limit", "limited"
+				case status == 408:
+					code = "timeout"
+				case status >= 500 && status <= 599:
+					code = "unavailable"
+				default:
 					return nil, problem("protocol", "invalid", page)
 				}
-				return b, nil
-			}
-			response.Body.Close()
-			switch {
-			case status == 401 || status == 403:
-				return nil, problem("authentication", "unauthorized", page)
-			case status == 429:
-				class = "rate_limit"
-				code = "limited"
-			case status == 408:
-				code = "timeout"
-			case status >= 500 && status <= 599:
-				code = "unavailable"
-			default:
-				return nil, problem("protocol", "invalid", page)
-			}
-			retry := response.Header.Get("Retry-After")
-			if seconds, err := strconv.ParseUint(retry, 10, 32); err == nil {
-				delay = time.Duration(seconds) * time.Second
-			} else if date, err := http.ParseTime(retry); err == nil {
-				delay = date.Sub(c.now())
-				if delay < 0 {
-					delay = 0
+				if seconds, err := strconv.ParseUint(retryAfter, 10, 32); err == nil {
+					delay = time.Duration(seconds) * time.Second
+				} else if date, err := http.ParseTime(retryAfter); err == nil {
+					delay = date.Sub(c.now())
+					if delay < 0 {
+						delay = 0
+					}
+				}
+				if delay > 30*time.Second {
+					deferred = c.now().Add(delay)
 				}
 			}
-			if delay > 30*time.Second {
-				deferred = c.now().Add(delay)
-			}
-		} else {
+		}
+		if requestErr != nil {
 			if ctx.Err() != nil {
 				return nil, problem("network", "cancelled", page)
 			}
-			var n interface{ Timeout() bool }
-			if errors.As(e, &n) && n.Timeout() {
+			var timeout interface{ Timeout() bool }
+			if errors.As(requestErr, &timeout) && timeout.Timeout() {
 				code = "timeout"
 			}
 		}

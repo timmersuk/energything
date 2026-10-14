@@ -2,7 +2,8 @@
 
 Task 01 supplies an authenticated empty application. Task 02 adds durable SQLite
 observations, evidence, jobs and audit through typed storage methods. Task 03 adds
-authenticated stored-record tables and REST queries. Task 04 adds confirmed Octopus discovery and an opt-in bounded one-shot ingestion
+authenticated stored-record tables and REST queries. Task 04 adds confirmed
+Octopus discovery and an opt-in bounded one-shot ingestion
 worker. Recurring scheduling and Growatt collection are not implemented.
 
 Requires Go 1.26.4 (module compatibility 1.26.0). Dependencies are pinned in

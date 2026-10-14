@@ -225,3 +225,27 @@ func TestStartupWindow(t *testing.T) {
 }
 
 func instantPtr(t time.Time) *storage.Instant { v := storage.At(t); return &v }
+func TestNullCountCannotAdvanceCheckpoint(t *testing.T) {
+	ctx := context.Background()
+	db, err := storage.Open(ctx, t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	c := octopus.NewClient("synthetic", transport(func(r *http.Request) (*http.Response, error) {
+		body := `{"properties":[{"electricity_meter_points":[{"mpan":"synthetic","is_export":false,"meters":[{"serial_number":"synthetic"}]}]}]}`
+		if strings.Contains(r.URL.Path, "consumption") {
+			body = `{"count":null,"results":[],"next":null}`
+		}
+		return &http.Response{StatusCode: 200, Header: http.Header{}, Body: io.NopCloser(strings.NewReader(body))}, nil
+	}))
+	from := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	err = OctopusOnce(ctx, db, c, config.Provider{Account: "synthetic"}, from, from.Add(time.Hour))
+	if err == nil {
+		t.Fatal("null count accepted")
+	}
+	states, _ := db.QueryStatus(ctx)
+	if len(states) != 1 || states[0].Jobs[0].Checkpoint != nil || states[0].LastAttempt.Outcome != "failed" || states[0].WindowCount != 0 {
+		t.Fatal(states)
+	}
+}

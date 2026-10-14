@@ -171,7 +171,7 @@ maximum: 16 pages and 2,048 assembled records including duplicates/neighbors.
 These narrowed engineering limits accommodate the 672 possible half-hours plus
 conservative duplication; they are not asserted provider limits. Required stable
 count, results array and next field distinguish empty from incomplete; count
-mismatch, canonical URL cycles, repeated nonempty results and excess budgets fail.
+mismatch, canonical URL cycles, canonical repeated nonempty result sets and excess budgets fail.
 
 HTTP retries are owned solely by the Octopus client: at most three requests/page
 for network errors, 408/429/5xx. Ordinary waits are 1s then 2s plus 0–250ms jitter,

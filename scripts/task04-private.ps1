@@ -6,15 +6,15 @@ New-Item -ItemType Directory $privateRoot | Out-Null
 $runtime=docker inspect energything-preview --format '{{json .Config.Env}}' | ConvertFrom-Json
 $allowed=@('OCTOPUS_API_KEY','OCTOPUS_ACCOUNT_NUMBER','OCTOPUS_IMPORT_MPAN','OCTOPUS_IMPORT_SERIAL','OCTOPUS_EXPORT_MPAN','OCTOPUS_EXPORT_SERIAL')
 $previous=@{}
-$container='energything-task04-private'
+$container='energything-task04-private-'+[guid]::NewGuid().ToString('N')
 try {
  foreach($name in $allowed){$previous[$name]=[Environment]::GetEnvironmentVariable($name,'Process')}
  foreach($entry in $runtime){$parts=$entry.Split('=',2);if($allowed -contains $parts[0]){[Environment]::SetEnvironmentVariable($parts[0],$parts[1],'Process')}}
  if(!$env:OCTOPUS_API_KEY -or !$env:OCTOPUS_ACCOUNT_NUMBER){throw 'Live gate unavailable: runtime credentials missing'}
- $args=@('run','-d','--name',$container,'-p','127.0.0.1:8086:8080','--mount',"type=bind,source=$privateRoot,target=/data",'-e','ENERGYTHING_USERNAME=synthetic','-e','ENERGYTHING_PASSWORD=synthetic','-e','ENERGYTHING_OCTOPUS_ONCE=true')
- foreach($name in $allowed){$args+=@('-e',$name)}
- $args+='energything:task04'
- $id=& docker @args
+ $taskDockerArgs=@('run','-d','--name',$container,'-p','127.0.0.1:8086:8080','--mount',"type=bind,source=$privateRoot,target=/data",'-e','ENERGYTHING_USERNAME=synthetic','-e','ENERGYTHING_PASSWORD=synthetic','-e','ENERGYTHING_OCTOPUS_ONCE=true')
+ foreach($name in $allowed){$taskDockerArgs+=@('-e',$name)}
+ $taskDockerArgs+='energything:task04'
+ $id=& docker @taskDockerArgs
  if($LASTEXITCODE -ne 0){throw 'Private task container start failed'}
  $basic=[Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes('synthetic:synthetic'))
  $status=$null
@@ -35,7 +35,6 @@ try {
  $summary | ConvertTo-Json -Compress | Write-Output
  Write-Output "Private evidence directory: $privateRoot"
 }finally{
- docker stop -t 15 $container | Out-Null
+ if($id){docker stop -t 15 $container | Out-Null; docker rm $container | Out-Null}
  foreach($name in $allowed){[Environment]::SetEnvironmentVariable($name,$previous[$name],'Process')}
 }
-
