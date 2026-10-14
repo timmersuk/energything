@@ -82,3 +82,10 @@ is isolated to its stream. Configure paired MPAN/serial to resolve ambiguity.
 Discovery states appear in status without exposing raw identifiers.
 See [task 04 verification](docs/tasks/milestone-1/04-verification.md) for synthetic,
 actual-build browser and private live gates and the single HTTP retry policy.
+
+## Local preview standard
+
+After task verification, rebuild and recreate the existing local preview on its
+original mount so localhost:8080 serves the current implementation. Follow the
+[standard preview update procedure](docs/operations.md#standard-local-preview-update),
+including the saved Compose override, safe metadata checks and build verification.

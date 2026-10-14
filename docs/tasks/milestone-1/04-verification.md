@@ -115,3 +115,20 @@ repeated pages with different formatting/row order, and null count through typed
 collection with no checkpoint. Static selection/recovery guidance was also added
 to the stored discovery UI. Final checks and actual-build acceptance were rerun.
 No merge is authorized.
+
+## Authorized preview update follow-up
+
+The user subsequently requested restarting the local Docker preview and making
+that the standard future workflow. The verified final task 04 image was tagged
+`energything:local`; the exact project/file combination was validated quietly.
+The preview was stopped cleanly, its whole original data directory backed up to
+a new ignored `.cache/preview-backups/task04-*` directory, then recreated with
+both saved Compose files, its original name/port/mount and one-shot collection
+disabled. This supersedes the earlier statement that the preview was untouched:
+the earlier task verification preserved it; this follow-up explicitly upgrades it.
+README and operations now require the current task preview update and verification
+as part of future handoffs, with separate synthetic databases and safe mount checks.
+
+Post-recreation checks passed: running state, original bind mount, public health,
+authenticated status build ID `task04-octopus` and one-shot disabled. No live
+collection was triggered by the preview upgrade.

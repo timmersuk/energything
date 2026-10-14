@@ -41,3 +41,41 @@ docker run --rm --platform linux/arm64 --entrypoint /probe -v "$PWD/bin/linux/ar
 The synthetic probe creates tables only in a temporary test database, verifies
 pragmas on replacement connections, writes, closes and reopens the same value.
 Cross-builds alone do not satisfy the runtime gate.
+
+## Standard local preview update
+
+After implementing and verifying a task, update and restart the local preview as
+part of the normal handoff so localhost:8080 serves the current task build.
+Record the actual build and restart result in that task's verification document.
+Keep synthetic/browser fixture databases separate from the preview database.
+
+Before changing it, inspect only safe container metadata: image, state, Compose
+project/files and mounts. This workspace's preview is `energything-preview`,
+Compose project `energything`, with its original bind mount
+`D:\projects\energything\.cache\preview-data` at `/data`. Always use both
+`docker-compose.yml` and ignored `.cache/preview-compose.override.json`.
+Never use plain Compose against a different/default data mount, print resolved
+Compose configuration, or display runtime credentials.
+
+Build the current task with a public task build ID, then rebuild `energything:local`.
+Validate the exact Compose setup with `config --quiet`. For schema changes, stop
+cleanly and back up the entire original data directory, including companions,
+to a new ignored private backup directory before recreating the container.
+Preserve the container name, project, port and original mount:
+
+```powershell
+go run ./scripts/build.go -build-id <task-build-id>
+docker build -t energything:local .
+$env:ENERGYTHING_IMAGE='energything:local'
+$env:ENERGYTHING_OCTOPUS_ONCE='false'
+docker compose -p energything -f docker-compose.yml -f .cache/preview-compose.override.json config --quiet
+# Stop and make a clean private data-directory backup first for a schema upgrade.
+docker compose -p energything -f docker-compose.yml -f .cache/preview-compose.override.json up -d --no-deps --force-recreate energything
+```
+
+A plain `docker restart` does not adopt a rebuilt image. After recreation, confirm
+that the container is running on the original mount, public `/healthz` responds,
+and authenticated `/api/v1/status` reports the expected task build ID. Verify any
+changed UI against that build. Keep one-shot live collection disabled during an
+ordinary preview update; enable it only for an explicitly intended collection run.
+If a restart cannot be performed, report the reason and stale preview build.
