@@ -42,8 +42,8 @@ func TestSQLiteWriteReopen(t *testing.T) {
 			db.SetMaxIdleConns(0) // Force replacement physical connections.
 		}
 	}
-	check(db)
-	if _, err := db.Exec("CREATE TABLE scaffold_probe (value TEXT NOT NULL); INSERT INTO scaffold_probe VALUES ('synthetic-value')"); err != nil {
+	check(db.db)
+	if _, err := db.db.Exec("CREATE TABLE scaffold_probe (value TEXT NOT NULL); INSERT INTO scaffold_probe VALUES ('synthetic-value')"); err != nil {
 		t.Fatal(err)
 	}
 	if err := db.Close(); err != nil {
@@ -54,9 +54,9 @@ func TestSQLiteWriteReopen(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer db.Close()
-	check(db)
+	check(db.db)
 	var value string
-	if err := db.QueryRow("SELECT value FROM scaffold_probe").Scan(&value); err != nil {
+	if err := db.db.QueryRow("SELECT value FROM scaffold_probe").Scan(&value); err != nil {
 		t.Fatal(err)
 	}
 	if value != "synthetic-value" {
@@ -74,17 +74,17 @@ func TestInvalidDataDirectory(t *testing.T) {
 		t.Fatal("accepted a file as data directory")
 	}
 }
-func TestNoApplicationSchema(t *testing.T) {
+func TestApplicationSchema(t *testing.T) {
 	db, err := Open(context.Background(), t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer db.Close()
 	var count int
-	if err := db.QueryRow("SELECT count(*) FROM sqlite_master WHERE type='table'").Scan(&count); err != nil {
+	if err := db.db.QueryRow("SELECT count(*) FROM sqlite_master WHERE type='table'").Scan(&count); err != nil {
 		t.Fatal(err)
 	}
-	if count != 0 {
-		t.Fatalf("created %d application tables", count)
+	if count == 0 {
+		t.Fatalf("missing application tables: %d", count)
 	}
 }

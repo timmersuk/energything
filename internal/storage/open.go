@@ -9,11 +9,21 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 // Open applies pragmas on every connection using a constructed, escaped DSN.
-// No application tables are created in task 01.
-func Open(ctx context.Context, dir string) (*sql.DB, error) {
+// Store keeps SQL private; consumers use typed storage operations.
+type Store struct {
+	db  *sql.DB
+	now func() time.Time
+	// Test-only fault injection at transactional boundaries. Never exported.
+	fault func(string) error
+}
+
+func (s *Store) Close() error { return s.db.Close() }
+
+func Open(ctx context.Context, dir string) (*Store, error) {
 	if err := os.MkdirAll(dir, 0700); err != nil {
 		return nil, errors.New("ENERGYTHING_DATA_DIR cannot be created; grant the service directory access")
 	}
@@ -50,5 +60,10 @@ func Open(ctx context.Context, dir string) (*sql.DB, error) {
 		db.Close()
 		return nil, errors.New("SQLite cannot open DATA_DIR/energything.sqlite; check directory and database permissions")
 	}
-	return db, nil
+	s := &Store{db: db, now: time.Now}
+	if err := s.initialize(ctx); err != nil {
+		db.Close()
+		return nil, err
+	}
+	return s, nil
 }
