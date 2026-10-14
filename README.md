@@ -1,7 +1,8 @@
 # Energything
 
-Task 01 supplies an authenticated empty application and SQLite lifecycle.
-Provider requests, observations, scheduling and APIs are not implemented.
+Task 01 supplies an authenticated empty application. Task 02 adds durable SQLite
+observations, evidence, jobs and audit through typed storage methods. Provider
+requests, scheduler execution and browsing APIs are not implemented.
 
 Requires Go 1.26.4 (module compatibility 1.26.0). Dependencies are pinned in
 go.mod/go.sum: modernc.org/sqlite v1.60.1 and modernc.org/libc v1.77.1.
@@ -53,4 +54,8 @@ The image is Alpine 3.23, includes CA roots and UK timezone support,
 runs as UID 10001/GID 100, exposes only 8080 and stores energything.sqlite under
 /data. See [operations](docs/operations.md) for mount permissions and
 [task 01 verification](docs/tasks/milestone-1/01-verification.md) for executed
-checks and remaining gates. Task 02 must wait for the SQLite runtime gate.
+checks and remaining gates. The SQLite runtime gate passed on both architectures.
+Storage opens with transactional versioned migrations and interrupted-attempt
+recovery. See [data semantics](docs/data-semantics.md) and
+[task 02 verification](docs/tasks/milestone-1/02-verification.md) for storage
+contracts, synthetic checks and the unresolved Growatt key/time gate.
