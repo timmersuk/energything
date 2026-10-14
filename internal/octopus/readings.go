@@ -81,7 +81,7 @@ func (c *Client) Fetch(ctx context.Context, m Meter, from, to time.Time) (Window
 		}
 		results, exists := envelope["results"]
 		if !exists || len(results) == 0 || results[0] != '[' {
-			return out, problem("protocol", "incomplete", page)
+			return out, problem("protocol", "missing_results", page)
 		}
 		var selected any
 		decoder := json.NewDecoder(bytes.NewReader(results))
@@ -104,14 +104,21 @@ func (c *Client) Fetch(ctx context.Context, m Meter, from, to time.Time) (Window
 		out.Readings = append(out.Readings, rows...)
 		// Count is required and must be stable across pages, including duplicates.
 		var pageCount *int
-		if raw, ok := envelope["count"]; !ok || json.Unmarshal(raw, &pageCount) != nil || pageCount == nil || *pageCount < 0 || *pageCount > MaxRecords {
-			return out, problem("protocol", "incomplete", page)
+		rawCount, present := envelope["count"]
+		if !present {
+			return out, problem("protocol", "missing_count", page)
+		}
+		if json.Unmarshal(rawCount, &pageCount) != nil || pageCount == nil || *pageCount < 0 {
+			return out, problem("protocol", "invalid_count", page)
+		}
+		if *pageCount > MaxRecords {
+			return out, problem("protocol", "count_budget", page)
 		}
 		if count < 0 {
 			count = *pageCount
 		}
 		if count != *pageCount {
-			return out, problem("protocol", "conflict", page)
+			return out, problem("protocol", "count_changed", page)
 		}
 		raw, ok := envelope["next"]
 		if !ok {
@@ -141,7 +148,7 @@ func (c *Client) Fetch(ctx context.Context, m Meter, from, to time.Time) (Window
 		}
 	}
 	if len(out.Readings) != count {
-		return out, problem("protocol", "incomplete", len(out.Evidence))
+		return out, problem("protocol", "count_mismatch", len(out.Evidence))
 	}
 	for i := range out.Evidence {
 		out.Evidence[i].Complete = true

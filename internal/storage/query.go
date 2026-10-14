@@ -7,7 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
-	"fmt"
+
 	"strings"
 )
 
@@ -249,15 +249,18 @@ func (s *Store) QuerySamples(ctx context.Context, q SampleQuery) (page SamplePag
 	return
 }
 
-const auditSelect = `SELECT a.id,a.job_id,a.identity_id,i.provider,i.stream,a.kind,a.start,a.end,a.provider_date,a.started,a.occurred,a.finished,a.outcome,a.error_class,a.error_code,a.message,a.page,a.retry_count,a.next_retry,a.retry_details,a.accepted_rows FROM attempts a JOIN identities i ON i.id=a.identity_id`
+const auditSelect = `SELECT a.id,a.job_id,a.identity_id,i.provider,i.stream,a.kind,a.start,a.end,a.provider_date,a.started,a.occurred,a.finished,a.outcome,a.error_class,a.error_code,a.message,a.page,a.retry_count,a.next_retry,a.retry_details,a.accepted_rows,i.metadata FROM attempts a JOIN identities i ON i.id=a.identity_id`
 
 func scanAudit(row scanner) (x Audit, err error) {
-	var retries string
-	err = row.Scan(&x.ID, &x.JobID, &x.IdentityID, &x.Provider, &x.Stream, &x.Kind, &x.Start, &x.End, &x.ProviderDate, &x.Started, &x.Occurred, &x.Finished, &x.Outcome, &x.ErrorClass, &x.ErrorCode, &x.Message, &x.Page, &x.RetryCount, &x.NextRetry, &retries, &x.AcceptedRows)
+	var retries, metadata string
+	err = row.Scan(&x.ID, &x.JobID, &x.IdentityID, &x.Provider, &x.Stream, &x.Kind, &x.Start, &x.End, &x.ProviderDate, &x.Started, &x.Occurred, &x.Finished, &x.Outcome, &x.ErrorClass, &x.ErrorCode, &x.Message, &x.Page, &x.RetryCount, &x.NextRetry, &retries, &x.AcceptedRows, &metadata)
 	if err == nil {
 		err = json.Unmarshal([]byte(retries), &x.Retries)
 	}
-	x.DisplayIdentity = fmt.Sprintf("source-%d (masked)", x.IdentityID)
+	if err == nil {
+		err = json.Unmarshal([]byte(metadata), &x.Metadata)
+	}
+	x.DisplayIdentity = x.Metadata.DisplayIdentity(x.Provider, x.Stream, x.IdentityID)
 	return
 }
 func evidenceRefs(ctx context.Context, tx *sql.Tx, id int64) ([]EvidenceRef, error) {

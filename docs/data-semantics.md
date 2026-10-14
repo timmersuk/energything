@@ -101,8 +101,9 @@ or instant/row-ID; descending audit uses occurrence/ID. Opaque versioned cursors
 bind all filters and page size; malformed or mismatched cursors fail validation.
 Sample absolute ranges omit null instants and report their count; quality queries
 use provider date or retrieval range. Source IDs in results are local IDs; audit
-display identity is masked. Raw stable identifiers and evidence content are never
-included in audit/status results. Detailed evidence access is not a public API.
+display identity contains useful full provider identifiers. Opaque stable keys
+are not display labels. Selected evidence inspection belongs to authenticated task
+06a detail routes, not public artifacts or routine status responses.
 Status includes latest attempt and latest accepted attempt separately. It returns
 at most 500 recent jobs/windows per identity plus total counts; accepted coverage
 is always coverage of the latest fetched response, not old retained rows.
@@ -200,3 +201,13 @@ from necessary discovery metadata. QueryStatus returns that metadata internally
 Readable direction/MPAN/serial labels replace local masked placeholders. No stable
 key, credentials, account/address payload or evidence is exposed. No schema change
 or cloud request is needed; legacy missing metadata remains explicitly unavailable.
+
+Owner-visible diagnostics use full necessary provider identifiers. Selected telemetry
+is retained for authenticated audit inspection in task 06a, not prohibited from the
+owner's application. Public-repository/session privacy applies to where real evidence
+is published, not to hiding useful operational data behind opaque local IDs.
+New Octopus validation failures have enumerated decimal/timestamp/duration/alignment/
+boundary/future/conflict reasons; count and missing-results reasons are distinct.
+Storage derives human-readable messages from these safe codes; historical class-only
+messages are not retroactively fabricated. Broad errors cannot satisfy task 06a's
+specific-reason/context requirement for new attempts.

@@ -62,25 +62,37 @@ func Validate(w *Window, from, to, now time.Time) error {
 		value, ok := exact(string(r.Energy))
 		start, e1 := time.Parse(time.RFC3339, r.Start)
 		end, e2 := time.Parse(time.RFC3339, r.End)
-		if !ok || !timestamp.MatchString(r.Start) || !timestamp.MatchString(r.End) || e1 != nil || e2 != nil || end.Sub(start) != Slot || start.Unix()%1800 != 0 || start.Nanosecond() != 0 {
-			return problem("validation", "invalid", r.Evidence+1)
+		if !ok {
+			return problem("validation", "invalid_decimal", r.Evidence+1)
+		}
+		if !timestamp.MatchString(r.Start) || !timestamp.MatchString(r.End) || e1 != nil || e2 != nil {
+			return problem("validation", "invalid_timestamp", r.Evidence+1)
+		}
+		if end.Sub(start) != Slot {
+			return problem("validation", "invalid_duration", r.Evidence+1)
+		}
+		if start.Unix()%1800 != 0 || start.Nanosecond() != 0 {
+			return problem("validation", "unaligned_interval", r.Evidence+1)
 		}
 		if !end.After(from) || !start.Before(to) {
 			if end.Equal(from) || start.Equal(to) {
 				w.Outside++
 				continue
 			}
-			return problem("validation", "invalid", r.Evidence+1)
+			return problem("validation", "outside_window", r.Evidence+1)
 		}
-		if end.After(now) || start.Before(from) || end.After(to) {
-			return problem("validation", "invalid", r.Evidence+1)
+		if start.Before(from) || end.After(to) {
+			return problem("validation", "boundary_overlap", r.Evidence+1)
+		}
+		if end.After(now) {
+			return problem("validation", "future_interval", r.Evidence+1)
 		}
 		interval := Interval{start.UTC(), end.UTC(), value, r.Evidence}
 		if prior, exists := accepted[start.Unix()]; exists {
 			a, _ := new(big.Rat).SetString(prior.KWh)
 			b, _ := new(big.Rat).SetString(value)
 			if !prior.End.Equal(end) || a.Cmp(b) != 0 {
-				return problem("validation", "conflict", r.Evidence+1)
+				return problem("validation", "conflicting_interval", r.Evidence+1)
 			}
 			w.Duplicates++
 			continue

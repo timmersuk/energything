@@ -205,3 +205,34 @@ found no further issues. Preview recreated using the exact saved Compose setup a
 original data mount with one-shot disabled. Bounded authenticated API and HTML reads
 confirmed both selected MPANs/serials match runtime settings and accepted readings
 remain. No private identifiers or values are recorded in this public handoff.
+
+## Authenticated-owner privacy and diagnostics cleanup
+
+The user requested removal of the remaining confusion between public artifact/session
+privacy and useful owner-visible information. Remaining Growatt sample/status and
+typed attempt-audit identities now show full necessary provider metadata. One shared
+label formatter avoids opaque masked placeholders; absent metadata is unavailable,
+not hidden. Growatt APIs expose plant_id/serial; attempt summaries expose specific
+error code/page when recorded. New Octopus validation failures distinguish decimal,
+timestamp, duration, alignment, boundary, future and conflicting interval reasons.
+Page count errors distinguish missing, invalid/null, changed and budget cases;
+missing results and assembled count mismatch also have readable specific messages.
+Historical generic messages remain honest records; missing context is not invented.
+
+Active browsing, shared/parent plans, API/data contracts and release checks now
+preserve useful full identifiers in authenticated views, while excluding credentials
+and real private evidence from public source/docs/CI/session output. Task 06a now
+requires authenticated selected-telemetry inspection/download through typed
+attempt/retrieval association checks, bounds and escaping, plus specific diagnostic
+context. That endpoint remains a future audit-task requirement; no audit/evidence
+route was implemented early. Historical task handoffs describe their original
+checks and are not current masking policy.
+
+Executed checks: targeted web/storage/provider/collection tests, full native suite,
+vet, both Linux builds, actual-image synthetic Edge identity/auth/escaping checks.
+Agent inspected the synthetic Growatt screenshot. Standards review found no issues;
+Spec review found the remaining generic count classifications, which were fixed
+with specific codes/messages and null/missing/changed/budget regressions. Preview
+updated on its exact original Compose mount with one-shot disabled; retained Octopus
+records and full identifiers verified after recreation. No Growatt live ingestion
+is claimed, and no private data is included in this public handoff.

@@ -305,3 +305,18 @@ func TestOctopusShowsFullMeterIdentity(t *testing.T) {
 		}
 	}
 }
+func TestGrowattIdentifiersVisibleWithoutStableKey(t *testing.T) {
+	_, h := browsingFixture(t, true)
+	for _, path := range []string{"/", "/api/v1/status", "/records/growatt?from=2026-03-29&to=2026-03-29", "/api/v1/growatt/samples?from=2026-03-29&to=2026-03-29"} {
+		w := request(h, path, "synthetic")
+		if w.Code != 200 || !strings.Contains(w.Body.String(), "synthetic-plant") || !strings.Contains(w.Body.String(), "synthetic-inverter") || strings.Contains(w.Body.String(), "(masked)") || strings.Contains(w.Body.String(), "synthetic-private-device") {
+			t.Fatal(path, w.Code, w.Body.String())
+		}
+		if strings.HasPrefix(path, "/api/") && !strings.Contains(w.Body.String(), `"plant_id":"synthetic-plant"`) {
+			t.Fatal("plant ID field missing")
+		}
+		if request(h, path, "").Code != 401 {
+			t.Fatal("unauthenticated route")
+		}
+	}
+}

@@ -345,3 +345,42 @@ func TestBodyTimeoutUsesOneRetryBudget(t *testing.T) {
 		}
 	}
 }
+func TestValidationReasonsRemainSpecific(t *testing.T) {
+	cases := []struct {
+		rows []string
+		code string
+	}{{[]string{row(from, "-1")}, "invalid_decimal"}, {[]string{strings.Replace(row(from, "1"), "00:30:00", "01:00:00", 1)}, "invalid_duration"}, {[]string{row(from.Add(15*time.Minute), "1")}, "unaligned_interval"}, {[]string{row(from, "1"), row(from, "2")}, "conflicting_interval"}}
+	for _, tc := range cases {
+		c := client(func(*http.Request) (*http.Response, error) {
+			return response(200, page(tc.rows, "", len(tc.rows))), nil
+		})
+		_, err := c.Fetch(context.Background(), meter, from, from.Add(2*Slot))
+		var e *Error
+		if !errors.As(err, &e) || e.Code != tc.code {
+			t.Fatal(err, tc.code)
+		}
+	}
+}
+func TestCountFailuresHaveSpecificReasons(t *testing.T) {
+	for _, tc := range []struct{ body, code string }{{`{"results":[],"next":null}`, "missing_count"}, {`{"count":null,"results":[],"next":null}`, "invalid_count"}, {`{"count":2049,"results":[],"next":null}`, "count_budget"}} {
+		c := client(func(*http.Request) (*http.Response, error) { return response(200, tc.body), nil })
+		_, err := c.Fetch(context.Background(), meter, from, from.Add(Slot))
+		var e *Error
+		if !errors.As(err, &e) || e.Code != tc.code {
+			t.Fatal(err, tc.code)
+		}
+	}
+	calls := 0
+	c := client(func(r *http.Request) (*http.Response, error) {
+		calls++
+		if calls == 1 {
+			return response(200, page([]string{row(from, "1")}, nextURL(r), 2)), nil
+		}
+		return response(200, page([]string{row(from.Add(Slot), "1")}, "", 3)), nil
+	})
+	_, err := c.Fetch(context.Background(), meter, from, from.Add(2*Slot))
+	var e *Error
+	if !errors.As(err, &e) || e.Code != "count_changed" {
+		t.Fatal(err)
+	}
+}

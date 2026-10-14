@@ -80,11 +80,11 @@ Octopus record fields: `source: "octopus"`, `identity_id` (local integer),
 not complete coverage. No aggregate conversion or floating-point round trip.
 
 Growatt record fields: `id` (local row ID), `source: "growatt"`, `identity_id`,
-masked `identity`, `measured_at` (UTC string or null), `retrieved_at` (UTC),
-`provider_date`, `original_time` (escaped provider field/text map), `quality`,
+full provider `identity`, `measured_at` (UTC string or null), `retrieved_at` (UTC),
+`plant_id`, `serial`, `provider_date`, `original_time` (escaped provider field/text map), `quality`,
 `values` (field-name map). Each value has `value` (decimal string or null),
 `unit` (string or null) and `quality`. A decimal `"0"` is not null. Resolved keys,
-raw provider identities, evidence and account responses are omitted.
+opaque storage keys, evidence and account responses are omitted from normal records.
 
 Resolved Growatt results exclude null-time samples. `omitted_unresolved` counts
 all unresolved observations in the identity selection, independent of absolute
@@ -153,4 +153,18 @@ Identifiers are not masked in these views. Missing legacy discovery metadata is
 labelled unavailable rather than inventing an MPAN or parsing an opaque stable key.
 Local identity IDs and cursor/filter contracts remain unchanged. These routes
 remain authenticated and no-store; keys, account/address payloads, raw stable keys
-and telemetry evidence are omitted. Growatt display behavior is unchanged.
+and telemetry evidence are omitted. Growatt identifiers follow the same owner-visible policy described below.
+
+## Authenticated identity and diagnostics cleanup
+
+The owner requested useful full identities throughout the authenticated application,
+not just Octopus records. Growatt status/sample views now expose `plant_id` and
+`serial` with readable labels when established metadata exists; missing metadata
+is explicitly unavailable. The typed attempt audit likewise identifies actual
+meter/device metadata. Opaque stable keys and credentials are not display fields.
+Attempt summaries add `error_code` and `page` where available. New Octopus failures
+retain specific enumerated validation/count/structure reasons rather than only a
+broad failure class. Existing historical errors retain their recorded descriptions.
+Task 06a will add authenticated selected-evidence inspection/download with typed
+attempt/retrieval association checks, bounds and escaping. No audit/evidence route
+is implemented early by this cleanup; current unknown routes still return 404.

@@ -36,9 +36,9 @@ attempt audit pages/endpoints belong to 06a. No cloud calls or charts here.
    must state whether to is exclusive for instant queries. Return next_cursor only
    when another page exists. New arrivals cannot cause offset-based duplicate paging.
 4. Return decimal kWh as strings and nullable values as JSON null. Include source,
-   masked identity, measured/retrieved times, unit and quality. Do not return account
+   full provider identity, measured/retrieved times, unit and quality. Do not return account
    responses, credential values or raw evidence through normal record endpoints.
-5. Status shows configuration/discovery state, selected masked identities, running/
+5. Status shows configuration/discovery state, selected full provider identities, running/
    backfill state, attempts/successes, newest measurement, retained count and coverage.
    A recent retrieval of old data does not advance measurement time. Show the fact
    of missing data without claiming outage/meter-lifetime causes.
@@ -46,7 +46,7 @@ attempt audit pages/endpoints belong to 06a. No cloud calls or charts here.
    a labelled separate view with provider-date/retrieval filters and original time
    text. State how many are excluded from normalized queries. Do not sort ambiguous
    local text as if it were absolute time or force it into the wrong day.
-7. Render provider text through html/template. Keep credentials/identifiers masked
+7. Render provider text through html/template. Exclude credentials; retain useful full provider identifiers
    in view models. Build empty/loading/partial/unconfigured/error states from stored
    state; a page render cannot enqueue a refresh.
 8. Document exact API field names and query examples before provider tasks extend

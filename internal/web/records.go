@@ -21,6 +21,8 @@ type intervalView struct {
 	Quality     string `json:"quality"`
 }
 type sampleView struct {
+	PlantID      string                   `json:"plant_id"`
+	Serial       string                   `json:"serial"`
 	ID           int64                    `json:"id"`
 	Source       string                   `json:"source"`
 	IdentityID   int64                    `json:"identity_id"`
@@ -50,7 +52,7 @@ type recordsView struct {
 func recordsData(ctx context.Context, store recordStore, q recordQuery, growatt bool, timezone, path string) (recordsView, error) {
 	out := recordsView{Version: "v1", Timezone: timezone, View: "resolved", RangeBasis: "measurement", From: nullableTime(q.From), To: nullableTime(q.To), Limit: q.Limit, Query: q}
 	var identities []storage.Status
-	if q.IdentityID != 0 || !growatt {
+	{
 		var err error
 		identities, err = store.QueryStatus(ctx)
 		if err != nil {
@@ -77,9 +79,14 @@ func recordsData(ctx context.Context, store recordStore, q recordQuery, growatt 
 		if err != nil {
 			return out, err
 		}
+		devices := map[int64]storage.Status{}
+		for _, identity := range identities {
+			devices[identity.IdentityID] = identity
+		}
 		rows := []sampleView{}
 		for _, x := range p.Records {
-			rows = append(rows, sampleView{x.ID, "growatt", x.IdentityID, masked(x.IdentityID), nullableTime(x.Instant), instant(x.Retrieved), x.ProviderDate, x.OriginalTime, x.Quality, x.Values})
+			device := devices[x.IdentityID]
+			rows = append(rows, sampleView{ID: x.ID, Source: "growatt", IdentityID: x.IdentityID, Identity: device.Metadata.DisplayIdentity("growatt", device.Stream, x.IdentityID), PlantID: device.Metadata.PlantID, Serial: device.Metadata.Serial, MeasuredAt: nullableTime(x.Instant), RetrievedAt: instant(x.Retrieved), ProviderDate: x.ProviderDate, OriginalTime: x.OriginalTime, Quality: x.Quality, Values: x.Values})
 		}
 		out.Records = rows
 		out.NextCursor = p.NextCursor
@@ -100,7 +107,7 @@ func recordsData(ctx context.Context, store recordStore, q recordQuery, growatt 
 		rows := []intervalView{}
 		for _, x := range p.Records {
 			meter := meters[x.IdentityID]
-			rows = append(rows, intervalView{Source: "octopus", IdentityID: x.IdentityID, Identity: octopusLabel(meter), Direction: meter.Stream, MPAN: meter.Metadata.MPAN, Serial: meter.Metadata.Serial, MeasuredAt: instant(x.Start), End: instant(x.End), RetrievedAt: instant(x.Retrieved), KWh: x.KWh, Unit: "kWh", Quality: "accepted"})
+			rows = append(rows, intervalView{Source: "octopus", IdentityID: x.IdentityID, Identity: meter.Metadata.DisplayIdentity("octopus", meter.Stream, x.IdentityID), Direction: meter.Stream, MPAN: meter.Metadata.MPAN, Serial: meter.Metadata.Serial, MeasuredAt: instant(x.Start), End: instant(x.End), RetrievedAt: instant(x.Retrieved), KWh: x.KWh, Unit: "kWh", Quality: "accepted"})
 		}
 		out.Records = rows
 		out.NextCursor = p.NextCursor

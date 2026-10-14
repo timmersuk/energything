@@ -2,7 +2,7 @@ package web
 
 import (
 	"context"
-	"fmt"
+
 	"strings"
 	"time"
 
@@ -27,9 +27,10 @@ func nullableTime(t *storage.Instant) *string {
 	s := instant(*t)
 	return &s
 }
-func masked(id int64) string { return fmt.Sprintf("source-%d (masked)", id) }
 
 type attemptView struct {
+	ErrorCode  string  `json:"error_code,omitempty"`
+	Page       *int    `json:"page,omitempty"`
 	Started    string  `json:"started_at"`
 	Finished   *string `json:"finished_at"`
 	Outcome    string  `json:"outcome"`
@@ -41,7 +42,7 @@ func attempt(a *storage.Audit) *attemptView {
 	if a == nil {
 		return nil
 	}
-	return &attemptView{instant(a.Started), nullableTime(a.Finished), a.Outcome, a.ErrorClass, a.Message}
+	return &attemptView{Started: instant(a.Started), Finished: nullableTime(a.Finished), Outcome: a.Outcome, ErrorClass: a.ErrorClass, ErrorCode: a.ErrorCode, Page: a.Page, Message: a.Message}
 }
 
 type jobView struct {
@@ -64,6 +65,7 @@ type coverageView struct {
 	MeasurementComplete bool   `json:"measurement_complete"`
 }
 type sourceView struct {
+	PlantID           string         `json:"plant_id,omitempty"`
 	MPAN              string         `json:"mpan,omitempty"`
 	Serial            string         `json:"serial,omitempty"`
 	IdentityID        int64          `json:"identity_id"`
@@ -126,11 +128,15 @@ func statusData(ctx context.Context, store recordStore, c config.Config, build s
 				continue
 			}
 			v.Discovery = "Stored identities available; selection shown below"
-			s := sourceView{IdentityID: x.IdentityID, Source: x.Provider, Stream: x.Stream, Identity: masked(x.IdentityID), Selected: x.Selected, RetainedCount: x.IntervalCount + x.SampleCount, UnresolvedCount: x.UnresolvedCount, LastRetrieval: nullableTime(x.LastRetrieval), NewestMeasurement: nullableTime(x.NewestMeasurement), LastAttempt: attempt(x.LastAttempt), LastAccepted: attempt(x.LastAcceptedAttempt), JobCount: x.JobCount, WindowCount: x.WindowCount, Jobs: []jobView{}, Coverage: []coverageView{}}
+			s := sourceView{IdentityID: x.IdentityID, Source: x.Provider, Stream: x.Stream, Identity: x.Metadata.DisplayIdentity(x.Provider, x.Stream, x.IdentityID), Selected: x.Selected, RetainedCount: x.IntervalCount + x.SampleCount, UnresolvedCount: x.UnresolvedCount, LastRetrieval: nullableTime(x.LastRetrieval), NewestMeasurement: nullableTime(x.NewestMeasurement), LastAttempt: attempt(x.LastAttempt), LastAccepted: attempt(x.LastAcceptedAttempt), JobCount: x.JobCount, WindowCount: x.WindowCount, Jobs: []jobView{}, Coverage: []coverageView{}}
 			if x.Provider == "octopus" {
 				s.MPAN = x.Metadata.MPAN
 				s.Serial = x.Metadata.Serial
-				s.Identity = octopusLabel(x)
+				s.Identity = x.Metadata.DisplayIdentity(x.Provider, x.Stream, x.IdentityID)
+			}
+			if x.Provider == "growatt" {
+				s.PlantID = x.Metadata.PlantID
+				s.Serial = x.Metadata.Serial
 			}
 			for _, j := range x.Jobs {
 				s.Jobs = append(s.Jobs, jobView{j.Kind, j.Policy, j.RunningAttempt != nil, j.Paused, j.RetryCount, instant(j.NextDue), nullableTime(j.Checkpoint)})
@@ -167,19 +173,4 @@ func discoveryMessage(stream, state string) string {
 	default:
 		return ""
 	}
-}
-
-func octopusLabel(x storage.Status) string {
-	direction := "Import"
-	if x.Stream == "export" {
-		direction = "Export"
-	}
-	if x.Metadata.MPAN == "" {
-		return fmt.Sprintf("%s meter %d (MPAN unavailable)", direction, x.IdentityID)
-	}
-	label := direction + " · MPAN " + x.Metadata.MPAN
-	if x.Metadata.Serial != "" {
-		label += " · meter " + x.Metadata.Serial
-	}
-	return label
 }

@@ -42,7 +42,7 @@ No public workflow may access household data or private deployment credentials.
    race runtime build requirements are separate from the production cgo-disabled build.
 5. Add secret scanning using a documented maintained scanner pinned during
    implementation. Scan tracked source/fixtures/build context; no live secret
-   verification or household cloud requests. Validate synthetic sentinel redaction
+   verification or household cloud requests. Validate synthetic credential sentinel exclusion (useful synthetic identifiers remain visible)
    in logs/API and inspect image layers/context for excluded files.
 6. Finalize placeholders and config docs for all scaffold/provider/backfill/range
    refresh variables. Explain independent unconfigured/provider errors and fatal

@@ -297,7 +297,7 @@ var errorMessages = map[string]string{
 	"validation": "Collection window rejected by validation", "timestamp_quality": "Provider timestamp remains unresolved",
 	"storage": "Storage failed; no completion recorded",
 }
-var errorCodes = map[string]bool{"invalid": true, "incomplete": true, "conflict": true, "unavailable": true, "unauthorized": true, "limited": true, "timeout": true, "cancelled": true, "io": true, "interrupted": true}
+var errorCodes = map[string]bool{"missing_count": true, "invalid_count": true, "count_budget": true, "count_changed": true, "invalid_decimal": true, "invalid_timestamp": true, "invalid_duration": true, "unaligned_interval": true, "outside_window": true, "boundary_overlap": true, "future_interval": true, "conflicting_interval": true, "count_mismatch": true, "missing_results": true, "invalid": true, "incomplete": true, "conflict": true, "unavailable": true, "unauthorized": true, "limited": true, "timeout": true, "cancelled": true, "io": true, "interrupted": true}
 
 func validateRetries(in []RetryDetail) error {
 	if len(in) > 300 {
@@ -316,6 +316,9 @@ func (s *Store) RecordRejectedOrFailedAttempt(ctx context.Context, in FailedAtte
 		return ErrInvalid
 	}
 	message, ok := errorMessages[in.ErrorClass]
+	if detail, exists := diagnosticMessages[in.ErrorClass+"/"+in.ErrorCode]; exists {
+		message = detail
+	}
 	if !ok || !errorCodes[in.ErrorCode] || len(in.Evidence) > 100 || validateRetries(in.Retries) != nil || (in.Page != nil && (*in.Page < 0 || *in.Page > 100)) {
 		return ErrInvalid
 	}
@@ -339,4 +342,21 @@ func (s *Store) RecordRejectedOrFailedAttempt(ctx context.Context, in FailedAtte
 		_, err = tx.ExecContext(ctx, `UPDATE jobs SET running_attempt=NULL,next_due=?,retry_count=retry_count+1,paused=? WHERE id=?`, in.NextDue, in.Paused, a.JobID)
 		return err
 	})
+}
+
+var diagnosticMessages = map[string]string{
+	"protocol/missing_count":          "Provider page is missing its required reading count",
+	"protocol/invalid_count":          "Provider reading count is null, negative or not an integer",
+	"protocol/count_budget":           "Provider reading count exceeds the bounded record budget",
+	"protocol/count_changed":          "Provider reading count changed between pages",
+	"validation/invalid_decimal":      "Reading energy is not a supported nonnegative exact decimal",
+	"validation/invalid_timestamp":    "Reading interval timestamp is invalid",
+	"validation/invalid_duration":     "Reading interval duration is not 30 minutes",
+	"validation/unaligned_interval":   "Reading start is not aligned to an absolute half-hour",
+	"validation/outside_window":       "Reading is outside the requested window and is not an adjacent boundary neighbor",
+	"validation/boundary_overlap":     "Reading straddles a requested window boundary",
+	"validation/future_interval":      "Reading ends after the latest elapsed measurement time",
+	"validation/conflicting_interval": "Conflicting readings have the same interval start",
+	"protocol/count_mismatch":         "Assembled reading count does not match the reported page count",
+	"protocol/missing_results":        "Provider page has no required results array",
 }

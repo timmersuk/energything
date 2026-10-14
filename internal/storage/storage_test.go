@@ -439,3 +439,20 @@ func TestLockDiskFailureAndCancellation(t *testing.T) {
 	}
 	t.Log("actual SQLite busy timeout, query-only write denial, SQLITE_FULL and cancellation passed", filepath.Base(dir))
 }
+func TestAuditIdentityAndSpecificDiagnostic(t *testing.T) {
+	s, _, identity, j := fixture(t, "octopus")
+	ctx := context.Background()
+	identity.Metadata = DiscoveryMetadata{MPAN: "synthetic-mpan", Serial: "synthetic-serial"}
+	if _, err := s.UpsertIdentities(ctx, []Identity{identity}); err != nil {
+		t.Fatal(err)
+	}
+	id := begin(t, s, j)
+	page := 2
+	if err := s.RecordRejectedOrFailedAttempt(ctx, FailedAttempt{AttemptID: id, Finished: testStart + 4*halfHour, NextDue: testStart + 5*halfHour, Outcome: "rejected", ErrorClass: "validation", ErrorCode: "invalid_duration", Page: &page}); err != nil {
+		t.Fatal(err)
+	}
+	a, err := s.QueryAttempt(ctx, id)
+	if err != nil || !strings.Contains(a.DisplayIdentity, "synthetic-mpan") || !strings.Contains(a.DisplayIdentity, "synthetic-serial") || strings.Contains(a.DisplayIdentity, "masked") || a.Message != "Reading interval duration is not 30 minutes" || a.Page == nil || *a.Page != 2 {
+		t.Fatal(a, err)
+	}
+}

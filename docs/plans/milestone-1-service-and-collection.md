@@ -214,7 +214,7 @@ configured credentials and require a nonempty password; ship no defaults.
 An unauthenticated liveness endpoint reveals no source details. Basic Auth requires
 trusted LAN access or HTTPS through the host's reverse proxy.
 
-Each source card shows masked identity, configuration/discovery state,
+Each source card shows full provider identity, configuration/discovery state,
 running/backfill state, last attempt/success, newest measurement, record
 count/coverage and sanitized errors. Retrieval and measurement times are distinct:
 polling old cloud data must not make it look newly measured.
