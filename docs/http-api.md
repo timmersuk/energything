@@ -168,3 +168,17 @@ broad failure class. Existing historical errors retain their recorded descriptio
 Task 06a will add authenticated selected-evidence inspection/download with typed
 attempt/retrieval association checks, bounds and escaping. No audit/evidence route
 is implemented early by this cleanup; current unknown routes still return 404.
+
+## Growatt task 05 fields
+
+Growatt identifiers remain full in authenticated records/status (`plant_id`,
+`serial`, readable identity). Existing routes/query contracts are unchanged.
+Known values remain exact decimal strings with nullable unit and explicit quality.
+Task 05 emits `unresolved_time`, `missing_time`, or `contradictory_time`; use the
+quality/provider-date view to browse these rows, whose measured_at is null.
+No host-zone UTC or stable sample key is invented. Energy fields are counters.
+
+Status attempt JSON adds `diagnostic` with optional field/value/expected/observed/
+provider_code. These are structured validated context, never provider error text.
+The status HTML displays available diagnostics. Durable audit/evidence routes and
+refresh remain unimplemented until their assigned later tasks.

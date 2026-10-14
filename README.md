@@ -125,3 +125,11 @@ readings are absent. A sole confirmed identity needs no explicit selector.
 The tool does not write selections, .env, SQLite or raw telemetry. After confirming
 choices, configure the energything runtime privately and enable its explicit
 one-shot ingestion to populate readings. This report itself does not ingest.
+
+Task 05 adds bounded read-only Growatt discovery/latest/provider-day collection
+through `cmd/growatt-verify`, with no automatic scheduler. The [protocol gate](docs/growatt-protocol.md)
+records verified endpoints and explicit unresolved unit/time/identity states.
+Use a private report and separate verification database as described in
+[operations](docs/operations.md). Authenticated stored browsing includes full
+plant/device identifiers, exact values and qualified telemetry. Task 06 owns
+recurring work and automatic available-history recovery.

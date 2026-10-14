@@ -301,3 +301,16 @@ transcripts and secret-bearing URLs/headers remain excluded from diagnostics.
 Real identifiers, telemetry and screenshots stay out of public source/docs/CI and
 unsolicited session output; synthetic evidence supports public review. Older
 verification handoffs record historical behavior, not current display requirements.
+
+## Task 05 superseding implementation handoff (14 October 2026)
+
+Task 05 uses an explicit private growatt-verify CLI, not startup ONCE or a
+BACKFILL_START requirement. It supplies DiscoverGrowatt and CollectGrowattUnit,
+read-only four-endpoint acquisition, typed diagnostic audit, and no scheduler.
+The completed protocol gate is docs/growatt-protocol.md. Unknown MIX units and
+unverified absolute time/sample identity remain qualified; task 06 must consume
+these results without guessing UTC, units or reconciling clocks as stable keys.
+Provider frequency errors defer five minutes; the client alone owns three maximum
+HTTP requests/page. Task 06 owns automatic historical boundary search and progression.
+Task 06a consumes retained Diagnostic fields/evidence references through typed
+storage and must preserve useful full authenticated identity/telemetry context.

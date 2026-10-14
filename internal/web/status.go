@@ -29,20 +29,21 @@ func nullableTime(t *storage.Instant) *string {
 }
 
 type attemptView struct {
-	ErrorCode  string  `json:"error_code,omitempty"`
-	Page       *int    `json:"page,omitempty"`
-	Started    string  `json:"started_at"`
-	Finished   *string `json:"finished_at"`
-	Outcome    string  `json:"outcome"`
-	ErrorClass string  `json:"error_class,omitempty"`
-	Message    string  `json:"message,omitempty"`
+	Diagnostic storage.Diagnostic `json:"diagnostic"`
+	ErrorCode  string             `json:"error_code,omitempty"`
+	Page       *int               `json:"page,omitempty"`
+	Started    string             `json:"started_at"`
+	Finished   *string            `json:"finished_at"`
+	Outcome    string             `json:"outcome"`
+	ErrorClass string             `json:"error_class,omitempty"`
+	Message    string             `json:"message,omitempty"`
 }
 
 func attempt(a *storage.Audit) *attemptView {
 	if a == nil {
 		return nil
 	}
-	return &attemptView{Started: instant(a.Started), Finished: nullableTime(a.Finished), Outcome: a.Outcome, ErrorClass: a.ErrorClass, ErrorCode: a.ErrorCode, Page: a.Page, Message: a.Message}
+	return &attemptView{Diagnostic: a.Diagnostic, Started: instant(a.Started), Finished: nullableTime(a.Finished), Outcome: a.Outcome, ErrorClass: a.ErrorClass, ErrorCode: a.ErrorCode, Page: a.Page, Message: a.Message}
 }
 
 type jobView struct {
@@ -148,7 +149,7 @@ func statusData(ctx context.Context, store recordStore, c config.Config, build s
 		}
 		for _, d := range discovery {
 			if d.Provider == p.name {
-				v.Streams = append(v.Streams, discoveryView{Stream: d.Stream, State: d.State, Message: discoveryMessage(d.Stream, d.State), Occurred: instant(d.Occurred)})
+				v.Streams = append(v.Streams, discoveryView{Stream: d.Stream, State: d.State, Message: providerDiscoveryMessage(d.Provider, d.Stream, d.State), Occurred: instant(d.Occurred)})
 			}
 		}
 		out.Providers = append(out.Providers, v)
@@ -173,4 +174,23 @@ func discoveryMessage(stream, state string) string {
 	default:
 		return ""
 	}
+}
+
+func providerDiscoveryMessage(provider, stream, state string) string {
+	if provider != "growatt" {
+		return discoveryMessage(stream, state)
+	}
+	switch state {
+	case "selection_required":
+		return "Inspect a private growatt-verify report and set GROWATT_PLANT_ID / GROWATT_DEVICE_SERIAL to a matching family 5 device."
+	case "unavailable":
+		return "No supported SPH/MIX device (family 5) was discovered."
+	case "failed":
+		return "Growatt discovery failed; check credentials, permission and network access. Octopus and stored browsing remain available."
+	case "selected":
+		return "A confirmed SPH/MIX device is selected; unresolved measurement time and field units are explicitly qualified."
+	case "discovering":
+		return "Read-only plant/device discovery is running."
+	}
+	return ""
 }

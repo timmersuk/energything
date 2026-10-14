@@ -258,7 +258,7 @@ func (s *Store) CommitAcceptedWindow(ctx context.Context, in AcceptedWindow) err
 			coverage.MeasurementComplete = coverage.Expected > 0 && coverage.Missing == 0
 		}
 		rows := len(intervals) + len(in.Samples)
-		if coverage.Expected < 0 || coverage.Valid < 0 || coverage.Missing < 0 || coverage.Qualified < 0 || coverage.Valid > rows || coverage.Qualified > coverage.Valid || coverage.Expected != coverage.Valid+coverage.Missing || (coverage.MeasurementComplete && (coverage.Expected == 0 || coverage.Missing != 0 || coverage.Qualified != 0)) {
+		if coverage.Expected < 0 || coverage.Valid < 0 || coverage.Missing < 0 || coverage.Qualified < 0 || coverage.Valid > rows || coverage.Qualified > coverage.Valid || ((provider == "octopus" || coverage.Expected > 0) && coverage.Expected != coverage.Valid+coverage.Missing) || (coverage.MeasurementComplete && (coverage.Expected == 0 || coverage.Missing != 0 || coverage.Qualified != 0)) {
 			return ErrInvalid
 		}
 		if rows == 0 {
@@ -297,7 +297,7 @@ var errorMessages = map[string]string{
 	"validation": "Collection window rejected by validation", "timestamp_quality": "Provider timestamp remains unresolved",
 	"storage": "Storage failed; no completion recorded",
 }
-var errorCodes = map[string]bool{"missing_count": true, "invalid_count": true, "count_budget": true, "count_changed": true, "invalid_decimal": true, "invalid_timestamp": true, "invalid_duration": true, "unaligned_interval": true, "outside_window": true, "boundary_overlap": true, "future_interval": true, "conflicting_interval": true, "count_mismatch": true, "missing_results": true, "invalid": true, "incomplete": true, "conflict": true, "unavailable": true, "unauthorized": true, "limited": true, "timeout": true, "cancelled": true, "io": true, "interrupted": true}
+var errorCodes = map[string]bool{"unsupported_family": true, "body_budget": true, "invalid_json": true, "missing_error_code": true, "provider_error": true, "http_status": true, "invalid_identity": true, "repeated_page": true, "identity_mismatch": true, "sample_date": true, "sample_decimal": true, "soc_range": true, "pv_negative": true, "pv_unit_conflict": true, "missing_count": true, "invalid_count": true, "count_budget": true, "count_changed": true, "invalid_decimal": true, "invalid_timestamp": true, "invalid_duration": true, "unaligned_interval": true, "outside_window": true, "boundary_overlap": true, "future_interval": true, "conflicting_interval": true, "count_mismatch": true, "missing_results": true, "invalid": true, "incomplete": true, "conflict": true, "unavailable": true, "unauthorized": true, "limited": true, "timeout": true, "cancelled": true, "io": true, "interrupted": true}
 
 func validateRetries(in []RetryDetail) error {
 	if len(in) > 300 {
@@ -315,6 +315,26 @@ func (s *Store) RecordRejectedOrFailedAttempt(ctx context.Context, in FailedAtte
 	if in.Outcome != "failed" && in.Outcome != "rejected" && in.Outcome != "cancelled" {
 		return ErrInvalid
 	}
+	if in.Diagnostic.Field != "" {
+		valid := false
+		for _, f := range []string{"soc", "bmsSOC", "ppv", "plocalLoadTotal", "pacToUserTotal", "pacToGridTotal", "pcharge1", "pdischarge1", "epvTotal", "epvtoday", "epv1Today", "epv2Today", "etoUserToday", "etoUserTotal", "etoGridToday", "etogridTotal", "echarge1Today", "echarge1Total", "edischarge1Today", "edischarge1Total", "elocalLoadToday", "elocalLoadTotal", "eacToday", "eacTotal"} {
+			if in.Diagnostic.Field == f {
+				valid = true
+			}
+		}
+		if !valid {
+			return ErrInvalid
+		}
+	}
+	if in.Diagnostic.Value != "" && (len(in.Diagnostic.Value) > 128 || !signedDecimal.MatchString(in.Diagnostic.Value)) {
+		return ErrInvalid
+	}
+	for _, n := range []*int{in.Diagnostic.Expected, in.Diagnostic.Observed} {
+		if n != nil && (*n < 0 || *n > 10000) {
+			return ErrInvalid
+		}
+	}
+	diagnostic, _ := json.Marshal(in.Diagnostic)
 	message, ok := errorMessages[in.ErrorClass]
 	if detail, exists := diagnosticMessages[in.ErrorClass+"/"+in.ErrorCode]; exists {
 		message = detail
@@ -335,8 +355,8 @@ func (s *Store) RecordRejectedOrFailedAttempt(ctx context.Context, in FailedAtte
 			return err
 		}
 		retries, _ := json.Marshal(in.Retries)
-		if _, err = tx.ExecContext(ctx, `UPDATE attempts SET outcome=?,finished=?,occurred=?,error_class=?,error_code=?,message=?,page=?,next_retry=?,retry_details=? WHERE id=?`,
-			in.Outcome, in.Finished, in.Finished, in.ErrorClass, in.ErrorCode, message, in.Page, in.NextDue, string(retries), a.ID); err != nil {
+		if _, err = tx.ExecContext(ctx, `UPDATE attempts SET outcome=?,finished=?,occurred=?,error_class=?,error_code=?,message=?,page=?,next_retry=?,retry_details=?,diagnostic=? WHERE id=?`,
+			in.Outcome, in.Finished, in.Finished, in.ErrorClass, in.ErrorCode, message, in.Page, in.NextDue, string(retries), string(diagnostic), a.ID); err != nil {
 			return err
 		}
 		_, err = tx.ExecContext(ctx, `UPDATE jobs SET running_attempt=NULL,next_due=?,retry_count=retry_count+1,paused=? WHERE id=?`, in.NextDue, in.Paused, a.JobID)
@@ -345,18 +365,36 @@ func (s *Store) RecordRejectedOrFailedAttempt(ctx context.Context, in FailedAtte
 }
 
 var diagnosticMessages = map[string]string{
-	"protocol/missing_count":          "Provider page is missing its required reading count",
-	"protocol/invalid_count":          "Provider reading count is null, negative or not an integer",
-	"protocol/count_budget":           "Provider reading count exceeds the bounded record budget",
-	"protocol/count_changed":          "Provider reading count changed between pages",
-	"validation/invalid_decimal":      "Reading energy is not a supported nonnegative exact decimal",
-	"validation/invalid_timestamp":    "Reading interval timestamp is invalid",
-	"validation/invalid_duration":     "Reading interval duration is not 30 minutes",
-	"validation/unaligned_interval":   "Reading start is not aligned to an absolute half-hour",
-	"validation/outside_window":       "Reading is outside the requested window and is not an adjacent boundary neighbor",
-	"validation/boundary_overlap":     "Reading straddles a requested window boundary",
-	"validation/future_interval":      "Reading ends after the latest elapsed measurement time",
-	"validation/conflicting_interval": "Conflicting readings have the same interval start",
-	"protocol/count_mismatch":         "Assembled reading count does not match the reported page count",
-	"protocol/missing_results":        "Provider page has no required results array",
+	"configuration/unsupported_family": "Only discovery family 5 (SPH/MIX) is supported",
+	"protocol/body_budget":             "Provider response exceeds the 4 MiB page limit",
+	"protocol/invalid_json":            "Provider response is malformed or truncated JSON",
+	"protocol/missing_error_code":      "Provider response is missing an integer success/error code",
+	"protocol/provider_error":          "Provider returned a nonzero error code; no telemetry accepted",
+	"protocol/http_status":             "Provider returned an unexpected HTTP status; redirects are disabled",
+	"protocol/invalid_identity":        "Discovery identity is missing or malformed",
+	"pagination/repeated_page":         "Provider repeated a nonempty page before collection completed",
+	"pagination/missing_count":         "Provider page is missing a nonnegative integer count",
+	"pagination/count_budget":          "Provider count or pagination exceeds the bounded unit budget",
+	"pagination/count_changed":         "Provider count changed between pages; the unit is inconsistent",
+	"pagination/count_mismatch":        "Pagination stopped early or assembled rows exceed the reported count",
+	"validation/identity_mismatch":     "Telemetry serial does not match the selected device",
+	"validation/sample_date":           "Telemetry readable date is outside the requested provider day",
+	"validation/sample_decimal":        "Known telemetry field is not a supported exact decimal",
+	"validation/soc_range":             "Battery remaining capacity is outside 0 through 100",
+	"validation/pv_negative":           "Verified PV input power is negative",
+	"validation/pv_unit_conflict":      "PV input power conflicts with the provider W display label",
+	"protocol/missing_count":           "Provider page is missing its required reading count",
+	"protocol/invalid_count":           "Provider reading count is null, negative or not an integer",
+	"protocol/count_budget":            "Provider reading count exceeds the bounded record budget",
+	"protocol/count_changed":           "Provider reading count changed between pages",
+	"validation/invalid_decimal":       "Reading energy is not a supported nonnegative exact decimal",
+	"validation/invalid_timestamp":     "Reading interval timestamp is invalid",
+	"validation/invalid_duration":      "Reading interval duration is not 30 minutes",
+	"validation/unaligned_interval":    "Reading start is not aligned to an absolute half-hour",
+	"validation/outside_window":        "Reading is outside the requested window and is not an adjacent boundary neighbor",
+	"validation/boundary_overlap":      "Reading straddles a requested window boundary",
+	"validation/future_interval":       "Reading ends after the latest elapsed measurement time",
+	"validation/conflicting_interval":  "Conflicting readings have the same interval start",
+	"protocol/count_mismatch":          "Assembled reading count does not match the reported page count",
+	"protocol/missing_results":         "Provider page has no required results array",
 }
