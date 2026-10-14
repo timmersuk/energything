@@ -5,7 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/timmersuk/energything/internal/config"
+	"github.com/timmersuk/energything/internal/storage"
 	"net/http"
+	"net/url"
+	"strings"
+	"time"
 )
 
 func writeError(w http.ResponseWriter, status int, code, message string) {
@@ -13,9 +17,12 @@ func writeError(w http.ResponseWriter, status int, code, message string) {
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(map[string]any{"error": map[string]string{"code": code, "message": message}})
 }
-func NewRouter(c config.Config, buildID string) (http.Handler, error) {
+func NewRouter(c config.Config, buildID string, store recordStore) (http.Handler, error) {
 	if c.Username == "" || c.Password == "" {
 		return nil, errors.New("web credentials are required")
+	}
+	if store == nil || c.Timezone == nil {
+		return nil, errors.New("web storage and timezone are required")
 	}
 	t, err := templates()
 	if err != nil {
@@ -33,12 +40,49 @@ func NewRouter(c config.Config, buildID string) (http.Handler, error) {
 			_, _ = w.Write(data)
 			return
 		}
+		var data any
+		var err error
+		values, queryErr := url.ParseQuery(r.URL.RawQuery)
+		if queryErr != nil {
+			writeError(w, 400, "invalid_query", "Invalid query parameters")
+			return
+		}
+		name := "status.html"
+		if r.URL.Path == "/" || r.URL.Path == "/api/v1/status" {
+			if len(values) != 0 {
+				writeError(w, 400, "invalid_query", "Invalid query parameters")
+				return
+			}
+			data, err = statusData(r.Context(), store, c, buildID)
+		} else {
+			growatt := strings.Contains(r.URL.Path, "growatt")
+			var q recordQuery
+			q, err = parseQuery(values, growatt, c.Timezone, time.Now())
+			if err != nil {
+				writeError(w, 400, "invalid_query", "Invalid range, filter, limit or cursor")
+				return
+			}
+			data, err = recordsData(r.Context(), store, q, growatt, c.Timezone.String(), r.URL.Path)
+			name = "octopus.html"
+			if growatt {
+				name = "growatt.html"
+			}
+		}
+		if err != nil {
+			if errors.Is(err, storage.ErrInvalid) {
+				writeError(w, 400, "invalid_query", "Invalid range, filter, limit or cursor")
+			} else {
+				writeError(w, 503, "storage_unavailable", "Stored data temporarily unavailable")
+			}
+			return
+		}
+		if strings.HasPrefix(r.URL.Path, "/api/") {
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(data)
+			return
+		}
 		var b bytes.Buffer
-		data := struct {
-			BuildID          string
-			Octopus, Growatt config.Provider
-		}{buildID, c.Octopus, c.Growatt}
-		if err := t.ExecuteTemplate(&b, "index.html", data); err != nil {
+		if err := t.ExecuteTemplate(&b, name, data); err != nil {
 			writeError(w, 500, "internal", "Page unavailable")
 			return
 		}
@@ -58,7 +102,7 @@ func NewRouter(c config.Config, buildID string) (http.Handler, error) {
 			}
 			w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 			_, _ = w.Write([]byte("ok\n"))
-		case "/", "/static/style.css":
+		case "/", "/static/style.css", "/records/octopus", "/records/growatt", "/api/v1/status", "/api/v1/octopus/intervals", "/api/v1/growatt/samples":
 			protected.ServeHTTP(w, r)
 		default:
 			writeError(w, 404, "not_found", "Not found")

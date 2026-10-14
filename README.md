@@ -1,8 +1,9 @@
 # Energything
 
 Task 01 supplies an authenticated empty application. Task 02 adds durable SQLite
-observations, evidence, jobs and audit through typed storage methods. Provider
-requests, scheduler execution and browsing APIs are not implemented.
+observations, evidence, jobs and audit through typed storage methods. Task 03 adds
+authenticated stored-record tables and REST queries. Provider requests and
+scheduler execution are not implemented.
 
 Requires Go 1.26.4 (module compatibility 1.26.0). Dependencies are pinned in
 go.mod/go.sum: modernc.org/sqlite v1.60.1 and modernc.org/libc v1.77.1.
@@ -28,8 +29,11 @@ settings produce an authenticated error card without blocking the other source.
 Valid credentials produce a configured card, but no network requests.
 
 GET /healthz returns public fixed process liveness. GET / and
-GET /static/style.css require Basic Auth. Other paths return 404; wrong methods
-on implemented routes return 405. No API, refresh, records or audit route exists yet.
+GET /static/style.css, /records/octopus, /records/growatt, /api/v1/status,
+/api/v1/octopus/intervals and /api/v1/growatt/samples require Basic Auth.
+See [HTTP API](docs/http-api.md) for bounded queries and exact JSON fields.
+Other paths return 404; wrong methods on implemented routes return 405.
+Refresh and audit routes are not implemented.
 Use trusted LAN access or an HTTPS reverse proxy for Basic Auth.
 
 Docker:
@@ -59,3 +63,5 @@ Storage opens with transactional versioned migrations and interrupted-attempt
 recovery. See [data semantics](docs/data-semantics.md) and
 [task 02 verification](docs/tasks/milestone-1/02-verification.md) for storage
 contracts, synthetic checks and the unresolved Growatt key/time gate.
+See [task 03 verification](docs/tasks/milestone-1/03-verification.md) for
+isolated synthetic browser acceptance and remaining gates.
