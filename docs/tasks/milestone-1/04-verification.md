@@ -162,3 +162,15 @@ energything runtime credentials, creating a private ignored report. No identifie
 account payloads or sample values are included in this public handoff. Application
 selection and database state were unchanged. Server/web code and build are unchanged,
 so no preview recreation was needed for this standalone CLI addition.
+
+## Automatic collection plan revision
+
+On 14 October 2026 the user rejected the temporary one-shot/backfill-start operating
+workflow. Task 06, the shared execution contract and parent scheduling plan were
+revised: startup automatically collects and bootstraps each selected identity,
+reconciles existing partial/empty fetched history and resumes durable backfill.
+Task 06 removes ONCE/BACKFILL controls and environment-triggered repair ranges;
+exceptional repair uses a durable CLI enqueue action. A required provider gate
+establishes earliest accessible history or a finite supported search/stopping rule;
+gaps do not prove history ends, and no arbitrary short range is called the full
+archive. No task 06 runtime code was added. Current task 04 behavior is unchanged.

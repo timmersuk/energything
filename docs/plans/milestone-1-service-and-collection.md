@@ -187,19 +187,24 @@ These are starting defaults, not guaranteed provider limits:
 | Work | Behaviour |
 | --- | --- |
 | Startup | Open/migrate storage, serve UI, discover sources and enqueue asynchronous bounded backfill |
-| Octopus initial history | Previous 30 calendar days and current partial day; configurable start |
-| Growatt initial history | Previous 7 days and current partial day; configurable start within available retention |
+| Octopus initial history | Recent data first, then automatic resumable available history (task 06 boundary gate) |
+| Growatt initial history | Recent data first, then automatic verified available history (task 06 boundary gate) |
 | Octopus refresh | Hourly; revisit recent 7 days for late/corrected readings |
 | Growatt latest | Every 5 minutes |
 | Growatt history refresh | Hourly; current and previous 2 days to repair missed latest polls |
-| Older backfill | Small resumable windows, yielding to routine refresh and bounded by configured dates |
+| Older backfill | Small resumable windows, yielding to routine refresh; provider boundary/search progress persisted |
 
 No overlapping executions of the same job. Sources run independently, HTTP calls
 have timeouts and retries use bounded backoff/jitter and supported Retry-After.
 Persist due work/checkpoints so restart resumes without refetching the archive.
-Wider historical correction uses an explicit range refresh/configurable policy;
-a recent overlap does not guarantee detecting all old changes. Start with
-configuration-based backfill and authenticated 'refresh now'; defer complex job UI.
+Wider historical correction uses an explicit durable repair CLI action; recent
+overlap does not guarantee detecting all old changes. On 14 October 2026 the user
+rejected one-shot/backfill-start environment controls: normal startup must collect
+and bootstrap history automatically from credentials and confirmed selections.
+The revised task 06 owns verified historical boundaries, finite search budgets,
+resumption and removal of temporary/obsolete controls. No operator date or
+initialization toggle is required; authenticated refresh-now remains, with complex
+job/selection UI deferred.
 
 ## Minimal UI and HTTP behaviour
 
@@ -311,5 +316,3 @@ runtime/local storage during deployment, pin driver/toolchain in step 1,
 validate Growatt timestamp/units in step 4 and tune schedules from private source
 behaviour. These checks do not expand scope into gas/pricing, chart parity,
 control investigation or bulk migration of private research.
-
-

@@ -33,6 +33,25 @@ routes, data semantics and cross-task behavior require coordinated doc updates.
 - Durable audit is available through authenticated REST endpoints and the web UI.
   Discord alerts are deferred; do not add webhook configuration or delivery workers.
 
+## Superseding collection decision (14 October 2026)
+
+The user subsequently rejected startup one-shot and backfill-date environment
+controls. Task 06 must automatically bootstrap each selected configured identity,
+collect recent data and resumably recover discoverably available history. No
+operator initialization step or historical start date is required. Its revised
+[task 06 brief](06-scheduling.md) owns the earliest-history protocol gate, exact
+bounded search/stopping policy and migration. Empty windows are not proof that no
+older readings exist. Existing partial data must not suppress historical work.
+
+`ENERGYTHING_OCTOPUS_ONCE` and the BACKFILL_START variables exist only in the
+intermediate implementation and are removed in task 06, including examples and
+Compose passthrough. Exceptional historical repair becomes an explicit durable
+CLI enqueue action rather than RANGE_REFRESH/REQUEST_ID startup environment values.
+The older variable rows and scheduling paragraphs below describe the original
+baseline; this decision and revised task 06 supersede them for implementation.
+Do not restore those controls as a prerequisite or silently use a short lookback
+as the complete available archive. Existing storage/HTTP safety contracts remain.
+
 ## Module ownership and coupling
 
 | Module | Owns | Must not own |
@@ -257,5 +276,3 @@ required tool/runtime/live source is unavailable, state the exact unverified gat
 do not label the task or milestone complete on assumed success.
 Later milestone features, deployment, publishing and private provider access are
 not implied by authoring this plan. This session changes documentation only.
-
-
