@@ -188,3 +188,20 @@ recent window only; it does not establish full historical or measurement coverag
 No credential values, raw identifiers or telemetry values are included here.
 An initial verification query used PowerShell-coerced locale timestamps and was
 correctly rejected; preserving RFC3339 strings produced successful verification.
+
+## User-requested full MPAN display
+
+Authenticated Octopus records and status now show direction, full MPAN and serial
+instead of `source-N (masked)`. JSON also exposes explicit `mpan`/`serial` fields.
+The user requested this to compare readings with the Octopus website; contract
+updates supersede the older masking rule. QueryStatus reads necessary metadata
+through the typed store; wholesale metadata serialization remains disabled. Stable
+keys, credentials and account/address/evidence payloads remain omitted.
+
+Targeted web/storage tests, full suite, vet and Linux amd64/arm64 builds passed.
+Actual task-image Edge acceptance checks full synthetic identifiers and JSON fields;
+agent inspected the interval-table screenshot. Independent Spec/Standards reviews
+found no further issues. Preview recreated using the exact saved Compose setup and
+original data mount with one-shot disabled. Bounded authenticated API and HTML reads
+confirmed both selected MPANs/serials match runtime settings and accepted readings
+remain. No private identifiers or values are recorded in this public handoff.

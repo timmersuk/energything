@@ -13,7 +13,7 @@ async page => {
   const text=await page.locator('main').innerText();
   assert(text.includes('export discovery: selected'),'export visible');
   assert(text.includes(port===8083?'import discovery: selected':'import discovery: selection_required'),'import visible');
-  assert(!text.includes('synthetic-import')&&!text.includes('synthetic-export'),'masked identity');
+  assert(text.includes('MPAN synthetic-import') && text.includes('MPAN synthetic-export'),'full meter identifiers');
   assert(text.includes('expected 46')&&text.includes('missing 45'),'latest coverage');
   await page.screenshot({path:'.cache/task04-status-'+port+'.png',fullPage:true});
   await page.getByRole('link',{name:'Octopus records',exact:true}).click();
@@ -23,6 +23,7 @@ async page => {
   const response=await page.context().request.get(base+'/api/v1/octopus/intervals?from=2026-03-29&to=2026-03-29');const records=await response.json();
   assert(records.records.length===(port===8083?2:1),'independent retained rows');
   assert(records.records.every(r=>typeof r.kwh==='string'),'decimal JSON');
+  assert(records.records.every(r=>r.mpan && r.serial && r.identity.includes(r.mpan)),'explicit MPAN and serial JSON');
   await page.screenshot({path:'.cache/task04-records-'+port+'.png',fullPage:true});
   for(const path of ['/audit','/api/v1/audit','/api/v1/refresh'])assert((await page.context().request.get(base+path)).status()===404,'task boundary');
  }

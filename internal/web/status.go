@@ -64,6 +64,8 @@ type coverageView struct {
 	MeasurementComplete bool   `json:"measurement_complete"`
 }
 type sourceView struct {
+	MPAN              string         `json:"mpan,omitempty"`
+	Serial            string         `json:"serial,omitempty"`
 	IdentityID        int64          `json:"identity_id"`
 	Source            string         `json:"source"`
 	Stream            string         `json:"stream"`
@@ -125,6 +127,11 @@ func statusData(ctx context.Context, store recordStore, c config.Config, build s
 			}
 			v.Discovery = "Stored identities available; selection shown below"
 			s := sourceView{IdentityID: x.IdentityID, Source: x.Provider, Stream: x.Stream, Identity: masked(x.IdentityID), Selected: x.Selected, RetainedCount: x.IntervalCount + x.SampleCount, UnresolvedCount: x.UnresolvedCount, LastRetrieval: nullableTime(x.LastRetrieval), NewestMeasurement: nullableTime(x.NewestMeasurement), LastAttempt: attempt(x.LastAttempt), LastAccepted: attempt(x.LastAcceptedAttempt), JobCount: x.JobCount, WindowCount: x.WindowCount, Jobs: []jobView{}, Coverage: []coverageView{}}
+			if x.Provider == "octopus" {
+				s.MPAN = x.Metadata.MPAN
+				s.Serial = x.Metadata.Serial
+				s.Identity = octopusLabel(x)
+			}
 			for _, j := range x.Jobs {
 				s.Jobs = append(s.Jobs, jobView{j.Kind, j.Policy, j.RunningAttempt != nil, j.Paused, j.RetryCount, instant(j.NextDue), nullableTime(j.Checkpoint)})
 			}
@@ -160,4 +167,19 @@ func discoveryMessage(stream, state string) string {
 	default:
 		return ""
 	}
+}
+
+func octopusLabel(x storage.Status) string {
+	direction := "Import"
+	if x.Stream == "export" {
+		direction = "Export"
+	}
+	if x.Metadata.MPAN == "" {
+		return fmt.Sprintf("%s meter %d (MPAN unavailable)", direction, x.IdentityID)
+	}
+	label := direction + " · MPAN " + x.Metadata.MPAN
+	if x.Metadata.Serial != "" {
+		label += " · meter " + x.Metadata.Serial
+	}
+	return label
 }

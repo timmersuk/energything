@@ -401,7 +401,7 @@ func (s *Store) QueryStatus(ctx context.Context) (out []Status, err error) {
 		return nil, err
 	}
 	defer tx.Rollback()
-	rows, err := tx.QueryContext(ctx, `SELECT i.id,i.provider,i.stream,i.selected,
+	rows, err := tx.QueryContext(ctx, `SELECT i.id,i.provider,i.stream,i.selected,i.metadata,
   (SELECT count(*) FROM intervals WHERE identity_id=i.id),(SELECT count(*) FROM samples WHERE identity_id=i.id),
   (SELECT count(*) FROM samples WHERE identity_id=i.id AND instant IS NULL),
   (SELECT max(retrieved) FROM retrievals WHERE identity_id=i.id),
@@ -413,8 +413,12 @@ func (s *Store) QueryStatus(ctx context.Context) (out []Status, err error) {
 	out = []Status{}
 	for rows.Next() {
 		var x Status
-		err = rows.Scan(&x.IdentityID, &x.Provider, &x.Stream, &x.Selected, &x.IntervalCount, &x.SampleCount, &x.UnresolvedCount, &x.LastRetrieval, &x.NewestMeasurement)
+		var metadata string
+		err = rows.Scan(&x.IdentityID, &x.Provider, &x.Stream, &x.Selected, &metadata, &x.IntervalCount, &x.SampleCount, &x.UnresolvedCount, &x.LastRetrieval, &x.NewestMeasurement)
 		if err != nil {
+			break
+		}
+		if err = json.Unmarshal([]byte(metadata), &x.Metadata); err != nil {
 			break
 		}
 		out = append(out, x)

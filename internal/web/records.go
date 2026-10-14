@@ -7,6 +7,8 @@ import (
 )
 
 type intervalView struct {
+	MPAN        string `json:"mpan"`
+	Serial      string `json:"serial"`
 	Source      string `json:"source"`
 	IdentityID  int64  `json:"identity_id"`
 	Identity    string `json:"identity"`
@@ -91,13 +93,14 @@ func recordsData(ctx context.Context, store recordStore, q recordQuery, growatt 
 		if err != nil {
 			return out, err
 		}
-		directions := map[int64]string{}
+		meters := map[int64]storage.Status{}
 		for _, x := range identities {
-			directions[x.IdentityID] = x.Stream
+			meters[x.IdentityID] = x
 		}
 		rows := []intervalView{}
 		for _, x := range p.Records {
-			rows = append(rows, intervalView{"octopus", x.IdentityID, masked(x.IdentityID), directions[x.IdentityID], instant(x.Start), instant(x.End), instant(x.Retrieved), x.KWh, "kWh", "accepted"})
+			meter := meters[x.IdentityID]
+			rows = append(rows, intervalView{Source: "octopus", IdentityID: x.IdentityID, Identity: octopusLabel(meter), Direction: meter.Stream, MPAN: meter.Metadata.MPAN, Serial: meter.Metadata.Serial, MeasuredAt: instant(x.Start), End: instant(x.End), RetrievedAt: instant(x.Retrieved), KWh: x.KWh, Unit: "kWh", Quality: "accepted"})
 		}
 		out.Records = rows
 		out.NextCursor = p.NextCursor

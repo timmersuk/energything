@@ -74,7 +74,7 @@ provider-date query has no retrieval range), `limit`, `records` (always an array
 optional `next_cursor`, and `omitted_unresolved`.
 
 Octopus record fields: `source: "octopus"`, `identity_id` (local integer),
-`identity` (`source-N (masked)`), `direction`, `measured_at` (interval start UTC),
+`identity` (direction, full MPAN and meter serial), `mpan`, `serial`, `direction`, `measured_at` (interval start UTC),
 `end` (exclusive UTC), `retrieved_at` (UTC), `kwh` (exact decimal string),
 `unit: "kWh"`, `quality: "accepted"`. Accepted means validated retained data,
 not complete coverage. No aggregate conversion or floating-point round trip.
@@ -100,7 +100,7 @@ Each provider has `source`, `configuration` (`disabled`, `valid`, `error`),
 sanitized `message`, `discovery` (stored identities available or none), `sources`.
 Configuration validity does not prove provider authentication or discovery.
 
-Each source has `identity_id`, `source`, `stream`, masked `identity`, `selected`,
+Each source has `identity_id`, `source`, `stream`, `identity`, `selected`,
 `retained_count`, `unresolved_count`, nullable `last_retrieved_at` and
 `newest_measured_at`, nullable `last_attempt` and `last_accepted_attempt`,
 `job_count`, `window_count`, `jobs`, `coverage`. Newest Octopus measurement is
@@ -143,3 +143,14 @@ selection gate, rather than disabling both directions during configuration parsi
 Global provider date/credential errors retain their existing configuration behavior.
 The explicit startup worker is independent of GET requests; browsing never performs
 cloud requests or changes jobs. No refresh/audit endpoint or scheduler was added.
+
+## User-approved Octopus identity display
+
+The user requested full MPANs for comparison with the Octopus website. Authenticated
+Octopus records and status now include explicit `mpan` and `serial` fields and a
+readable identity label such as `Import · MPAN 1234567890123 · meter SYNTH-METER`.
+Identifiers are not masked in these views. Missing legacy discovery metadata is
+labelled unavailable rather than inventing an MPAN or parsing an opaque stable key.
+Local identity IDs and cursor/filter contracts remain unchanged. These routes
+remain authenticated and no-store; keys, account/address payloads, raw stable keys
+and telemetry evidence are omitted. Growatt display behavior is unchanged.

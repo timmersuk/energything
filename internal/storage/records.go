@@ -132,6 +132,7 @@ type WindowStatus struct {
 	Coverage         Coverage
 }
 type Status struct {
+	Metadata                                    DiscoveryMetadata `json:"-"`
 	IdentityID                                  int64
 	Provider, Stream                            string
 	Selected                                    bool

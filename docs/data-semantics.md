@@ -190,3 +190,13 @@ backfill start selects only its first <=14-day unit. Explicit reinvocation permi
 replay/correction. Range-refresh and recurring progression remain task 06.
 Absolute elapsed expected slots preserve London 46/50-slot days and partial days.
 Status distinguishes latest fetched coverage from retained observation count.
+
+## User-approved Octopus identity visibility
+
+The user explicitly rejected hiding MPANs because it prevented comparison with the
+Octopus website. Authenticated Octopus records/status expose full MPAN and serial
+from necessary discovery metadata. QueryStatus returns that metadata internally
+(without serializing it wholesale); web responses explicitly select Octopus fields.
+Readable direction/MPAN/serial labels replace local masked placeholders. No stable
+key, credentials, account/address payload or evidence is exposed. No schema change
+or cloud request is needed; legacy missing metadata remains explicitly unavailable.

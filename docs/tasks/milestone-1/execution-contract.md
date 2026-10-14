@@ -276,3 +276,12 @@ required tool/runtime/live source is unavailable, state the exact unverified gat
 do not label the task or milestone complete on assumed success.
 Later milestone features, deployment, publishing and private provider access are
 not implied by authoring this plan. This session changes documentation only.
+
+## Superseding Octopus identifier display decision
+
+On 14 October 2026 the user requested full MPAN visibility for verification against
+the Octopus website. Authenticated Octopus records and operational views must show
+confirmed direction, full MPAN and meter serial; generic `source-N (masked)` labels
+are inadequate for that purpose. This supersedes default masking for those views.
+Local identity IDs remain query selectors. Keys, account/address payloads and raw
+telemetry evidence remain private; public liveness contains no provider details.
