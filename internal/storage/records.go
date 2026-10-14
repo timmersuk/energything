@@ -3,6 +3,7 @@ package storage
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"regexp"
 	"time"
 )
@@ -111,6 +112,7 @@ type EvidenceRef struct {
 	Complete                bool
 }
 type Audit struct {
+	Metadata                                DiscoveryMetadata `json:"-"`
 	ID, JobID, IdentityID                   int64
 	Provider, Stream, DisplayIdentity, Kind string
 	Start, End                              Instant
@@ -132,6 +134,7 @@ type WindowStatus struct {
 	Coverage         Coverage
 }
 type Status struct {
+	Metadata                                    DiscoveryMetadata `json:"-"`
 	IdentityID                                  int64
 	Provider, Stream                            string
 	Selected                                    bool
@@ -155,3 +158,35 @@ func validDate(s string) bool {
 func validText(s string) bool { return len(s) > 0 && len(s) <= 256 }
 
 func validInstant(t Instant) bool { return t >= -62135596800000000 && t <= 253402300799999999 }
+
+// DisplayIdentity identifies private sources inside authenticated operational views.
+func (m DiscoveryMetadata) DisplayIdentity(provider, stream string, id int64) string {
+	if provider == "octopus" {
+		direction := "Octopus"
+		if stream == "import" {
+			direction = "Import"
+		}
+		if stream == "export" {
+			direction = "Export"
+		}
+		if m.MPAN == "" {
+			return fmt.Sprintf("%s meter %d (MPAN unavailable)", direction, id)
+		}
+		label := direction + " · MPAN " + m.MPAN
+		if m.Serial != "" {
+			label += " · meter " + m.Serial
+		}
+		return label
+	}
+	if m.PlantID == "" && m.Serial == "" {
+		return fmt.Sprintf("Growatt device %d (identifiers unavailable)", id)
+	}
+	label := "Growatt"
+	if m.PlantID != "" {
+		label += " · plant " + m.PlantID
+	}
+	if m.Serial != "" {
+		label += " · device " + m.Serial
+	}
+	return label
+}

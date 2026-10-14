@@ -7,7 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
-	"fmt"
+
 	"strings"
 )
 
@@ -249,15 +249,18 @@ func (s *Store) QuerySamples(ctx context.Context, q SampleQuery) (page SamplePag
 	return
 }
 
-const auditSelect = `SELECT a.id,a.job_id,a.identity_id,i.provider,i.stream,a.kind,a.start,a.end,a.provider_date,a.started,a.occurred,a.finished,a.outcome,a.error_class,a.error_code,a.message,a.page,a.retry_count,a.next_retry,a.retry_details,a.accepted_rows FROM attempts a JOIN identities i ON i.id=a.identity_id`
+const auditSelect = `SELECT a.id,a.job_id,a.identity_id,i.provider,i.stream,a.kind,a.start,a.end,a.provider_date,a.started,a.occurred,a.finished,a.outcome,a.error_class,a.error_code,a.message,a.page,a.retry_count,a.next_retry,a.retry_details,a.accepted_rows,i.metadata FROM attempts a JOIN identities i ON i.id=a.identity_id`
 
 func scanAudit(row scanner) (x Audit, err error) {
-	var retries string
-	err = row.Scan(&x.ID, &x.JobID, &x.IdentityID, &x.Provider, &x.Stream, &x.Kind, &x.Start, &x.End, &x.ProviderDate, &x.Started, &x.Occurred, &x.Finished, &x.Outcome, &x.ErrorClass, &x.ErrorCode, &x.Message, &x.Page, &x.RetryCount, &x.NextRetry, &retries, &x.AcceptedRows)
+	var retries, metadata string
+	err = row.Scan(&x.ID, &x.JobID, &x.IdentityID, &x.Provider, &x.Stream, &x.Kind, &x.Start, &x.End, &x.ProviderDate, &x.Started, &x.Occurred, &x.Finished, &x.Outcome, &x.ErrorClass, &x.ErrorCode, &x.Message, &x.Page, &x.RetryCount, &x.NextRetry, &retries, &x.AcceptedRows, &metadata)
 	if err == nil {
 		err = json.Unmarshal([]byte(retries), &x.Retries)
 	}
-	x.DisplayIdentity = fmt.Sprintf("source-%d (masked)", x.IdentityID)
+	if err == nil {
+		err = json.Unmarshal([]byte(metadata), &x.Metadata)
+	}
+	x.DisplayIdentity = x.Metadata.DisplayIdentity(x.Provider, x.Stream, x.IdentityID)
 	return
 }
 func evidenceRefs(ctx context.Context, tx *sql.Tx, id int64) ([]EvidenceRef, error) {
@@ -401,7 +404,7 @@ func (s *Store) QueryStatus(ctx context.Context) (out []Status, err error) {
 		return nil, err
 	}
 	defer tx.Rollback()
-	rows, err := tx.QueryContext(ctx, `SELECT i.id,i.provider,i.stream,i.selected,
+	rows, err := tx.QueryContext(ctx, `SELECT i.id,i.provider,i.stream,i.selected,i.metadata,
   (SELECT count(*) FROM intervals WHERE identity_id=i.id),(SELECT count(*) FROM samples WHERE identity_id=i.id),
   (SELECT count(*) FROM samples WHERE identity_id=i.id AND instant IS NULL),
   (SELECT max(retrieved) FROM retrievals WHERE identity_id=i.id),
@@ -413,8 +416,12 @@ func (s *Store) QueryStatus(ctx context.Context) (out []Status, err error) {
 	out = []Status{}
 	for rows.Next() {
 		var x Status
-		err = rows.Scan(&x.IdentityID, &x.Provider, &x.Stream, &x.Selected, &x.IntervalCount, &x.SampleCount, &x.UnresolvedCount, &x.LastRetrieval, &x.NewestMeasurement)
+		var metadata string
+		err = rows.Scan(&x.IdentityID, &x.Provider, &x.Stream, &x.Selected, &metadata, &x.IntervalCount, &x.SampleCount, &x.UnresolvedCount, &x.LastRetrieval, &x.NewestMeasurement)
 		if err != nil {
+			break
+		}
+		if err = json.Unmarshal([]byte(metadata), &x.Metadata); err != nil {
 			break
 		}
 		out = append(out, x)

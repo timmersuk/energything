@@ -266,3 +266,57 @@ func TestSafeStorageErrors(t *testing.T) {
 		}
 	}
 }
+
+func (failStore) QueryDiscovery(context.Context) ([]storage.DiscoveryState, error) {
+	return nil, errors.New("secret")
+}
+func TestOctopusShowsFullMeterIdentity(t *testing.T) {
+	s, h := browsingFixture(t, false)
+	ctx := context.Background()
+	ids, err := s.UpsertIdentities(ctx, []storage.Identity{{Provider: "octopus", Stream: "import", StableKey: "synthetic-hidden-key", Selected: true, Metadata: storage.DiscoveryMetadata{MPAN: "1234567890123", Serial: "SYNTH-METER"}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	start := storage.At(time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC))
+	jobs, err := s.EnsureJobs(ctx, []storage.Job{{IdentityID: ids[0].ID, Kind: "history", Policy: "backfill", Start: start, End: start + 1800000000, NextDue: storage.At(time.Now())}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	began := storage.At(time.Now())
+	id, err := s.BeginAttempt(ctx, storage.AttemptRequest{JobID: jobs[0].ID, Started: began})
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = s.CommitAcceptedWindow(ctx, storage.AcceptedWindow{AttemptID: id, Finished: storage.At(time.Now()), NextDue: began, Evidence: []storage.Evidence{{Content: json.RawMessage(`{"synthetic":true}`), Retrieved: began, Complete: true}}, Intervals: []storage.Interval{{Start: start, End: start + 1800000000, KWh: "0.100", Evidence: 0}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range []string{"/", "/api/v1/status", "/records/octopus?from=2026-01-01&to=2026-01-01", "/api/v1/octopus/intervals?from=2026-01-01&to=2026-01-01"} {
+		w := request(h, path, "synthetic")
+		if w.Code != 200 || !strings.Contains(w.Body.String(), "1234567890123") || !strings.Contains(w.Body.String(), "SYNTH-METER") || strings.Contains(w.Body.String(), "(masked)") || strings.Contains(w.Body.String(), "synthetic-hidden-key") {
+			t.Fatal(path, w.Code, w.Body.String())
+		}
+		if strings.HasPrefix(path, "/api/") && !strings.Contains(w.Body.String(), `"mpan":"1234567890123"`) {
+			t.Fatal("explicit MPAN field missing", w.Body.String())
+		}
+		w = request(h, path, "")
+		if w.Code != 401 || strings.Contains(w.Body.String(), "1234567890123") {
+			t.Fatal("unauthenticated identity exposed", w.Body.String())
+		}
+	}
+}
+func TestGrowattIdentifiersVisibleWithoutStableKey(t *testing.T) {
+	_, h := browsingFixture(t, true)
+	for _, path := range []string{"/", "/api/v1/status", "/records/growatt?from=2026-03-29&to=2026-03-29", "/api/v1/growatt/samples?from=2026-03-29&to=2026-03-29"} {
+		w := request(h, path, "synthetic")
+		if w.Code != 200 || !strings.Contains(w.Body.String(), "synthetic-plant") || !strings.Contains(w.Body.String(), "synthetic-inverter") || strings.Contains(w.Body.String(), "(masked)") || strings.Contains(w.Body.String(), "synthetic-private-device") {
+			t.Fatal(path, w.Code, w.Body.String())
+		}
+		if strings.HasPrefix(path, "/api/") && !strings.Contains(w.Body.String(), `"plant_id":"synthetic-plant"`) {
+			t.Fatal("plant ID field missing")
+		}
+		if request(h, path, "").Code != 401 {
+			t.Fatal("unauthenticated route")
+		}
+	}
+}

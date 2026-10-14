@@ -22,7 +22,7 @@ func SeedBrowsing(ctx context.Context, s *storage.Store) error {
 	ids, err := s.UpsertIdentities(ctx, []storage.Identity{
 		{Provider: "octopus", Stream: "import", StableKey: "synthetic-private-import", Selected: true},
 		{Provider: "octopus", Stream: "export", StableKey: "synthetic-private-export", Selected: true},
-		{Provider: "growatt", Stream: "device", StableKey: "synthetic-private-device", Selected: true},
+		{Provider: "growatt", Stream: "device", StableKey: "synthetic-private-device", Selected: true, Metadata: storage.DiscoveryMetadata{PlantID: "synthetic-plant", Serial: "synthetic-inverter"}},
 		{Provider: "octopus", Stream: "import", StableKey: "synthetic-private-retired", Selected: true},
 	})
 	if err != nil {

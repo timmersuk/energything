@@ -33,6 +33,25 @@ routes, data semantics and cross-task behavior require coordinated doc updates.
 - Durable audit is available through authenticated REST endpoints and the web UI.
   Discord alerts are deferred; do not add webhook configuration or delivery workers.
 
+## Superseding collection decision (14 October 2026)
+
+The user subsequently rejected startup one-shot and backfill-date environment
+controls. Task 06 must automatically bootstrap each selected configured identity,
+collect recent data and resumably recover discoverably available history. No
+operator initialization step or historical start date is required. Its revised
+[task 06 brief](06-scheduling.md) owns the earliest-history protocol gate, exact
+bounded search/stopping policy and migration. Empty windows are not proof that no
+older readings exist. Existing partial data must not suppress historical work.
+
+`ENERGYTHING_OCTOPUS_ONCE` and the BACKFILL_START variables exist only in the
+intermediate implementation and are removed in task 06, including examples and
+Compose passthrough. Exceptional historical repair becomes an explicit durable
+CLI enqueue action rather than RANGE_REFRESH/REQUEST_ID startup environment values.
+The older variable rows and scheduling paragraphs below describe the original
+baseline; this decision and revised task 06 supersede them for implementation.
+Do not restore those controls as a prerequisite or silently use a short lookback
+as the complete available archive. Existing storage/HTTP safety contracts remain.
+
 ## Module ownership and coupling
 
 | Module | Owns | Must not own |
@@ -139,14 +158,14 @@ measurement coverage. Current/future slots are not expected before they have ela
 ## Durable attempt audit
 
 Keep all audit entries initially. Separate the internal attempt identifier from
-masked display identity. One attempt has a start and one terminal result, including
+readable provider identity. One attempt has a start and one terminal result, including
 interrupted after restart when the previous process did not finish.
 
 Required fields: event/attempt ID; UTC occurrence/start/finish times as applicable;
 provider and stream; local identity reference; job kind; window bounds or requested
 provider date; outcome; sanitized error class/code and message; page/index where
 relevant; retry count/next retry when applicable; evidence references; accepted
-row count on success. Mask provider identifiers in API/UI output by default.
+row count on success. Show useful full provider identifiers in authenticated API/UI output.
 
 Terminal outcomes: success, empty, rejected, failed, cancelled, interrupted.
 Error classes distinguish configuration/selection, authentication, rate_limit,
@@ -177,7 +196,8 @@ No raw telemetry or stack traces in public liveness or routine logs.
 | GET /api/v1/octopus/intervals | Stored electricity query | Required |
 | GET /api/v1/growatt/samples | Stored Growatt query | Required |
 | GET /api/v1/audit | Stored attempt audit query and counts | Required |
-| GET /api/v1/audit/{id} | Sanitized attempt detail/evidence references | Required |
+| GET /api/v1/audit/{id} | Specific attempt detail, full source identity and evidence references | Required |
+| GET /api/v1/audit/{id}/evidence/{retrieval_id} | Bounded selected telemetry inspection/download for this attempt | Required |
 | POST /api/v1/refresh | Enqueue configured-source routine refresh | Required plus CSRF protection |
 
 Protect static assets/fragments with the same credentials. No GET performs a cloud
@@ -258,4 +278,26 @@ do not label the task or milestone complete on assumed success.
 Later milestone features, deployment, publishing and private provider access are
 not implied by authoring this plan. This session changes documentation only.
 
+## Superseding Octopus identifier display decision
 
+On 14 October 2026 the user requested full MPAN visibility for verification against
+the Octopus website. Authenticated Octopus records and operational views must show
+confirmed direction, full MPAN and meter serial; generic `source-N (masked)` labels
+are inadequate for that purpose. This supersedes default masking for those views.
+Local identity IDs remain query selectors. Keys, account/address payloads and raw
+telemetry evidence remain private; public liveness contains no provider details.
+
+## Owner-visible information versus public evidence (14 October 2026)
+
+The owner explicitly clarified that public-repository/session privacy does not
+justify hiding useful information inside the authenticated application. Show full
+meter MPAN/serial, plant/device identifiers and specific diagnostic reasons/context
+in records, status and audit. Local IDs remain selectors, not substitutes for those
+identifiers. Missing discovery metadata is unavailable, not deliberately masked.
+Task 06a provides authenticated inspection of retained selected telemetry evidence,
+including rejected content and original/unknown telemetry fields. No complex
+selection management UI is required. API keys/passwords/tokens, account/address
+transcripts and secret-bearing URLs/headers remain excluded from diagnostics.
+Real identifiers, telemetry and screenshots stay out of public source/docs/CI and
+unsolicited session output; synthetic evidence supports public review. Older
+verification handoffs record historical behavior, not current display requirements.

@@ -101,8 +101,9 @@ or instant/row-ID; descending audit uses occurrence/ID. Opaque versioned cursors
 bind all filters and page size; malformed or mismatched cursors fail validation.
 Sample absolute ranges omit null instants and report their count; quality queries
 use provider date or retrieval range. Source IDs in results are local IDs; audit
-display identity is masked. Raw stable identifiers and evidence content are never
-included in audit/status results. Detailed evidence access is not a public API.
+display identity contains useful full provider identifiers. Opaque stable keys
+are not display labels. Selected evidence inspection belongs to authenticated task
+06a detail routes, not public artifacts or routine status responses.
 Status includes latest attempt and latest accepted attempt separately. It returns
 at most 500 recent jobs/windows per identity plus total counts; accepted coverage
 is always coverage of the latest fetched response, not old retained rows.
@@ -120,3 +121,93 @@ are not accepted: public messages derive from enumerated error classes/codes.
 Retry codes are enumerated and carry no URL/body. This avoids attempting to redact
 unknown secrets from free text. Selection, unit and timestamp protocol validation
 belong to tasks 04/05; no consumer may bypass these transactions with ad hoc SQL.
+
+## Octopus protocol and one-shot handoff (task 04)
+
+Verified on 14 October 2026 against the official [Octopus REST endpoint guide](https://docs.octopus.energy/rest/guides/endpoints/).
+The account electricity points include nullable `is_export`: only explicit false
+confirms import and true confirms export. Account/address/gas/tariff material is
+never persisted. Account responses remain ephemeral; full point descriptions are
+canonicalized in memory solely to reject contradictory repeated descriptions.
+Identical identities are deduplicated. Automatic selection requires exactly one
+confirmed eligible meter per direction. Explicit selection must match both MPAN
+and serial from discovery. Unpaired, mismatched or ambiguous selections affect
+only that stream; conflicts block that stream. Unknown direction is never selected.
+
+`RecordOctopusDiscovery` atomically stores two enumerated stream states and necessary
+identity metadata, deselecting stale Octopus identities without deleting history.
+`QueryDiscovery` returns stream/state/occurrence only. Migration 002 adds this narrow
+state table to the existing versioned schema. Fetch attempts retain the task 02
+BeginAttempt/CommitAcceptedWindow/RecordRejectedOrFailedAttempt guarantees.
+No raw SQL handle is exposed. Storage failures return sanitary storage errors;
+failed failure-audit writes leave no claimed durable terminal result.
+
+`octopus.Client.Fetch(ctx, confirmedMeter, from, to)` returns a whole-window result
+and an enumerated error. Callers may commit intervals only on nil error. All pages
+are assembled before validation. Selected evidence and retries remain available
+on failure/rejection. Evidence retains unknown telemetry fields and original
+source timestamps, excluding transcript/credential/account/address-shaped fields
+recursively, pagination URLs and nontelemetry envelopes. Malformed/truncated JSON
+has no reproducible selected telemetry; previously obtained page evidence remains.
+Boundary exclusion/duplicate counts and requested bounds are recorded in evidence.
+
+Consumption for import and export uses the same electricity consumption endpoint.
+The official guide documents UTC query bounds, overlapping boundary behavior,
+half-hour intervals and export energy reported as consumption. Application windows
+are `[from,to)`, at most 14 absolute days. Query `period_to=to-1s` avoids the end
+neighbor; wholly outside adjacent aligned neighbors may be excluded and recorded.
+A straddling interval, nonaligned timestamp, invalid duration, overlap, negative/
+unparseable/nonfinite decimal or conflicting duplicate rejects the entire unit.
+Repeated equal numeric values collapse even with different decimal spelling.
+JSON numeric exponents expand exactly to storage decimal TEXT, limited to 128
+characters; no float or rounding. Future/unelapsed in-window readings reject.
+Missing readings are accepted as missing coverage; zero remains valid energy.
+
+Every authenticated request requires HTTPS, exact `api.octopus.energy` host
+(without port/userinfo/fragment/escaped path), the exact intended account or meter
+endpoint, and the original bounded query. Only a single bounded `page` parameter
+may change. Redirects are disabled. Injectable transports cannot alter this policy.
+Timeout: 30s per request, response limit: 4 MiB/page, consumption page size: 100,
+maximum: 16 pages and 2,048 assembled records including duplicates/neighbors.
+These narrowed engineering limits accommodate the 672 possible half-hours plus
+conservative duplication; they are not asserted provider limits. Required stable
+count, results array and next field distinguish empty from incomplete; count
+mismatch, canonical URL cycles, canonical repeated nonempty result sets and excess budgets fail.
+
+HTTP retries are owned solely by the Octopus client: at most three requests/page
+for network errors, 408/429/5xx. Ordinary waits are 1s then 2s plus 0–250ms jitter,
+cancellable; Retry-After seconds/HTTP-date override them. Beyond 30s returns a
+deferred instant without waiting. JSON/validation/auth/destination failures have
+no inner retries. Retry details retain page/request/status/code/planned delay,
+never URL/body/key. An exhausted final request records its planned delay but does
+not wait. Collection writes deferred next_due (otherwise now+1m on fetch failure)
+and pauses authentication/configuration failures; no scheduler executes reattempts.
+Task 06 must not multiply this inner retry budget.
+
+`ENERGYTHING_OCTOPUS_ONCE=true` explicitly enables a single startup discovery and
+one bounded fetch per selected stream. Default false; no handler triggers it.
+Default window: previous calendar midnight to latest elapsed half-hour; optional
+backfill start selects only its first <=14-day unit. Explicit reinvocation permits
+replay/correction. Range-refresh and recurring progression remain task 06.
+Absolute elapsed expected slots preserve London 46/50-slot days and partial days.
+Status distinguishes latest fetched coverage from retained observation count.
+
+## User-approved Octopus identity visibility
+
+The user explicitly rejected hiding MPANs because it prevented comparison with the
+Octopus website. Authenticated Octopus records/status expose full MPAN and serial
+from necessary discovery metadata. QueryStatus returns that metadata internally
+(without serializing it wholesale); web responses explicitly select Octopus fields.
+Readable direction/MPAN/serial labels replace local masked placeholders. No stable
+key, credentials, account/address payload or evidence is exposed. No schema change
+or cloud request is needed; legacy missing metadata remains explicitly unavailable.
+
+Owner-visible diagnostics use full necessary provider identifiers. Selected telemetry
+is retained for authenticated audit inspection in task 06a, not prohibited from the
+owner's application. Public-repository/session privacy applies to where real evidence
+is published, not to hiding useful operational data behind opaque local IDs.
+New Octopus validation failures have enumerated decimal/timestamp/duration/alignment/
+boundary/future/conflict reasons; count and missing-results reasons are distinct.
+Storage derives human-readable messages from these safe codes; historical class-only
+messages are not retroactively fabricated. Broad errors cannot satisfy task 06a's
+specific-reason/context requirement for new attempts.

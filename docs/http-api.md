@@ -74,17 +74,17 @@ provider-date query has no retrieval range), `limit`, `records` (always an array
 optional `next_cursor`, and `omitted_unresolved`.
 
 Octopus record fields: `source: "octopus"`, `identity_id` (local integer),
-`identity` (`source-N (masked)`), `direction`, `measured_at` (interval start UTC),
+`identity` (direction, full MPAN and meter serial), `mpan`, `serial`, `direction`, `measured_at` (interval start UTC),
 `end` (exclusive UTC), `retrieved_at` (UTC), `kwh` (exact decimal string),
 `unit: "kWh"`, `quality: "accepted"`. Accepted means validated retained data,
 not complete coverage. No aggregate conversion or floating-point round trip.
 
 Growatt record fields: `id` (local row ID), `source: "growatt"`, `identity_id`,
-masked `identity`, `measured_at` (UTC string or null), `retrieved_at` (UTC),
-`provider_date`, `original_time` (escaped provider field/text map), `quality`,
+full provider `identity`, `measured_at` (UTC string or null), `retrieved_at` (UTC),
+`plant_id`, `serial`, `provider_date`, `original_time` (escaped provider field/text map), `quality`,
 `values` (field-name map). Each value has `value` (decimal string or null),
 `unit` (string or null) and `quality`. A decimal `"0"` is not null. Resolved keys,
-raw provider identities, evidence and account responses are omitted.
+opaque storage keys, evidence and account responses are omitted from normal records.
 
 Resolved Growatt results exclude null-time samples. `omitted_unresolved` counts
 all unresolved observations in the identity selection, independent of absolute
@@ -100,7 +100,7 @@ Each provider has `source`, `configuration` (`disabled`, `valid`, `error`),
 sanitized `message`, `discovery` (stored identities available or none), `sources`.
 Configuration validity does not prove provider authentication or discovery.
 
-Each source has `identity_id`, `source`, `stream`, masked `identity`, `selected`,
+Each source has `identity_id`, `source`, `stream`, `identity`, `selected`,
 `retained_count`, `unresolved_count`, nullable `last_retrieved_at` and
 `newest_measured_at`, nullable `last_attempt` and `last_accepted_attempt`,
 `job_count`, `window_count`, `jobs`, `coverage`. Newest Octopus measurement is
@@ -127,3 +127,44 @@ Errors are bounded JSON: `{"error":{"code":"invalid_query","message":"Invalid ra
 `Stored data temporarily unavailable`; template failure is 500 `internal` with
 `Page unavailable`. Authentication uses the task 01 safe authentication response.
 No SQL, raw error text, credential value or provider response is returned.
+
+## Task 04 discovery extension
+
+The existing GET routes and record/status fields remain unchanged. Provider status
+additionally has optional `streams`, containing `{stream,state,message,occurred_at}` for
+stored Octopus discovery. Streams are independently `discovering`, `selected`,
+`unavailable`, `selection_required`, `conflict` or `failed`; occurrence is UTC.
+The message supplies static selection/recovery guidance. No account payload, raw identity or provider error is included. Configuration
+validity and stored discovery remain distinct, including after credentials are
+removed. These states and existing retained records are rendered on `/`.
+
+An incomplete explicit selector with valid Octopus credentials is now a per-stream
+selection gate, rather than disabling both directions during configuration parsing.
+Global provider date/credential errors retain their existing configuration behavior.
+The explicit startup worker is independent of GET requests; browsing never performs
+cloud requests or changes jobs. No refresh/audit endpoint or scheduler was added.
+
+## User-approved Octopus identity display
+
+The user requested full MPANs for comparison with the Octopus website. Authenticated
+Octopus records and status now include explicit `mpan` and `serial` fields and a
+readable identity label such as `Import · MPAN 1234567890123 · meter SYNTH-METER`.
+Identifiers are not masked in these views. Missing legacy discovery metadata is
+labelled unavailable rather than inventing an MPAN or parsing an opaque stable key.
+Local identity IDs and cursor/filter contracts remain unchanged. These routes
+remain authenticated and no-store; keys, account/address payloads, raw stable keys
+and telemetry evidence are omitted. Growatt identifiers follow the same owner-visible policy described below.
+
+## Authenticated identity and diagnostics cleanup
+
+The owner requested useful full identities throughout the authenticated application,
+not just Octopus records. Growatt status/sample views now expose `plant_id` and
+`serial` with readable labels when established metadata exists; missing metadata
+is explicitly unavailable. The typed attempt audit likewise identifies actual
+meter/device metadata. Opaque stable keys and credentials are not display fields.
+Attempt summaries add `error_code` and `page` where available. New Octopus failures
+retain specific enumerated validation/count/structure reasons rather than only a
+broad failure class. Existing historical errors retain their recorded descriptions.
+Task 06a will add authenticated selected-evidence inspection/download with typed
+attempt/retrieval association checks, bounds and escaping. No audit/evidence route
+is implemented early by this cleanup; current unknown routes still return 404.

@@ -2,8 +2,9 @@
 
 Task 01 supplies an authenticated empty application. Task 02 adds durable SQLite
 observations, evidence, jobs and audit through typed storage methods. Task 03 adds
-authenticated stored-record tables and REST queries. Provider requests and
-scheduler execution are not implemented.
+authenticated stored-record tables and REST queries. Task 04 adds confirmed
+Octopus discovery and an opt-in bounded one-shot ingestion
+worker. Recurring scheduling and Growatt collection are not implemented.
 
 Requires Go 1.26.4 (module compatibility 1.26.0). Dependencies are pinned in
 go.mod/go.sum: modernc.org/sqlite v1.60.1 and modernc.org/libc v1.77.1.
@@ -26,7 +27,9 @@ See [.env.example](.env.example) for every supported environment name and
 the [configuration contract](docs/tasks/milestone-1/execution-contract.md#configuration-contract)
 for their meaning. Provider settings are parsed independently; invalid or partial
 settings produce an authenticated error card without blocking the other source.
-Valid credentials produce a configured card, but no network requests.
+Valid credentials produce a configured card. With ENERGYTHING_OCTOPUS_ONCE=true,
+startup discovers Octopus once and fetches one bounded window independently for
+each selected direction. Browsing never calls providers. The option defaults false.
 
 GET /healthz returns public fixed process liveness. GET / and
 GET /static/style.css, /records/octopus, /records/growatt, /api/v1/status,
@@ -65,3 +68,60 @@ recovery. See [data semantics](docs/data-semantics.md) and
 contracts, synthetic checks and the unresolved Growatt key/time gate.
 See [task 03 verification](docs/tasks/milestone-1/03-verification.md) for
 isolated synthetic browser acceptance and remaining gates.
+
+Task 04 one-shot verification: set `ENERGYTHING_OCTOPUS_ONCE=true` in the
+energything process environment (or Compose substitution), with Octopus key/account.
+The worker starts alongside HTTP serving; shutdown cancels fetches and waits for
+bounded audit cleanup before closing storage. It never repeats on a timer.
+Default bounds are previous local midnight through the latest elapsed half hour.
+With `OCTOPUS_BACKFILL_START`, only the first at-most-14-absolute-day unit is fetched;
+a later scheduler owns progression. Range-refresh configuration is not executed here.
+Restarting with the explicit option repeats this window and can accept corrections.
+Both directions need confirmed discovery; ambiguous/mismatched/unpaired selection
+is isolated to its stream. Configure paired MPAN/serial to resolve ambiguity.
+Discovery states appear in status without exposing raw identifiers.
+See [task 04 verification](docs/tasks/milestone-1/04-verification.md) for synthetic,
+actual-build browser and private live gates and the single HTTP retry policy.
+
+## Local preview standard
+
+After task verification, rebuild and recreate the existing local preview on its
+original mount so localhost:8080 serves the current implementation. Follow the
+[standard preview update procedure](docs/operations.md#standard-local-preview-update),
+including the saved Compose override, safe metadata checks and build verification.
+
+## One-off meter discovery report
+
+Use the read-only CLI when discovery finds several confirmed meters and you want
+to choose without adding a selection screen or REST endpoint:
+
+```powershell
+# Requires OCTOPUS_API_KEY and OCTOPUS_ACCOUNT_NUMBER in the process environment.
+go run ./cmd/octopus-discover
+# Optional: sample fewer days and choose a NEW private output file.
+go run ./cmd/octopus-discover --days 7 --timeout 2m --out .cache/octopus-discovery/my-report.md
+```
+
+No .env file is loaded. Default output is a new private Markdown file under ignored
+`.cache/octopus-discovery`; stdout contains only its path and completion status.
+The report lists confirmed import/export MPAN/serial choices, valid versus expected
+slots, newest/oldest validated interval times and sanitized sample failures. It
+contains private identifiers, so keep it outside tracked/public files.
+
+Sampling uses the existing safe client sequentially over the last 14 absolute days
+(default), ending at the latest elapsed half-hour. Limits: 1–14 days, at most 20
+candidates, total deadline 2m (maximum configurable 10m), existing page/body/retry
+budgets. Unknown direction and conflicting discovery are never sampled.
+Authentication/rate-limit failures stop further sampling to avoid repeated calls.
+
+Candidates are ranked by newest validated interval end, then observed slot count.
+Zero-energy readings count as reporting. If exactly one of several fully sampled
+candidates has readings ending in the last 48 hours, the report provides a tentative
+steer and candidate environment settings for your confirmation. Several recently
+reporting candidates, failed/incomplete sampling or no recent observations leave
+the selection unresolved. Sampling cannot prove a meter is current or infer why
+readings are absent. A sole confirmed identity needs no explicit selector.
+
+The tool does not write selections, .env, SQLite or raw telemetry. After confirming
+choices, configure the energything runtime privately and enable its explicit
+one-shot ingestion to populate readings. This report itself does not ingest.

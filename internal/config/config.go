@@ -18,6 +18,7 @@ type Provider struct {
 	RefreshInterval, LatestInterval, HistoryInterval                    time.Duration
 }
 type Config struct {
+	OctopusOnce                                           bool
 	HTTPAddr, DataDir, Username, Password, RangeRefreshID string
 	Timezone                                              *time.Location
 	ShutdownTimeout                                       time.Duration
@@ -44,6 +45,12 @@ func Parse(get func(string) string, now time.Time) (Config, error) {
 	if err != nil || e != nil || n < 1 || n > 65535 || (host != "" && net.ParseIP(host) == nil && host != "localhost") {
 		return c, errors.New("ENERGYTHING_HTTP_ADDR must contain an IP address or localhost and a port from 1 to 65535")
 	}
+	if v := get("ENERGYTHING_OCTOPUS_ONCE"); v != "" {
+		if v != "true" && v != "false" {
+			return c, errors.New("ENERGYTHING_OCTOPUS_ONCE must be true or false")
+		}
+		c.OctopusOnce = v == "true"
+	}
 	c.Timezone, err = time.LoadLocation(value("ENERGYTHING_TIMEZONE", "Europe/London"))
 	if err != nil {
 		return c, errors.New("ENERGYTHING_TIMEZONE must be a valid IANA timezone")
@@ -64,9 +71,6 @@ func Parse(get func(string) string, now time.Time) (Config, error) {
 		}
 		if partial {
 			fail(prefix + " credentials are incomplete; configure all required credentials.")
-		}
-		if prefix == "OCTOPUS" && ((p.ImportMPAN == "") != (p.ImportSerial == "") || (p.ExportMPAN == "") != (p.ExportSerial == "")) {
-			fail("OCTOPUS meter selection requires paired MPAN and serial values.")
 		}
 		duration := func(key, def string) time.Duration {
 			d, e := time.ParseDuration(value(key, def))

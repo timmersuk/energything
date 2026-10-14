@@ -349,7 +349,7 @@ func TestPaginationFiltersSanitizationAndRangeIDs(t *testing.T) {
 func TestMigrationRollbackNewerAndReopen(t *testing.T) {
 	ctx := context.Background()
 	s, dir, _, _ := fixture(t, "octopus")
-	if err := migrate(ctx, s.db, []string{"unused", `CREATE TABLE synthetic_upgrade(value TEXT); INSERT INTO synthetic_upgrade VALUES ('x'); invalid SQL;`}); err == nil {
+	if err := migrate(ctx, s.db, []string{"unused", "unused", `CREATE TABLE synthetic_upgrade(value TEXT); INSERT INTO synthetic_upgrade VALUES ('x'); invalid SQL;`}); err == nil {
 		t.Fatal("migration error ignored")
 	}
 	var n int
@@ -358,10 +358,10 @@ func TestMigrationRollbackNewerAndReopen(t *testing.T) {
 		t.Fatal("migration data did not rollback")
 	}
 	s.db.QueryRow(`SELECT max(version) FROM schema_migrations`).Scan(&n)
-	if n != 1 {
+	if n != schemaVersion {
 		t.Fatal("migration version advanced")
 	}
-	if _, err := s.db.Exec(`INSERT INTO schema_migrations VALUES(2)`); err != nil {
+	if _, err := s.db.Exec(`INSERT INTO schema_migrations VALUES(3)`); err != nil {
 		t.Fatal(err)
 	}
 	s.Close()
@@ -438,4 +438,21 @@ func TestLockDiskFailureAndCancellation(t *testing.T) {
 		t.Fatal("disk-full recorded false terminal audit")
 	}
 	t.Log("actual SQLite busy timeout, query-only write denial, SQLITE_FULL and cancellation passed", filepath.Base(dir))
+}
+func TestAuditIdentityAndSpecificDiagnostic(t *testing.T) {
+	s, _, identity, j := fixture(t, "octopus")
+	ctx := context.Background()
+	identity.Metadata = DiscoveryMetadata{MPAN: "synthetic-mpan", Serial: "synthetic-serial"}
+	if _, err := s.UpsertIdentities(ctx, []Identity{identity}); err != nil {
+		t.Fatal(err)
+	}
+	id := begin(t, s, j)
+	page := 2
+	if err := s.RecordRejectedOrFailedAttempt(ctx, FailedAttempt{AttemptID: id, Finished: testStart + 4*halfHour, NextDue: testStart + 5*halfHour, Outcome: "rejected", ErrorClass: "validation", ErrorCode: "invalid_duration", Page: &page}); err != nil {
+		t.Fatal(err)
+	}
+	a, err := s.QueryAttempt(ctx, id)
+	if err != nil || !strings.Contains(a.DisplayIdentity, "synthetic-mpan") || !strings.Contains(a.DisplayIdentity, "synthetic-serial") || strings.Contains(a.DisplayIdentity, "masked") || a.Message != "Reading interval duration is not 30 minutes" || a.Page == nil || *a.Page != 2 {
+		t.Fatal(a, err)
+	}
 }
