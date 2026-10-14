@@ -1,0 +1,7 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Energything</title><link rel="stylesheet" href="/static/style.css"></head>
+<body><main><h1>Energything</h1><p>Your energy history, kept locally.</p>
+<section><h2>Octopus electricity</h2><p class="state">{{.Octopus.State}}</p><p>{{.Octopus.Message}}</p></section>
+<section><h2>Growatt solar</h2><p class="state">{{.Growatt.State}}</p><p>{{.Growatt.Message}}</p></section>
+<p>No observations yet. This scaffold does not collect provider data.</p><footer>Build {{.BuildID}}</footer>
+</main></body></html>
