@@ -89,3 +89,39 @@ After task verification, rebuild and recreate the existing local preview on its
 original mount so localhost:8080 serves the current implementation. Follow the
 [standard preview update procedure](docs/operations.md#standard-local-preview-update),
 including the saved Compose override, safe metadata checks and build verification.
+
+## One-off meter discovery report
+
+Use the read-only CLI when discovery finds several confirmed meters and you want
+to choose without adding a selection screen or REST endpoint:
+
+```powershell
+# Requires OCTOPUS_API_KEY and OCTOPUS_ACCOUNT_NUMBER in the process environment.
+go run ./cmd/octopus-discover
+# Optional: sample fewer days and choose a NEW private output file.
+go run ./cmd/octopus-discover --days 7 --timeout 2m --out .cache/octopus-discovery/my-report.md
+```
+
+No .env file is loaded. Default output is a new private Markdown file under ignored
+`.cache/octopus-discovery`; stdout contains only its path and completion status.
+The report lists confirmed import/export MPAN/serial choices, valid versus expected
+slots, newest/oldest validated interval times and sanitized sample failures. It
+contains private identifiers, so keep it outside tracked/public files.
+
+Sampling uses the existing safe client sequentially over the last 14 absolute days
+(default), ending at the latest elapsed half-hour. Limits: 1–14 days, at most 20
+candidates, total deadline 2m (maximum configurable 10m), existing page/body/retry
+budgets. Unknown direction and conflicting discovery are never sampled.
+Authentication/rate-limit failures stop further sampling to avoid repeated calls.
+
+Candidates are ranked by newest validated interval end, then observed slot count.
+Zero-energy readings count as reporting. If exactly one of several fully sampled
+candidates has readings ending in the last 48 hours, the report provides a tentative
+steer and candidate environment settings for your confirmation. Several recently
+reporting candidates, failed/incomplete sampling or no recent observations leave
+the selection unresolved. Sampling cannot prove a meter is current or infer why
+readings are absent. A sole confirmed identity needs no explicit selector.
+
+The tool does not write selections, .env, SQLite or raw telemetry. After confirming
+choices, configure the energything runtime privately and enable its explicit
+one-shot ingestion to populate readings. This report itself does not ingest.

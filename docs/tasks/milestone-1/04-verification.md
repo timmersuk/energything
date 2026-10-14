@@ -132,3 +132,33 @@ as part of future handoffs, with separate synthetic databases and safe mount che
 Post-recreation checks passed: running state, original bind mount, public health,
 authenticated status build ID `task04-octopus` and one-shot disabled. No live
 collection was triggered by the preview upgrade.
+
+## Read-only discovery CLI follow-up
+
+The user requested a small one-off CLI instead of extending the app/REST selection
+flow. `cmd/octopus-discover` reuses the existing account discovery, independent
+selection and validated bounded fetch client. It reports candidate IDs privately,
+recent slot coverage, oldest/newest observations, page/retry counts and enumerated
+failures; it never reads/writes the app store or applies configuration.
+
+Default sampling covers 14 absolute days through the latest elapsed half-hour,
+with 20-candidate and 2m overall budgets. Unknown/conflicting directions are skipped;
+auth/rate-limit/cancellation stops subsequent sampling. The tentative steer requires
+exactly one recently reporting candidate (last 48h) among successfully sampled
+candidates. Multiple active candidates and incomplete/failed samples remain unresolved.
+Zero readings count as telemetry. No inference of meter lifetime is made.
+
+Synthetic CLI tests cover independent import/export, unknown/conflicting discovery,
+zero readings, recent versus empty/older candidates, multiple recent candidates,
+network/validation/auth/rate-limit failures, cancellation, candidate budget,
+sanitary errors, private report contents and refusal to overwrite an existing file.
+CLI reports contain only necessary identity and summary data, no account/address
+payload, API key or individual energy readings. Default reports are ignored.
+
+Executed CLI follow-up checks: targeted CLI tests, full `go test ./...` and
+`go vet ./...` passed. Independent Spec/Standards reviews found no additional
+findings. Actual authenticated candidate sampling completed with the existing
+energything runtime credentials, creating a private ignored report. No identifiers,
+account payloads or sample values are included in this public handoff. Application
+selection and database state were unchanged. Server/web code and build are unchanged,
+so no preview recreation was needed for this standalone CLI addition.
