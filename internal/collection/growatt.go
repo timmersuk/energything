@@ -27,6 +27,10 @@ func DiscoverGrowatt(ctx context.Context, db growattStore, client *growatt.Clien
 	state.Occurred = storage.At(time.Now())
 	if e != nil {
 		state.State = "failed"
+		var pe *growatt.Error
+		if errors.As(e, &pe) {
+			state.Failure = &storage.DiscoveryFailure{Class: pe.Class, Code: pe.Code, Page: pe.Page, Diagnostic: pe.Diagnostic}
+		}
 	}
 	rows := []storage.Identity{}
 	if e == nil {

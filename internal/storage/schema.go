@@ -10,7 +10,7 @@ import (
 //go:embed migrations/*.sql
 var migrations embed.FS
 
-const schemaVersion = 3
+const schemaVersion = 4
 
 func migrate(ctx context.Context, db *sql.DB, scripts []string) error {
 	tx, err := db.BeginTx(ctx, nil)
@@ -44,7 +44,7 @@ func migrate(ctx context.Context, db *sql.DB, scripts []string) error {
 
 func (s *Store) initialize(ctx context.Context) error {
 	scripts := []string{}
-	for _, name := range []string{"001_initial.sql", "002_discovery.sql", "003_growatt.sql"} {
+	for _, name := range []string{"001_initial.sql", "002_discovery.sql", "003_growatt.sql", "004_growatt_discovery_failure.sql"} {
 		script, err := migrations.ReadFile("migrations/" + name)
 		if err != nil {
 			return err

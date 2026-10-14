@@ -106,3 +106,8 @@ Task 05 adds migration 003. Back up the complete original preview directory afte
 a clean stop before recreating it. `scripts/task05-preview.ps1` applies the exact
 saved Compose pair and verifies build/health/mount/retained counts without printing
 credentials or resolved configuration. Synthetic browser data uses a separate mount.
+
+Task 05 also adds migration 004 for discovery failure diagnostics. Apply the same
+clean-stop/full-directory backup procedure before upgrading from intermediate schema003.
+Run private preview browser checks with `scripts/task05-preview-browser.ps1`; it
+keeps generated credential-bearing code/output ignored and removes them after checking.

@@ -97,6 +97,7 @@ type RetryDetail struct {
 	WaitMicroseconds        int64
 }
 type Diagnostic struct {
+	HTTPStatus   int    `json:"http_status,omitempty"`
 	Field        string `json:"field,omitempty"`
 	Value        string `json:"value,omitempty"`
 	Expected     *int   `json:"expected,omitempty"`

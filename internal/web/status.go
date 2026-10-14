@@ -86,10 +86,11 @@ type sourceView struct {
 	Coverage          []coverageView `json:"coverage"`
 }
 type discoveryView struct {
-	Stream   string `json:"stream"`
-	State    string `json:"state"`
-	Message  string `json:"message"`
-	Occurred string `json:"occurred_at"`
+	Failure  *storage.DiscoveryFailure `json:"failure,omitempty"`
+	Stream   string                    `json:"stream"`
+	State    string                    `json:"state"`
+	Message  string                    `json:"message"`
+	Occurred string                    `json:"occurred_at"`
 }
 type providerView struct {
 	Streams       []discoveryView `json:"streams,omitempty"`
@@ -149,7 +150,7 @@ func statusData(ctx context.Context, store recordStore, c config.Config, build s
 		}
 		for _, d := range discovery {
 			if d.Provider == p.name {
-				v.Streams = append(v.Streams, discoveryView{Stream: d.Stream, State: d.State, Message: providerDiscoveryMessage(d.Provider, d.Stream, d.State), Occurred: instant(d.Occurred)})
+				v.Streams = append(v.Streams, discoveryView{Failure: d.Failure, Stream: d.Stream, State: d.State, Message: providerDiscoveryMessage(d.Provider, d.Stream, d.State), Occurred: instant(d.Occurred)})
 			}
 		}
 		out.Providers = append(out.Providers, v)

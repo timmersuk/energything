@@ -245,3 +245,9 @@ rows and records observed unavailability. Unresolved occurrences retain attempt/
 ordinal and null key/instant; latest/history replay cannot claim idempotent sample
 identity until independent provider evidence establishes it. Evidence is digest
 reused but every retrieval and unresolved occurrence remains attributable.
+
+Review follow-up adds migration 004 for safe discovery failure class/code/page and
+Diagnostic. QueryDiscovery/status expose this stored context even when no identity
+could be selected. Diagnostic includes `http_status`; nonnegative count diagnostics
+can represent rejected overruns beyond the acceptance budget. Such counts never
+increase the permitted fetch/commit budget.

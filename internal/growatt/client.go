@@ -216,7 +216,9 @@ func (c *Client) request(ctx context.Context, path, method string, form url.Valu
 			case status >= 500 && status <= 599:
 				code = "unavailable"
 			default:
-				return nil, problem("protocol", "http_status", page)
+				pe := problem("protocol", "http_status", page)
+				pe.Diagnostic.HTTPStatus = status
+				return nil, pe
 			}
 			if sec, e := strconv.ParseUint(retryAfter, 10, 32); e == nil {
 				delay = time.Duration(sec) * time.Second

@@ -6,6 +6,7 @@ async page => {
  await page.goto(base+'/');
  const status=await (await page.context().request.get(base+'/api/v1/status')).json();
  assert(status.build_id==='task05-growatt','task image build');
+ const discovery=status.providers.find(p=>p.source==='growatt').streams[0];assert(discovery.failure.diagnostic.http_status===404,'discovery HTTP diagnostic');assert((await page.locator('main').innerText()).includes('HTTP 404'),'discovery diagnostic visible');
  const source=status.providers.find(p=>p.source==='growatt').sources.find(s=>s.serial==='SYN-A');
  assert(source.plant_id==='123'&&source.last_attempt.outcome==='failed'&&source.last_accepted_attempt.outcome==='success','failure preserves acceptance');
  await page.goto(base+'/records/growatt?view=quality&provider_date=2026-10-13');

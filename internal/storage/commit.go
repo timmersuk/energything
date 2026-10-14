@@ -315,24 +315,8 @@ func (s *Store) RecordRejectedOrFailedAttempt(ctx context.Context, in FailedAtte
 	if in.Outcome != "failed" && in.Outcome != "rejected" && in.Outcome != "cancelled" {
 		return ErrInvalid
 	}
-	if in.Diagnostic.Field != "" {
-		valid := false
-		for _, f := range []string{"soc", "bmsSOC", "ppv", "plocalLoadTotal", "pacToUserTotal", "pacToGridTotal", "pcharge1", "pdischarge1", "epvTotal", "epvtoday", "epv1Today", "epv2Today", "etoUserToday", "etoUserTotal", "etoGridToday", "etogridTotal", "echarge1Today", "echarge1Total", "edischarge1Today", "edischarge1Total", "elocalLoadToday", "elocalLoadTotal", "eacToday", "eacTotal"} {
-			if in.Diagnostic.Field == f {
-				valid = true
-			}
-		}
-		if !valid {
-			return ErrInvalid
-		}
-	}
-	if in.Diagnostic.Value != "" && (len(in.Diagnostic.Value) > 128 || !signedDecimal.MatchString(in.Diagnostic.Value)) {
+	if validateDiagnostic(in.Diagnostic) != nil {
 		return ErrInvalid
-	}
-	for _, n := range []*int{in.Diagnostic.Expected, in.Diagnostic.Observed} {
-		if n != nil && (*n < 0 || *n > 10000) {
-			return ErrInvalid
-		}
 	}
 	diagnostic, _ := json.Marshal(in.Diagnostic)
 	message, ok := errorMessages[in.ErrorClass]
@@ -397,4 +381,30 @@ var diagnosticMessages = map[string]string{
 	"validation/conflicting_interval":  "Conflicting readings have the same interval start",
 	"protocol/count_mismatch":          "Assembled reading count does not match the reported page count",
 	"protocol/missing_results":         "Provider page has no required results array",
+}
+
+func validateDiagnostic(d Diagnostic) error {
+	if d.Field != "" {
+		valid := false
+		for _, f := range []string{"soc", "bmsSOC", "ppv", "plocalLoadTotal", "pacToUserTotal", "pacToGridTotal", "pcharge1", "pdischarge1", "epvTotal", "epvtoday", "epv1Today", "epv2Today", "etoUserToday", "etoUserTotal", "etoGridToday", "etogridTotal", "echarge1Today", "echarge1Total", "edischarge1Today", "edischarge1Total", "elocalLoadToday", "elocalLoadTotal", "eacToday", "eacTotal"} {
+			if d.Field == f {
+				valid = true
+			}
+		}
+		if !valid {
+			return ErrInvalid
+		}
+	}
+	if d.Value != "" && (len(d.Value) > 128 || !signedDecimal.MatchString(d.Value)) {
+		return ErrInvalid
+	}
+	for _, n := range []*int{d.Expected, d.Observed} {
+		if n != nil && *n < 0 {
+			return ErrInvalid
+		}
+	}
+	if d.HTTPStatus < 0 || d.HTTPStatus > 599 {
+		return ErrInvalid
+	}
+	return nil
 }

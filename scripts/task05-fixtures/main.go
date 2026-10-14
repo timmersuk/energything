@@ -45,6 +45,10 @@ func main() {
 	if collection.CollectGrowattUnit(ctx, db, client, jobs[0], device, "Europe/London") == nil {
 		panic("outage accepted")
 	}
+	status = 404
+	if _, _, e = collection.DiscoverGrowatt(ctx, db, client, "", ""); e == nil {
+		panic("discovery failure accepted")
+	}
 	must(db.Close())
 	abs, _ := filepath.Abs(root)
 	fmt.Println(abs)

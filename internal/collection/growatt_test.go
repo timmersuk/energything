@@ -67,3 +67,43 @@ func TestGrowattAcceptedRejectedEmptyReopen(t *testing.T) {
 		t.Fatal(audits, e)
 	}
 }
+
+func TestGrowattOverrunAndDiscoveryFailureAudit(t *testing.T) {
+	ctx := context.Background()
+	db, e := storage.Open(ctx, t.TempDir())
+	if e != nil {
+		t.Fatal(e)
+	}
+	defer db.Close()
+	ids, e := db.RecordGrowattDiscovery(ctx, storage.DiscoveryState{Provider: "growatt", Stream: "telemetry", State: "selected", Occurred: storage.At(time.Now())}, []storage.Identity{{Provider: "growatt", Stream: "telemetry", StableKey: "synthetic", Selected: true, Metadata: storage.DiscoveryMetadata{PlantID: "123", Serial: "SYN-A"}}})
+	if e != nil {
+		t.Fatal(e)
+	}
+	from := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	jobs, e := db.EnsureJobs(ctx, []storage.Job{{IdentityID: ids[0].ID, Kind: "history", Policy: "backfill", ProviderDate: "2026-01-01", Start: storage.At(from), End: storage.At(from.Add(24 * time.Hour)), NextDue: storage.At(time.Now())}})
+	if e != nil {
+		t.Fatal(e)
+	}
+	body := `{"error_code":0,"data":{"count":10000,"datas":[` + strings.Repeat(`{"soc":0},`, 10000) + `{"soc":0}]}}`
+	c := growatt.NewClient("synthetic", growattTransport(func(*http.Request) (*http.Response, error) {
+		return &http.Response{StatusCode: 200, Header: http.Header{}, Body: io.NopCloser(strings.NewReader(body))}, nil
+	}))
+	if e = CollectGrowattUnit(ctx, db, c, jobs[0], growatt.Device{PlantID: "123", Serial: "SYN-A", Family: "5"}, "Europe/London"); e == nil {
+		t.Fatal("oversized unit accepted")
+	}
+	status, _ := db.QueryStatus(ctx)
+	a := status[0].LastAttempt
+	if a.Outcome != "failed" || a.Diagnostic.Observed == nil || *a.Diagnostic.Observed != 10001 || status[0].Jobs[0].RunningAttempt != nil || status[0].Jobs[0].Checkpoint != nil {
+		t.Fatal("overrun audit lost", status)
+	}
+	c = growatt.NewClient("synthetic", growattTransport(func(*http.Request) (*http.Response, error) {
+		return &http.Response{StatusCode: 404, Header: http.Header{}, Body: io.NopCloser(strings.NewReader("private-secret"))}, nil
+	}))
+	if _, _, e = DiscoverGrowatt(ctx, db, c, "", ""); e == nil {
+		t.Fatal("failed discovery accepted")
+	}
+	states, e := db.QueryDiscovery(ctx)
+	if e != nil || len(states) != 1 || states[0].Failure == nil || states[0].Failure.Diagnostic.HTTPStatus != 404 || strings.Contains(states[0].Failure.Message, "secret") {
+		t.Fatal("discovery context unavailable", states, e)
+	}
+}

@@ -4,6 +4,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"github.com/timmersuk/energything/internal/collection"
@@ -12,6 +13,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"syscall"
 	"time"
 )
 
@@ -42,7 +44,7 @@ func run() error {
 			return fmt.Errorf("day must be a non-future YYYY-MM-DD")
 		}
 	}
-	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 	ctx, deadline := context.WithTimeout(ctx, 15*time.Minute)
 	defer deadline()
@@ -99,20 +101,11 @@ func run() error {
 		if e = db.ResumeJob(ctx, job.ID, storage.At(time.Now())); e != nil {
 			return fmt.Errorf("private verification work could not resume")
 		}
-		result = errorsJoin(result, collection.CollectGrowattUnit(ctx, db, client, job, *d.Selected, *zone))
+		result = errors.Join(result, collection.CollectGrowattUnit(ctx, db, client, job, *d.Selected, *zone))
 	}
 	if result != nil {
 		return result
 	}
 	fmt.Println("Private latest/history verification accepted; inspect private database for details")
 	return nil
-}
-func errorsJoin(a, b error) error {
-	if a == nil {
-		return b
-	}
-	if b == nil {
-		return a
-	}
-	return fmt.Errorf("%v; %v", a, b)
 }

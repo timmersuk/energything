@@ -6,9 +6,17 @@ import (
 	"encoding/json"
 )
 
+type DiscoveryFailure struct {
+	Class      string     `json:"class"`
+	Code       string     `json:"code"`
+	Message    string     `json:"message"`
+	Page       int        `json:"page"`
+	Diagnostic Diagnostic `json:"diagnostic"`
+}
 type DiscoveryState struct {
 	Provider, Stream, State string
 	Occurred                Instant
+	Failure                 *DiscoveryFailure
 }
 
 // RecordOctopusDiscovery updates both streams and selection atomically. Old
@@ -56,7 +64,7 @@ func (s *Store) RecordOctopusDiscovery(ctx context.Context, states []DiscoverySt
 	return out, err
 }
 func (s *Store) QueryDiscovery(ctx context.Context) ([]DiscoveryState, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT provider,stream,state,occurred FROM discovery_states UNION ALL SELECT 'growatt',stream,state,occurred FROM growatt_discovery ORDER BY provider,stream`)
+	rows, err := s.db.QueryContext(ctx, `SELECT provider,stream,state,occurred,'{}' FROM discovery_states UNION ALL SELECT 'growatt',stream,state,occurred,failure FROM growatt_discovery ORDER BY provider,stream`)
 	if err != nil {
 		return nil, err
 	}
@@ -64,8 +72,16 @@ func (s *Store) QueryDiscovery(ctx context.Context) ([]DiscoveryState, error) {
 	out := []DiscoveryState{}
 	for rows.Next() {
 		var x DiscoveryState
-		if err := rows.Scan(&x.Provider, &x.Stream, &x.State, &x.Occurred); err != nil {
+		var raw string
+		if err := rows.Scan(&x.Provider, &x.Stream, &x.State, &x.Occurred, &raw); err != nil {
 			return nil, err
+		}
+		if raw != "{}" {
+			var f DiscoveryFailure
+			if err := json.Unmarshal([]byte(raw), &f); err != nil {
+				return nil, err
+			}
+			x.Failure = &f
 		}
 		out = append(out, x)
 	}
@@ -80,6 +96,20 @@ func marshalDiscovery(m DiscoveryMetadata) (string, error) {
 // RecordGrowattDiscovery preserves deselected sources while atomically replacing
 // the confirmed selection. Only necessary plant/device/family metadata is retained.
 func (s *Store) RecordGrowattDiscovery(ctx context.Context, state DiscoveryState, identities []Identity) ([]Identity, error) {
+	failure := "{}"
+	if state.Failure != nil {
+		f := *state.Failure
+		message, ok := errorMessages[f.Class]
+		if !ok || !errorCodes[f.Code] || f.Page < 0 || f.Page > 100 || validateDiagnostic(f.Diagnostic) != nil {
+			return nil, ErrInvalid
+		}
+		if specific, ok := diagnosticMessages[f.Class+"/"+f.Code]; ok {
+			message = specific
+		}
+		f.Message = message
+		raw, _ := json.Marshal(f)
+		failure = string(raw)
+	}
 	if state.Provider != "growatt" || state.Stream != "telemetry" || !validInstant(state.Occurred) {
 		return nil, ErrInvalid
 	}
@@ -105,7 +135,7 @@ func (s *Store) RecordGrowattDiscovery(ctx context.Context, state DiscoveryState
 				return err
 			}
 		}
-		_, err := tx.ExecContext(ctx, `INSERT INTO growatt_discovery VALUES(?,?,?) ON CONFLICT(stream) DO UPDATE SET state=excluded.state,occurred=excluded.occurred`, state.Stream, state.State, state.Occurred)
+		_, err := tx.ExecContext(ctx, `INSERT INTO growatt_discovery(stream,state,occurred,failure) VALUES(?,?,?,?) ON CONFLICT(stream) DO UPDATE SET state=excluded.state,occurred=excluded.occurred,failure=excluded.failure`, state.Stream, state.State, state.Occurred, failure)
 		return err
 	})
 	return out, err

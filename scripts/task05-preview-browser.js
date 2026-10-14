@@ -1,5 +1,5 @@
 async page => {
- const fs=require('fs');const credentials=JSON.parse(fs.readFileSync('.cache/task05-private/browser-auth.json','utf8'));
+ const credentials=__PRIVATE_AUTH__;
  await page.context().setHTTPCredentials(credentials);
  await page.goto('http://localhost:8080/');
  const status=await (await page.context().request.get('http://localhost:8080/api/v1/status')).json();

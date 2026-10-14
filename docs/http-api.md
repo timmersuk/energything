@@ -182,3 +182,7 @@ Status attempt JSON adds `diagnostic` with optional field/value/expected/observe
 provider_code. These are structured validated context, never provider error text.
 The status HTML displays available diagnostics. Durable audit/evidence routes and
 refresh remain unimplemented until their assigned later tasks.
+
+Discovery stream status additionally carries optional `failure` with class/code/
+message/page/diagnostic; HTTP status is `diagnostic.http_status`. Safe failure
+context remains available when discovery fails before identity selection.
