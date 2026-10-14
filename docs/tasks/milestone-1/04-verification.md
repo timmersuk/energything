@@ -236,3 +236,19 @@ with specific codes/messages and null/missing/changed/budget regressions. Previe
 updated on its exact original Compose mount with one-shot disabled; retained Octopus
 records and full identifiers verified after recreation. No Growatt live ingestion
 is claimed, and no private data is included in this public handoff.
+
+## User-requested clean database and re-pull
+
+After the identity/diagnostic cleanup, the user requested a fresh database re-pull.
+Inspection confirmed masked source labels had been generated at query/render time,
+not stored in identity metadata or observation values. Nevertheless, as requested,
+the preview was stopped cleanly and its SQLite database/companions archived to a
+new recoverable ignored `.cache/preview-backups/before-clean-repull-*` directory.
+The original mount directory was preserved. No archive was deleted or published.
+
+A fresh database initialized on that mount with the current build and confirmed
+runtime selections. Both import/export bounded fetches completed successfully.
+One-shot was disabled and the preview recreated again; fresh records persisted,
+full MPAN/serial fields matched runtime selections and authenticated tables returned
+200 without masked labels. This is a fresh fetch of the configured one-shot window,
+not a claim of complete archive backfill. No source/configuration code changed.
