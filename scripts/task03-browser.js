@@ -80,7 +80,7 @@ async page => {
   await page.screenshot({path: '.cache/task03-growatt.png', fullPage: true});
   const quality = await get('/api/v1/growatt/samples?view=quality&from=2026-10-26&to=2026-10-26&quality=unresolved');
   assert(quality.records.length === 4 && quality.range_basis === 'retrieval', 'retrieval quality filter');
-  for (const path of ['/api/v1/octopus/intervals?limit=501', '/records/octopus?cursor=malformed', '/api/v1/growatt/samples?from=2026-10-25', '/api/v1/octopus/intervals?from=2026-10-25&to=2026-10-26T00:00:00Z']) {
+  for (const path of ['/api/v1/octopus/intervals?limit=501', '/records/octopus?cursor=malformed', '/api/v1/growatt/samples?from=2026-10-25', '/api/v1/octopus/intervals?from=2026-10-25&to=2026-10-26T00:00:00Z', '/api/v1/octopus/intervals?from=2026-10-25T00:00:00%2B24:00&to=2026-10-27T00:00:00Z']) {
     const response = await page.context().request.get(fixture + path);
     assert(response.status() === 400 && (await response.json()).error.code === 'invalid_query', 'safe error: ' + path);
   }
@@ -95,4 +95,3 @@ async page => {
   assert(outbound === 0, 'external browser requests');
   return {passed: true, authenticatedRoutes: paths.length, calendarSlots: [46,50], paginatedRows: seen.size, pages, unresolvedExcluded: resolved.omitted_unresolved, outboundRequests: outbound};
 }
-

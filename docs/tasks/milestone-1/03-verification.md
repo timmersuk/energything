@@ -86,7 +86,8 @@ Handler assertions exercise no/wrong auth on every implemented protected route
 and asset; GET-only behavior and absent future endpoints; useful empty pages;
 exact `0.100000000000000001`/`0.000`, SOC null versus `"0"` and null units;
 London 46/50-slot bounds; malformed/mixed/missing ranges, limits, encoding,
-duplicate/unknown parameters and cursors; stable interval and quality pagination;
+duplicate/unknown parameters and cursors; invalid offset components, comma
+fractions and excessive precision; stable interval and quality pagination;
 new earlier arrivals between pages without duplicate/omitted preexisting records;
 cursor filter mismatch; escaped script text; zero calls to a rejecting default
 HTTP transport; recent retrieval of older measurements; omitted unresolved counts;
@@ -166,3 +167,15 @@ collection, preview database upgrade, refresh/audit API, backup/restore or relea
 publication was exercised. The existing preview still serves its earlier build;
 the verified task build is separate. Later tasks populate the established typed
 store rather than adding provider HTTP calls to browsing handlers.
+
+## Required review
+
+The implement skill’s code-review step reviewed `git diff main...HEAD` in parallel
+against fixed main `5f95c81`. Standards: no documented violations; one optional
+Mysterious Name observation about the two-provider `growatt bool`. The existing
+two-provider branching stays scoped to task 03; no future-provider abstraction
+was introduced. Spec: no scope or required-behavior gaps; reviewer suggested
+checking permissive RFC3339 offsets. Targeted regression tests confirmed Go
+accepted offset hour 24/minute 60, comma fractions and silently truncated excess
+precision. Strict syntax validation now rejects these before parsing, and tests
+and actual-build browser acceptance were rerun after the correction.

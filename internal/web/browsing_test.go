@@ -107,6 +107,11 @@ func TestCalendarBounds(t *testing.T) {
 			t.Fatal(query)
 		}
 	}
+	for _, from := range []string{"2026-10-25T00:00:00+24:00", "2026-10-25T00:00:00+00:60", "2026-10-25T00:00:00,123Z", "2026-10-25T00:00:00.1234560001Z"} {
+		if _, err := parseQuery(url.Values{"from": {from}, "to": {"2026-10-27T00:00:00Z"}}, false, loc, now); err == nil {
+			t.Errorf("accepted malformed or imprecise instant %s", from)
+		}
+	}
 }
 
 func TestStoredValuesPagingAndTimes(t *testing.T) {

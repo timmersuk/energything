@@ -3,6 +3,7 @@ package web
 import (
 	"errors"
 	"net/url"
+	"regexp"
 	"strconv"
 	"time"
 
@@ -13,6 +14,10 @@ type recordQuery struct {
 	storage.SampleQuery
 	FromText, ToText string
 }
+
+// time.Parse accepts offset hour 24/minute 60, comma fractions and silently
+// truncates excess fractional digits. Keep the HTTP contract stricter.
+var offsetInstant = regexp.MustCompile(`^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]{1,6})?(Z|[+-]([01][0-9]|2[0-3]):[0-5][0-9])$`)
 
 // Both HTML and JSON use this parser. Calendar ends are inclusive; instant ends
 // are exclusive. Quality-view bounds apply to retrieval, never guessed clock text.
@@ -97,6 +102,9 @@ func parseQuery(v url.Values, growatt bool, loc *time.Location, now time.Time) (
 		}
 		b = b.AddDate(0, 0, 1)
 	} else {
+		if !offsetInstant.MatchString(from) || !offsetInstant.MatchString(to) {
+			return q, invalid
+		}
 		a, err = time.Parse(time.RFC3339Nano, from)
 		if err != nil {
 			return q, invalid
