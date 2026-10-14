@@ -174,3 +174,17 @@ exceptional repair uses a durable CLI enqueue action. A required provider gate
 establishes earliest accessible history or a finite supported search/stopping rule;
 gaps do not prove history ends, and no arbitrary short range is called the full
 archive. No task 06 runtime code was added. Current task 04 behavior is unchanged.
+
+## Authorized ingestion after private selection
+
+The user applied the privately reported meter settings and requested ingestion.
+The preview was recreated with one-shot enabled using the exact saved Compose
+project/files and original mount. Both selected directions completed authenticated
+bounded ingestion successfully. Selected-stream records were confirmed through
+bounded authenticated API and HTML table reads. One-shot was then disabled and the
+preview recreated; accepted data remained queryable on the original mount.
+This supersedes the earlier missing-selection/live-ingestion gate for the executed
+recent window only; it does not establish full historical or measurement coverage.
+No credential values, raw identifiers or telemetry values are included here.
+An initial verification query used PowerShell-coerced locale timestamps and was
+correctly rejected; preserving RFC3339 strings produced successful verification.
