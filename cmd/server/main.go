@@ -3,7 +3,9 @@ package main
 import (
 	"context"
 	"errors"
+	"github.com/timmersuk/energything/internal/collection"
 	"github.com/timmersuk/energything/internal/config"
+	"github.com/timmersuk/energything/internal/octopus"
 	"github.com/timmersuk/energything/internal/storage"
 	"github.com/timmersuk/energything/internal/web"
 	"log"
@@ -43,7 +45,23 @@ func run(ctx context.Context) (err error) {
 	if err != nil {
 		return errors.New("HTTP listen failed; check address and whether the port is already in use")
 	}
-	return serve(ctx, listener, handler, c.ShutdownTimeout)
+	workerCtx, cancelWorker := context.WithCancel(ctx)
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		if c.OctopusOnce && c.Octopus.State == "valid" {
+			from, to := collection.StartupWindow(c.Octopus, c.Timezone, time.Now())
+			if to.After(from) {
+				if err := collection.OctopusOnce(workerCtx, db, octopus.NewClient(c.Octopus.APIKey, nil), c.Octopus, from, to); err != nil {
+					log.Print(err)
+				}
+			}
+		}
+	}()
+	serveErr := serve(ctx, listener, handler, c.ShutdownTimeout)
+	cancelWorker()
+	<-done // HTTP and cleanup requests are bounded; close storage last.
+	return serveErr
 }
 func serve(ctx context.Context, listener net.Listener, handler http.Handler, timeout time.Duration) error {
 	server := &http.Server{Handler: handler, ReadHeaderTimeout: 5 * time.Second, BaseContext: func(net.Listener) context.Context { return ctx }}

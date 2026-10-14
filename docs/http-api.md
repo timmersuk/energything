@@ -127,3 +127,19 @@ Errors are bounded JSON: `{"error":{"code":"invalid_query","message":"Invalid ra
 `Stored data temporarily unavailable`; template failure is 500 `internal` with
 `Page unavailable`. Authentication uses the task 01 safe authentication response.
 No SQL, raw error text, credential value or provider response is returned.
+
+## Task 04 discovery extension
+
+The existing GET routes and record/status fields remain unchanged. Provider status
+additionally has optional `streams`, containing `{stream,state,occurred_at}` for
+stored Octopus discovery. Streams are independently `discovering`, `selected`,
+`unavailable`, `selection_required`, `conflict` or `failed`; occurrence is UTC.
+No account payload, raw identity or provider error is included. Configuration
+validity and stored discovery remain distinct, including after credentials are
+removed. These states and existing retained records are rendered on `/`.
+
+An incomplete explicit selector with valid Octopus credentials is now a per-stream
+selection gate, rather than disabling both directions during configuration parsing.
+Global provider date/credential errors retain their existing configuration behavior.
+The explicit startup worker is independent of GET requests; browsing never performs
+cloud requests or changes jobs. No refresh/audit endpoint or scheduler was added.

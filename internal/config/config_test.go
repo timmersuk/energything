@@ -85,3 +85,15 @@ func TestValidProvidersAndRanges(t *testing.T) {
 		})
 	}
 }
+func TestIncompleteSelectionDoesNotDisableOtherStream(t *testing.T) {
+	env := map[string]string{"ENERGYTHING_USERNAME": "synthetic", "ENERGYTHING_PASSWORD": "synthetic", "OCTOPUS_API_KEY": "synthetic", "OCTOPUS_ACCOUNT_NUMBER": "synthetic", "OCTOPUS_IMPORT_MPAN": "synthetic", "ENERGYTHING_OCTOPUS_ONCE": "true"}
+	c, err := Parse(func(k string) string { return env[k] }, time.Now())
+	if err != nil || c.Octopus.State != "valid" || !c.OctopusOnce {
+		t.Fatal(c.Octopus.State, err)
+	}
+	env["ENERGYTHING_OCTOPUS_ONCE"] = "PRIVATE"
+	_, err = Parse(func(k string) string { return env[k] }, time.Now())
+	if err == nil || strings.Contains(err.Error(), "PRIVATE") {
+		t.Fatal(err)
+	}
+}

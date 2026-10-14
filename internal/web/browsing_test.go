@@ -266,3 +266,7 @@ func TestSafeStorageErrors(t *testing.T) {
 		}
 	}
 }
+
+func (failStore) QueryDiscovery(context.Context) ([]storage.DiscoveryState, error) {
+	return nil, errors.New("secret")
+}

@@ -10,6 +10,7 @@ import (
 )
 
 type recordStore interface {
+	QueryDiscovery(context.Context) ([]storage.DiscoveryState, error)
 	QueryStatus(context.Context) ([]storage.Status, error)
 	QueryIntervals(context.Context, storage.RecordQuery) (storage.IntervalPage, error)
 	QuerySamples(context.Context, storage.SampleQuery) (storage.SamplePage, error)
@@ -78,12 +79,18 @@ type sourceView struct {
 	Jobs              []jobView      `json:"jobs"`
 	Coverage          []coverageView `json:"coverage"`
 }
+type discoveryView struct {
+	Stream   string `json:"stream"`
+	State    string `json:"state"`
+	Occurred string `json:"occurred_at"`
+}
 type providerView struct {
-	Source        string       `json:"source"`
-	Configuration string       `json:"configuration"`
-	Message       string       `json:"message"`
-	Discovery     string       `json:"discovery"`
-	Sources       []sourceView `json:"sources"`
+	Streams       []discoveryView `json:"streams,omitempty"`
+	Source        string          `json:"source"`
+	Configuration string          `json:"configuration"`
+	Message       string          `json:"message"`
+	Discovery     string          `json:"discovery"`
+	Sources       []sourceView    `json:"sources"`
 }
 type statusView struct {
 	Version   string         `json:"version"`
@@ -94,6 +101,10 @@ type statusView struct {
 
 func statusData(ctx context.Context, store recordStore, c config.Config, build string) (statusView, error) {
 	rows, err := store.QueryStatus(ctx)
+	if err != nil {
+		return statusView{}, err
+	}
+	discovery, err := store.QueryDiscovery(ctx)
 	if err != nil {
 		return statusView{}, err
 	}
@@ -119,6 +130,11 @@ func statusData(ctx context.Context, store recordStore, c config.Config, build s
 				s.Coverage = append(s.Coverage, coverageView{instant(w.Start), instant(w.End), w.Fetched, w.Coverage.Expected, w.Coverage.Valid, w.Coverage.Missing, w.Coverage.Qualified, w.Coverage.MeasurementComplete})
 			}
 			v.Sources = append(v.Sources, s)
+		}
+		for _, d := range discovery {
+			if d.Provider == p.name {
+				v.Streams = append(v.Streams, discoveryView{d.Stream, d.State, instant(d.Occurred)})
+			}
 		}
 		out.Providers = append(out.Providers, v)
 	}
