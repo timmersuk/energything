@@ -13,6 +13,7 @@ import (
 
 type RecordQuery struct {
 	IdentityID int64
+	Direction  string // Octopus import/export; empty selects both.
 	From, To   *Instant
 	Limit      int
 	Cursor     string
@@ -108,7 +109,7 @@ func predicates(identity int64, from, to *Instant, field string) (string, []any)
 	return where, args
 }
 func (s *Store) QueryIntervals(ctx context.Context, q RecordQuery) (page IntervalPage, err error) {
-	if q.IdentityID < 0 || !rangeValid(q.From, q.To) {
+	if q.IdentityID < 0 || !rangeValid(q.From, q.To) || (q.Direction != "" && q.Direction != "import" && q.Direction != "export") {
 		return page, ErrInvalid
 	}
 	q.Limit, err = pageLimit(q.Limit)
@@ -123,6 +124,10 @@ func (s *Store) QueryIntervals(ctx context.Context, q RecordQuery) (page Interva
 		return page, err
 	}
 	where, args := predicates(q.IdentityID, q.From, q.To, "start")
+	if q.Direction != "" {
+		where += " AND identity_id IN (SELECT id FROM identities WHERE provider='octopus' AND stream=?)"
+		args = append(args, q.Direction)
+	}
 	if c != nil {
 		where += " AND (start,identity_id)>(?,?)"
 		args = append(args, c.Time, c.ID)
@@ -152,7 +157,7 @@ func (s *Store) QueryIntervals(ctx context.Context, q RecordQuery) (page Interva
 	return
 }
 func (s *Store) QuerySamples(ctx context.Context, q SampleQuery) (page SamplePage, err error) {
-	if q.IdentityID < 0 || !rangeValid(q.From, q.To) || !validDate(q.ProviderDate) || (q.Quality != "" && !validText(q.Quality)) || (!q.QualityView && (q.Quality != "" || q.ProviderDate != "")) {
+	if q.IdentityID < 0 || q.Direction != "" || !rangeValid(q.From, q.To) || !validDate(q.ProviderDate) || (q.Quality != "" && !validText(q.Quality)) || (!q.QualityView && (q.Quality != "" || q.ProviderDate != "")) {
 		return page, ErrInvalid
 	}
 	q.Limit, err = pageLimit(q.Limit)
@@ -430,12 +435,12 @@ func (s *Store) QueryStatus(ctx context.Context) (out []Status, err error) {
 		if e == nil {
 			x.LastAttempt = &a
 		}
-		a, e = scanAudit(tx.QueryRowContext(ctx, auditSelect+` WHERE a.identity_id=? AND outcome IN ('success','empty') ORDER BY occurred DESC,a.id DESC LIMIT 1`, x.IdentityID))
+		accepted, e := scanAudit(tx.QueryRowContext(ctx, auditSelect+` WHERE a.identity_id=? AND outcome IN ('success','empty') ORDER BY occurred DESC,a.id DESC LIMIT 1`, x.IdentityID))
 		if e != nil && e != sql.ErrNoRows {
 			return nil, e
 		}
 		if e == nil {
-			x.LastAcceptedAttempt = &a
+			x.LastAcceptedAttempt = &accepted
 		}
 		if err = tx.QueryRowContext(ctx, `SELECT (SELECT count(*) FROM jobs WHERE identity_id=?),(SELECT count(*) FROM completions c JOIN jobs j ON j.id=c.job_id WHERE j.identity_id=?)`, x.IdentityID, x.IdentityID).Scan(&x.JobCount, &x.WindowCount); err != nil {
 			return

@@ -107,6 +107,12 @@ Status includes latest attempt and latest accepted attempt separately. It return
 at most 500 recent jobs/windows per identity plus total counts; accepted coverage
 is always coverage of the latest fetched response, not old retained rows.
 
+Task 03 adds `RecordQuery.Direction` for typed Octopus `import`/`export` filtering
+(empty selects both). It is included in cursor binding; `QuerySamples` rejects a
+nonempty direction. HTTP contracts are in [HTTP API](http-api.md). Task 03 also
+fixes independent last-attempt/last-accepted status values: reading a last accepted
+attempt must not overwrite a later failed/running attempt summary.
+
 Evidence inputs must already be selected telemetry, not HTTP transcripts or
 discovery responses. Storage additionally rejects credential/header/address keys
 recursively; unknown telemetry fields are retained. Arbitrary raw error strings

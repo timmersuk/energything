@@ -1,7 +1,9 @@
 package web
 
 import (
+	"context"
 	"github.com/timmersuk/energything/internal/config"
+	"github.com/timmersuk/energything/internal/storage"
 	"net/http/httptest"
 	"strings"
 	"testing"
@@ -23,7 +25,12 @@ func TestRoutesAndAuth(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	h, err := NewRouter(c, "test-build")
+	db, err := storage.Open(context.Background(), t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { db.Close() })
+	h, err := NewRouter(c, "test-build", db)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -39,8 +46,8 @@ func TestRoutesAndAuth(t *testing.T) {
 		{"GET", "/static/style.css", "wrong", 401, "Authentication required"},
 		{"GET", "/", "valid", 200, "credentials are incomplete"},
 		{"GET", "/static/style.css", "valid", 200, ":root"},
-		{"GET", "/api/v1/status", "valid", 404, "not_found"},
-		{"GET", "/records/octopus", "valid", 404, "not_found"},
+		{"GET", "/api/v1/status", "valid", 200, "providers"},
+		{"GET", "/records/octopus", "valid", 200, "No stored intervals"},
 		{"GET", "/missing", "", 404, "not_found"},
 		{"POST", "/healthz", "", 405, "method_not_allowed"},
 		{"POST", "/", "valid", 405, "method_not_allowed"},
@@ -79,7 +86,12 @@ func TestEmptyPageAndTemplateEscaping(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	h, err := NewRouter(c, "<script>synthetic</script>")
+	db, err := storage.Open(context.Background(), t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { db.Close() })
+	h, err := NewRouter(c, "<script>synthetic</script>", db)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -35,7 +35,7 @@ func run(ctx context.Context) (err error) {
 		return err
 	}
 	defer func() { err = errors.Join(err, db.Close()) }()
-	handler, err := web.NewRouter(c, BuildID)
+	handler, err := web.NewRouter(c, BuildID, db)
 	if err != nil {
 		return errors.New("web initialization failed")
 	}
