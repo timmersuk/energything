@@ -175,3 +175,16 @@ Run clock/HTTP tests, real storage restart integration and go test ./.... Perfor
 browser smoke through an injected provider outage and observe automatic behavior
 in a synthetic container. Hand off actual budgets, job states, automatic bootstrap/boundary policy and repair CLI
 and audit fields; task 06a consumes them without adding its own scheduler.
+
+## Required Growatt time-resolution gate (user decision, 15 October 2026)
+
+Before task06 is declared complete, investigate the task05 timestamp uncertainty
+using authoritative provider semantics and bounded private read-only comparisons:
+readable time versus calendar epoch/components/timezone, utcTime/createTime,
+requested display timezone, latest versus history, and daylight-saving transitions.
+Establish which fields identify measurement time versus retrieval/server serialization,
+with a tested precedence/contradiction policy and stable identity where evidenced.
+Do not simply carry the uncertainty forward without investigation. If evidence
+still cannot establish UTC or repeated-hour identity, document the exact blocker
+and a concrete follow-up; keep qualified evidence and recent collection available,
+without guessing offsets, silently rewriting existing rows or declaring resolution.

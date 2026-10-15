@@ -1,3 +1,4 @@
+param([string]$BuildID='task05-growatt')
 # Safe standard preview replacement; never prints resolved config or runtime values.
 $ErrorActionPreference='Stop'
 $root=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
@@ -25,7 +26,7 @@ for($i=0;$i -lt 30;$i++){try{$health=Invoke-WebRequest 'http://localhost:8080/he
 $mountAfter=docker inspect $container --format '{{json .Mounts}}' | ConvertFrom-Json
 $oldCount=($before.providers.sources.retained_count | Measure-Object -Sum).Sum
 $newCount=($after.providers.sources.retained_count | Measure-Object -Sum).Sum
-$summary=[ordered]@{build_verified=($after.build_id -eq 'task05-growatt');health_ok=($health.StatusCode -eq 200);original_mount=($mountAfter[0].Source -eq $data);retained_data_preserved=($oldCount -eq $newCount);one_shot_disabled=$true;clean_backup=$true}
+$summary=[ordered]@{build_verified=( $after.build_id -eq $BuildID);health_ok=($health.StatusCode -eq 200);original_mount=($mountAfter[0].Source -eq $data);retained_data_preserved=($oldCount -eq $newCount);one_shot_disabled=$true;clean_backup=$true}
 $summary | ConvertTo-Json | Set-Content .cache/task05-preview-summary.json
 $summary | ConvertTo-Json -Compress | Write-Output
 if($summary.Values -contains $false){throw 'Preview verification failed'}

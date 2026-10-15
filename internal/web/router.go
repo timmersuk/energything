@@ -34,6 +34,12 @@ func NewRouter(c config.Config, buildID string, store recordStore) (http.Handler
 			writeError(w, 405, "method_not_allowed", "Method not allowed")
 			return
 		}
+		if r.URL.Path == "/static/growatt.js" {
+			data, _ := files.ReadFile("static/growatt.js")
+			w.Header().Set("Content-Type", "text/javascript; charset=utf-8")
+			_, _ = w.Write(data)
+			return
+		}
 		if r.URL.Path == "/static/style.css" {
 			data, _ := files.ReadFile("static/style.css")
 			w.Header().Set("Content-Type", "text/css; charset=utf-8")
@@ -102,7 +108,7 @@ func NewRouter(c config.Config, buildID string, store recordStore) (http.Handler
 			}
 			w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 			_, _ = w.Write([]byte("ok\n"))
-		case "/", "/static/style.css", "/records/octopus", "/records/growatt", "/api/v1/status", "/api/v1/octopus/intervals", "/api/v1/growatt/samples":
+		case "/", "/static/style.css", "/static/growatt.js", "/records/octopus", "/records/growatt", "/api/v1/status", "/api/v1/octopus/intervals", "/api/v1/growatt/samples":
 			protected.ServeHTTP(w, r)
 		default:
 			writeError(w, 404, "not_found", "Not found")

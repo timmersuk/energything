@@ -46,7 +46,7 @@ func request(h http.Handler, path, auth string) *httptest.ResponseRecorder {
 }
 func TestBrowsingAuthEmptyAndErrors(t *testing.T) {
 	s, h := browsingFixture(t, false)
-	paths := []string{"/", "/records/octopus", "/records/growatt", "/api/v1/status", "/api/v1/octopus/intervals", "/api/v1/growatt/samples", "/static/style.css"}
+	paths := []string{"/", "/records/octopus", "/records/growatt", "/api/v1/status", "/api/v1/octopus/intervals", "/api/v1/growatt/samples", "/static/style.css", "/static/growatt.js"}
 	for _, path := range paths {
 		for _, auth := range []string{"", "wrong"} {
 			w := request(h, path, auth)

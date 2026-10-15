@@ -135,3 +135,30 @@ The actual-preview private Edge smoke check passed after opening its previously
 closed browser session. No application code/image/schema changed for this operation;
 previous task tests/builds remain applicable. This is an explicit bounded population,
 not recurring collection or a complete available-history backfill. Those remain task06.
+
+## Growatt readability follow-up (15 October 2026)
+
+User feedback identified page-high rows caused by raw calendar JSON and every
+optional exact value sharing two narrow columns. Growatt now renders compact
+columns for provider clock, separate SOC/BMS SOC, solar/load/grid/battery readings;
+long decimals are visually ellipsized with full exact hover text. No rounding or
+API/storage change occurs. Details starts closed and retains all exact readings,
+counters, retrieval time, quality and escaped original timestamp evidence in a
+bounded scrollable panel. The table has sticky headers and a bounded viewport.
+Always-visible, keyboard-accessible across/down range controls supplement native
+scrollbars, which may otherwise disappear under Windows overlay preferences.
+The small embedded authenticated growatt.js asset only controls local scrolling;
+no cloud requests or stored mutations are introduced. JS-disabled scrolling and
+native Details remain available.
+
+Full go test ./..., go vet ./..., both Linux builds and actual task05-growatt-ui
+image build passed. Existing browsing regression initially expected capitalized
+Unresolved text; the UI preserves that clear label and the tests passed. Synthetic
+Edge verified ~65px collapsed rows, hidden raw evidence, expandable exact values and
+horizontal slider navigation. Private Edge on the populated preview verified compact
+rows, both horizontal/vertical controls and Octopus browsing without printing real
+identifiers or payloads. Preview was rebuilt/recreated through the exact saved setup,
+with clean backup; original mount, all retained counts, health and new build verified.
+No schema or provider semantics changed. The explicit task06 time-resolution gate
+now requires investigation before completion and a concrete blocker/follow-up if
+independent UTC/repeated-hour identity evidence remains unavailable.
