@@ -188,3 +188,12 @@ Do not simply carry the uncertainty forward without investigation. If evidence
 still cannot establish UTC or repeated-hour identity, document the exact blocker
 and a concrete follow-up; keep qualified evidence and recent collection available,
 without guessing offsets, silently rewriting existing rows or declaring resolution.
+
+The [15 October timestamp investigation](../../growatt-time-investigation.md)
+provides new empirical evidence: current installation clocks fit UTC+01:00 and
+calendar epochs appear to encode those clocks in Shanghai context; requested
+London/UTC/Shanghai history timezones did not change compared rows. Task06 must
+use this narrowed evidence rather than treating ordinary recent samples as wholly
+uninterpretable. Seasonal provider-clock behavior remains untested because the
+selected winter probe was empty. Distinguish that specific seasonal/overlap gate
+from the strongly supported interpretation of the observed current period.

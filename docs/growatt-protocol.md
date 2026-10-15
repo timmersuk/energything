@@ -108,3 +108,16 @@ attempt, complete accepted evidence or suspect failed evidence through typed sto
 no timer or retry executor exists. Task 06 must not multiply the inner budget.
 Unresolved units, absolute time and identity remain explicit field/source gates;
 automatic historical boundary discovery belongs to task 06.
+
+## Timestamp comparison follow-up (15 October 2026)
+
+A user-authorized bounded private comparison now supports the installation's
+current readable clock as UTC+01:00 (consistent with London/BST), with createTime
+behaving as later receipt/persistence time and the Shanghai calendar epoch behaving
+as a wall-clock interpretation artifact. Changing timezone_id across London/UTC/
+Shanghai produced identical compared responses. This narrows the uncertainty;
+see [the investigation](growatt-time-investigation.md) and
+[public-source notes](growatt-time-source-notes.md). Winter/seasonal behavior and
+some repeated-hour occurrences still lack independent evidence. The existing
+normalizer/storage are unchanged until an explicit evidenced policy is implemented;
+do not treat this installation-specific comparison as a universal Growatt rule.

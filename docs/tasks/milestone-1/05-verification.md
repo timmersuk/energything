@@ -172,3 +172,18 @@ populated-preview Edge verification passed, including normal keyboard scrolling 
 both directions and absence of sliders. Preview image was recreated on the original
 mount with clean backup and unchanged retained counts. This supersedes the custom
 scroll-control description above.
+
+## Timestamp investigation follow-up (15 October 2026)
+
+User authorized further bounded read-only comparisons. Private throwaway code made
+six MIX latest/history requests (two latest, one first page under each of three
+requested timezones, one winter-day availability probe), separated by 12 seconds,
+with no retries or settings calls. Local authenticated cursor reads compared every
+retained sample in one complete day; no direct live SQLite access. Current clocks
+fit UTC+01:00/London BST and createTime follows them with positive seconds/minutes
+lags; the same history tuples were returned under requested London/UTC/Shanghai.
+The selected winter day was empty, leaving seasonal behavior untested. Raw evidence
+and exact numeric summaries remain ignored/private. Generic findings and primary
+source caveats are in docs/growatt-time-investigation.md and growatt-time-source-notes.md.
+No production code, stored timestamps, database or preview image changed; this was
+empirical protocol research, not another full test/build or collection acceptance.
