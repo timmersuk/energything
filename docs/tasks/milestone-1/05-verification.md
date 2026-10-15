@@ -113,3 +113,25 @@ was implemented. Actual ARM64 hardware and OMV acceptance remain later deploymen
 Preview schema upgrades were backed up cleanly each time. The private verification
 DB and synthetic browser DB are separate from preview; preview's existing data was
 preserved and no fixture/private-db migration into it was performed.
+
+## User-authorized preview population (15 October 2026)
+
+The user explicitly requested that Growatt records be populated into localhost.
+The existing container/mount and runtime credential presence were inspected safely.
+With the exact saved Compose pair/project, preview was stopped cleanly and its
+entire original data directory copied to a new ignored private backup. Only while
+the server was stopped, the existing bounded growatt-verify CLI collected latest
+plus the complete provider day 14 October into the original preview database.
+No simultaneous server/CLI database access or historical-file migration occurred.
+
+Collection returned success. The same Compose service was started again; health200,
+build task05-growatt, original /data mount, unchanged Octopus retained counts and
+nonempty Growatt quality/provider-date API results were verified. Growatt samples
+retain null measured_at and explicit time quality. Private summaries/discovery report
+and clean backup remain ignored. No raw payloads, credentials or provider identifiers
+were emitted in session output or added to the repository.
+
+The actual-preview private Edge smoke check passed after opening its previously
+closed browser session. No application code/image/schema changed for this operation;
+previous task tests/builds remain applicable. This is an explicit bounded population,
+not recurring collection or a complete available-history backfill. Those remain task06.
