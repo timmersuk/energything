@@ -96,7 +96,16 @@ type RetryDetail struct {
 	Code                    string
 	WaitMicroseconds        int64
 }
+type Diagnostic struct {
+	HTTPStatus   int    `json:"http_status,omitempty"`
+	Field        string `json:"field,omitempty"`
+	Value        string `json:"value,omitempty"`
+	Expected     *int   `json:"expected,omitempty"`
+	Observed     *int   `json:"observed,omitempty"`
+	ProviderCode *int   `json:"provider_code,omitempty"`
+}
 type FailedAttempt struct {
+	Diagnostic                     Diagnostic
 	AttemptID                      int64
 	Finished, NextDue              Instant
 	Outcome, ErrorClass, ErrorCode string
@@ -112,6 +121,7 @@ type EvidenceRef struct {
 	Complete                bool
 }
 type Audit struct {
+	Diagnostic                              Diagnostic
 	Metadata                                DiscoveryMetadata `json:"-"`
 	ID, JobID, IdentityID                   int64
 	Provider, Stream, DisplayIdentity, Kind string

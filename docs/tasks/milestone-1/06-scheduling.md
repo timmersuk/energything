@@ -1,7 +1,7 @@
 # 06 — Durable scheduling, bounded backfill and recovery
 
-Status: planning draft. Depends on: 04, 05. Unlocks: 06a, 07.
-Read: [execution contract](execution-contract.md) and both provider handoffs.
+Status: planning draft. Depends on: 04, 05, 05a. Unlocks: 06a, 07.
+Read: [execution contract](execution-contract.md) and provider/aggregate handoffs.
 
 ## Objective and boundary
 
@@ -175,3 +175,52 @@ Run clock/HTTP tests, real storage restart integration and go test ./.... Perfor
 browser smoke through an injected provider outage and observe automatic behavior
 in a synthetic container. Hand off actual budgets, job states, automatic bootstrap/boundary policy and repair CLI
 and audit fields; task 06a consumes them without adding its own scheduler.
+
+## Required Growatt time-resolution gate (user decision, 15 October 2026)
+
+Before task06 is declared complete, investigate the task05 timestamp uncertainty
+using authoritative provider semantics and bounded private read-only comparisons:
+readable time versus calendar epoch/components/timezone, utcTime/createTime,
+requested display timezone, latest versus history, and daylight-saving transitions.
+Establish which fields identify measurement time versus retrieval/server serialization,
+with a tested precedence/contradiction policy and stable identity where evidenced.
+Do not simply carry the uncertainty forward without investigation. If evidence
+still cannot establish UTC or repeated-hour identity, document the exact blocker
+and a concrete follow-up; keep qualified evidence and recent collection available,
+without guessing offsets, silently rewriting existing rows or declaring resolution.
+
+The [15 October timestamp investigation](../../growatt-time-investigation.md)
+provides new empirical evidence: current installation clocks fit UTC+01:00 and
+calendar epochs appear to encode those clocks in Shanghai context; requested
+London/UTC/Shanghai history timezones did not change compared rows. Task06 must
+use this narrowed evidence rather than treating ordinary recent samples as wholly
+uninterpretable. Seasonal provider-clock behavior remains untested because the
+selected winter probe was empty. Distinguish that specific seasonal/overlap gate
+from the strongly supported interpretation of the observed current period.
+
+The [15 October history availability investigation](../../growatt-history-investigation.md)
+now supplies empirical evidence of an approximately 95-day moving detailed-telemetry
+edge for the selected installation. Expiry can advance while backfill runs. Preserve
+this dated, identity-scoped provenance and already retained samples; do not hardcode
+it as a universal lifetime/retention guarantee or count sparse older empty probes as
+proof of an exhaustive archive scan. The investigation made no ingestion/checkpoint
+changes and does not complete the automatic boundary-search/stopping-policy gate.
+
+[Aggregate-history research](../../growatt-aggregate-investigation.md) now establishes
+that plant generation totals are a different documented feed (plant/energy with
+day/month/year), and one older winter-day aggregate was successfully retrieved.
+The detailed-history 95-day observation is not a boundary for all Growatt data.
+Account for aggregate versus detailed availability when defining historical scope;
+propose a period/metric/storage contract amendment before aggregate ingestion.
+This research did not expand the production allowlist or implement another collector.
+
+## Agreed aggregate dependency (15 October 2026)
+
+Task [05a](05a-growatt-aggregates.md) owns the separate aggregate protocol/storage/
+read API slice before scheduling. This supersedes the earlier proposal to define
+that contract within task06. After 05a handoff, schedule its bounded aggregate
+operations with independent bootstrap/history progress; do not merge aggregates
+with instantaneous samples, suppress aggregate work because detailed samples exist,
+or double-count overlapping daily/monthly/yearly periods. Verify the aggregate
+historical boundary separately from the detailed approximately 95-day moving edge.
+No task06 implementation is authorized by this planning update.

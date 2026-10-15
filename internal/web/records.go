@@ -2,6 +2,7 @@ package web
 
 import (
 	"context"
+	"encoding/json"
 
 	"github.com/timmersuk/energything/internal/storage"
 )
@@ -116,4 +117,20 @@ func recordsData(ctx context.Context, store recordStore, q recordQuery, growatt 
 		out.NextURL = q.nextURL(path, out.NextCursor)
 	}
 	return out, nil
+}
+
+// ProviderClock is display text only; it does not resolve the source timezone.
+func (s sampleView) ProviderClock() string {
+	raw := s.OriginalTime["time"]
+	if raw != "" {
+		var clock string
+		if json.Unmarshal([]byte(raw), &clock) == nil {
+			return clock
+		}
+		return raw
+	}
+	if s.ProviderDate != "" {
+		return s.ProviderDate + " (clock unavailable)"
+	}
+	return "Not reported"
 }

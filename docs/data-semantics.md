@@ -211,3 +211,43 @@ boundary/future/conflict reasons; count and missing-results reasons are distinct
 Storage derives human-readable messages from these safe codes; historical class-only
 messages are not retroactively fabricated. Broad errors cannot satisfy task 06a's
 specific-reason/context requirement for new attempts.
+
+## Growatt bounded collection (task 05)
+
+See [the protocol gate](growatt-protocol.md) for the exact allowlist, field matrix,
+time qualifications and acquisition budgets. The explicit `growatt-verify` CLI
+performs discovery and optionally latest plus one provider-day collection. It
+requires an opted-in private report path; no Growatt ONCE or backfill-start control
+is introduced. Automatic collection and available-history recovery remain task 06.
+
+`RecordGrowattDiscovery` atomically updates the telemetry discovery state and
+necessary identities, deselecting stale Growatt identities without deleting data.
+Migration 003 adds Growatt discovery and an additive typed attempt diagnostic JSON
+column. Existing Octopus discovery, attempts, observations and checkpoints survive.
+`CollectGrowattUnit` uses BeginAttempt/CommitAcceptedWindow/RecordRejectedOrFailedAttempt.
+All pages and known fields validate before acceptance; failed audits use a separate
+five-second cancellation-independent cleanup context. A failed audit write never
+claims durable completion. Authentication/configuration pauses; other errors set
+a future due instant (client deferral or one minute). No worker executes it yet.
+
+Diagnostic is typed: optional enumerated telemetry `field`, exact numeric `value`,
+integer `expected`, `observed`, `provider_code`. Storage rejects arbitrary field
+names and nondecimal values; no unchecked provider error text is accepted. Page,
+requested job/day/bounds and evidence references remain separate. Task 06a can query
+this retained context without reconstructing it from raw exception strings.
+
+Growatt `Expected=0` means no established expected cadence, not zero production.
+`Valid` counts accepted occurrences and `Qualified` counts qualified occurrences.
+Storage allows these observed counts without manufacturing expected coverage;
+when Expected is explicitly positive the existing arithmetic validation remains.
+MeasurementComplete stays false for this adapter. Empty acceptance preserves older
+rows and records observed unavailability. Unresolved occurrences retain attempt/
+ordinal and null key/instant; latest/history replay cannot claim idempotent sample
+identity until independent provider evidence establishes it. Evidence is digest
+reused but every retrieval and unresolved occurrence remains attributable.
+
+Review follow-up adds migration 004 for safe discovery failure class/code/page and
+Diagnostic. QueryDiscovery/status expose this stored context even when no identity
+could be selected. Diagnostic includes `http_status`; nonnegative count diagnostics
+can represent rejected overruns beyond the acceptance budget. Such counts never
+increase the permitted fetch/commit budget.

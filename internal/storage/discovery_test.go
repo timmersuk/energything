@@ -10,7 +10,7 @@ func TestDiscoveryAtomicSelectionAndVersionOneUpgrade(t *testing.T) {
 	ctx := context.Background()
 	db, dir, identity, _ := fixture(t, "octopus")
 	// Simulate the real task 03 schema: existing data, only migration 001 installed.
-	if _, err := db.db.Exec(`DROP TABLE discovery_states;DELETE FROM schema_migrations WHERE version=2`); err != nil {
+	if _, err := db.db.Exec(`DROP TABLE discovery_states;DROP TABLE growatt_discovery;ALTER TABLE attempts DROP COLUMN diagnostic;DELETE FROM schema_migrations WHERE version>=2`); err != nil {
 		t.Fatal(err)
 	}
 	db.Close()
@@ -23,7 +23,7 @@ func TestDiscoveryAtomicSelectionAndVersionOneUpgrade(t *testing.T) {
 	if err != nil || len(status) != 1 || status[0].IdentityID != identity.ID {
 		t.Fatal("upgrade lost identity", status, err)
 	}
-	states := []DiscoveryState{{"octopus", "import", "selection_required", At(time.Now())}, {"octopus", "export", "selected", At(time.Now())}}
+	states := []DiscoveryState{{"octopus", "import", "selection_required", At(time.Now()), nil}, {"octopus", "export", "selected", At(time.Now()), nil}}
 	identities, err := db.RecordOctopusDiscovery(ctx, states, []Identity{{Provider: "octopus", Stream: "export", StableKey: "synthetic-export", Selected: true}})
 	if err != nil || len(identities) != 1 {
 		t.Fatal(err)

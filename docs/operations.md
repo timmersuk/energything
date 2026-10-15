@@ -79,3 +79,35 @@ and authenticated `/api/v1/status` reports the expected task build ID. Verify an
 changed UI against that build. Keep one-shot live collection disabled during an
 ordinary preview update; enable it only for an explicitly intended collection run.
 If a restart cannot be performed, report the reason and stale preview build.
+
+## Explicit Growatt verification
+
+Build with `go build -o bin/growatt-verify ./cmd/growatt-verify`. Credentials come
+from process environment, never automatic .env loading. `-report` is an explicit
+private JSON output path, containing full candidate identifiers. Discovery ambiguity
+is resolved with GROWATT_PLANT_ID/GROWATT_DEVICE_SERIAL and another bounded invocation.
+Do not publish the report or use the CLI as a scheduled job.
+
+```sh
+./bin/growatt-verify -report .cache/private-growatt/discovery.json
+./bin/growatt-verify -report .cache/private-growatt/discovery.json -collect \
+  -data-dir .cache/private-growatt/database -day 2026-10-13 -timezone Europe/London
+```
+
+`-collect` always verifies latest; `-day` adds one history unit. No historical start
+environment variable is required. Use a separate private database: this verification
+CLI calls storage.Open, including startup recovery, and must never open a database
+being used by a live server. It is not the future cross-process enqueue CLI.
+The process is cancellable and has a 15-minute total bound, in addition to client
+request/page/row/body bounds. The CLI prints only generic outcome messages; full
+identities and selected telemetry remain in the opted-in report/database.
+
+Task 05 adds migration 003. Back up the complete original preview directory after
+a clean stop before recreating it. `scripts/task05-preview.ps1` applies the exact
+saved Compose pair and verifies build/health/mount/retained counts without printing
+credentials or resolved configuration. Synthetic browser data uses a separate mount.
+
+Task 05 also adds migration 004 for discovery failure diagnostics. Apply the same
+clean-stop/full-directory backup procedure before upgrading from intermediate schema003.
+Run private preview browser checks with `scripts/task05-preview-browser.ps1`; it
+keeps generated credential-bearing code/output ignored and removes them after checking.

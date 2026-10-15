@@ -1,8 +1,8 @@
 # Milestone 1 execution briefs
 
-Status: task 01 approved and implemented with automated verification.
-Other tasks remain unimplemented. Updated 14 October 2026.
-See [task 01 handoff](01-verification.md); task 02 has not started.
+Status: tasks 01–04 are merged; task05 implementation/research is in PR #5.
+Task05a aggregate-ingestion scope is agreed; implementation has not started.
+Updated 15 October 2026. Read individual verification handoffs for actual gates.
 
 Parent: [Milestone 1](../../plans/milestone-1-service-and-collection.md).
 Direction: [Staged delivery](../../plans/goal.md).
@@ -41,13 +41,15 @@ uncompacted initially; retention is revisited using observed storage growth.
 | [03 Stored REST API and browsing](03-browsing.md) | Stable record/status contracts, local tables and qualified-time views | 02 |
 | [04 Octopus](04-octopus.md) | Confirmed import/export discovery, bounded validated ingestion and audit | 02, 03 |
 | [05 Growatt](05-growatt.md) | Verified protocol/time/unit gate; read-only latest/history ingestion and audit | 02, 03 |
-| [06 Scheduling and recovery](06-scheduling.md) | Durable independent jobs, bounded backfill/retries and secure refresh enqueue | 04, 05 |
+| [05a Growatt generation aggregates](05a-growatt-aggregates.md) | Separate retained provider generation periods, bounded ingestion and authenticated table/API | 02, 03, 05 |
+| [06 Scheduling and recovery](06-scheduling.md) | Durable independent jobs, bounded backfill/retries and secure refresh enqueue | 04, 05, 05a |
 | [06a REST/UI audit](06a-audit.md) | Inspectable attempt history, source/time/reason filters and repeated-failure counts | 02, 03, 06 |
-| [07 Release and operations](07-release-operations.md) | Synthetic CI, reproducible images, privacy review and backup/restore procedure | 01–06, 06a |
+| [07 Release and operations](07-release-operations.md) | Synthetic CI, reproducible images, privacy review and backup/restore procedure | 01–06, 05a, 06a |
 | [08 OMV acceptance](08-omv-acceptance.md) | Actual automatic collection, audit, independent failures and persistence/restore verified | 07 |
 
 04 and 05 have no logical dependency on each other, but share reviewed storage/API
 contracts. This is a dependency statement, not authorization to spawn agents.
+The 05a task adds the agreed historical aggregate baseline before scheduling.
 The 06a name preserves existing task filenames while adding the agreed audit scope.
 
 ## Decisions settled in the interview
