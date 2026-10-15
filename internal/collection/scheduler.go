@@ -179,6 +179,7 @@ func (s *Scheduler) prepare(ctx context.Context, provider, stream string, force 
 			if i.Provider == "octopus" && p.Policy == "backfill" {
 				b, be := s.DB.HistoryBoundary(ctx, i.ID)
 				if be == nil && b.Oldest != nil {
+					p.SearchPolicy = "bounded"
 					p.SearchLimit = *b.Oldest
 					p.Provenance = b.Provenance
 				}

@@ -6,10 +6,6 @@ import (
 	"time"
 )
 
-// Historical exploration is deliberately labelled a limit, not an archive bound.
-// Detailed retention evidence is installation-scoped (~95 days, 2026-10-15).
-const SearchDays = 120
-
 // UnitSpec is shared by automatic planning and exceptional range repair.
 func UnitSpec(i storage.Identity) (kind string, days int) {
 	if i.Provider == "octopus" {
@@ -39,7 +35,11 @@ func plans(i storage.Identity, c config.Config, now time.Time) []storage.Schedul
 	if i.Provider == "octopus" {
 		end = now.UTC().Truncate(30 * time.Minute)
 	}
-	base := storage.Schedule{IdentityID: i.ID, Kind: kind, Policy: "routine", Interval: interval, Frontier: storage.At(end), SearchLimit: storage.At(day.AddDate(0, 0, -SearchDays)), Provenance: "120-day bounded exploration; earliest provider boundary unresolved; empties and zeros do not establish absence"}
+	target := time.Date(day.Year(), time.January, 1, 0, 0, 0, 0, time.UTC)
+	if !end.After(target) {
+		target = target.AddDate(-1, 0, 0)
+	}
+	base := storage.Schedule{IdentityID: i.ID, Kind: kind, Policy: "routine", Interval: interval, Frontier: storage.At(end), SearchLimit: storage.At(target), Provenance: "Automatic recent collection; independent of historical acquisition"}
 	out := []storage.Schedule{base}
 	if i.Provider == "growatt" && i.Stream == "telemetry" {
 		for slot := 1; slot <= 2; slot++ {
@@ -56,6 +56,8 @@ func plans(i storage.Identity, c config.Config, now time.Time) []storage.Schedul
 		out = append(out, p)
 	}
 	base.Policy = "backfill"
+	base.SearchPolicy = "calendar"
+	base.Provenance = "Continuous backward calendar acquisition; annual targets extend automatically; empty responses and zeros are not archive boundaries"
 	out = append(out, base)
 	return out
 }

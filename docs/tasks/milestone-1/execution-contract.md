@@ -350,7 +350,10 @@ or empty units as a historical boundary. See 05a-verification.md and protocol do
 ## Task06 superseding implementation handoff
 
 Automatic collection replaces ONCE, BACKFILL_START and startup range controls.
-See [collection](../../collection.md) for migration006, lane/window/retry/queue
-contracts and explicit unresolved historical/time gates. Growatt historical exploration
-has an anchored120-day engineering budget; this is not a verified lifetime domain
-or archive completion. Task06 remains incomplete against that source gate.
+See [collection](../../collection.md) for migrations006/007, lane/window/retry/queue
+contracts and explicit unresolved time/identity qualifications. The user rejected the
+120-day lifetime limit. Migration007 replaces it with durable calendar scans whose
+annual targets extend automatically through successively older years, across
+empty/zero gaps. An annual target is a pacing/planning unit, never archive
+completion. Source lifetime/oldest metadata remains unknown without preventing
+ongoing older collection; verified nonempty oldest probes can bound the scan.

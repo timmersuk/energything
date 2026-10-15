@@ -313,3 +313,15 @@ is not an archive. Seasonal clock and stable repeated-hour identity remain gated
 old evidence and accepted observations are retained. Task06a must consume these
 stored states without inferring history completion or adding another scheduler.
 Older one-shot procedures above describe prior task verification, not current startup.
+
+## Whole-history correction (15 October2026)
+
+Migration007 removes the fixed120-day stop. Persisted backfill plans with
+`search_policy=calendar` continue into the preceding year whenever their current
+annual target is fetched. The status field `search_limit` is then a current calendar
+target, not an archive boundary; the page labels that distinction. No empty/zero
+cutoff or initialization/backfill setting is required. Old stopped plans resume
+from the same frontier and current unit, preserving accepted data, versions,
+checkpoints, retries and quota reservations. Unit sizes, routine priority, repair
+binding, clock qualifications and the aggregate ten-per-rolling24h limit remain.
+Earlier passages describing a120-day exploration limit are superseded.

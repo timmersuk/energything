@@ -32,7 +32,7 @@ func (s *Store) RecordHistoryBoundary(ctx context.Context, b HistoryBoundary) er
 			return e
 		}
 		if b.Oldest != nil {
-			_, e := tx.ExecContext(ctx, `UPDATE schedules SET search_limit=?,provenance=?,state=CASE WHEN frontier<=? THEN 'complete_at_observed_boundary' ELSE 'active' END WHERE identity_id=? AND policy='backfill'`, *b.Oldest, b.Provenance, *b.Oldest, b.IdentityID)
+			_, e := tx.ExecContext(ctx, `UPDATE schedules SET search_limit=?,provenance=?,search_policy='bounded',state=CASE WHEN frontier<=? THEN 'complete_at_observed_boundary' ELSE 'active' END WHERE identity_id=? AND policy='backfill'`, *b.Oldest, b.Provenance, *b.Oldest, b.IdentityID)
 			return e
 		}
 		return nil

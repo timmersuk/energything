@@ -4,8 +4,8 @@ Automatic recent collection now starts asynchronously for configured selected
 Octopus and Growatt identities. Durable independent plans retain progress and
 recover interrupted units. Generation remains a separate plant-level daily feed.
 Octopus history uses a verified oldest-first explicit-domain probe. Growatt history
-currently stops at a visible exploratory budget; its earliest source-boundary and
-seasonal clock gates remain open. See
+continues backwards through older calendar years without a lookback cap. Source
+lifetime and seasonal clock semantics remain qualified. See
 [collection contracts](docs/collection.md) and [task06 verification](docs/tasks/milestone-1/06-verification.md).
 
 Requires Go 1.26.4 (module compatibility 1.26.0). Dependencies are pinned in
@@ -133,4 +133,4 @@ compact `/records/growatt/aggregates` browsing. See [protocol](docs/growatt-prot
 and [verification](docs/tasks/milestone-1/05a-verification.md). Exact kWh, provider
 calendar dates, unverified timezone/zero availability qualifications and corrections
 are retained. Up to seven inclusive dates per invocation; documented five-minute and 10/day limits.
-Task06 adds independent automatic scheduling and recent refresh; its bounded search is not an exhaustive archive.
+Task06 adds independent automatic scheduling and recent refresh; its bounded acquisition units continue through the full historical calendar rather than stopping at a lookback budget.

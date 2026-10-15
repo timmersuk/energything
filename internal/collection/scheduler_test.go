@@ -134,7 +134,7 @@ func TestBoundedWindowsAndCancelledWait(t *testing.T) {
 		history.Frontier = j.Start
 		units++
 	}
-	if units != SearchDays+1 {
+	if units != 288 {
 		t.Fatal(units)
 	}
 	ctx, cancel := context.WithCancel(context.Background())

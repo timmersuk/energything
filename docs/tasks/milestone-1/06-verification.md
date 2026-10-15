@@ -1,6 +1,6 @@
 # Task06 verification — 15 October2026
 
-Status: implementation verified for review; **historical source-boundary gate open**.
+Status: implementation verified for review; whole-history correction below supersedes the original limited-search policy.
 Not a completed task06/archive claim. Task06a has not been started.
 
 ## Checks actually run
@@ -51,15 +51,11 @@ Synthetic screenshots and all private backups/evidence remain ignored under.cach
 ## Contracts and unresolved gates
 
 See [collection](../../collection.md) for exact schedules, retry budgets, independent
-progress and repair syntax. Growatt historical exploration is anchored to a120-calendar-day
-engineering budget, with explicit `search_limit_boundary_unresolved` state. This is
-not a verified supported source lifetime domain or an exhaustive archive. Empty
-windows and aggregate zeros do not terminate search. Octopus now uses a validated, explicit year0001-to-elapsed-now, one-record
-ascending probe; both selected streams accepted that domain in the bounded private
-read-only check. It retains scope/provenance/observation time, refreshes weekly and
-can extend an existing frontier. Growatt still needs a supported finite
-calendar domain or authoritative retention/earliest metadata. These are concrete
-remaining protocol gates, not operator requests to invent historical dates.
+progress and repair syntax. Historical acquisition now continues into older calendar
+years without the rejected120-day stop. Annual targets are durable planning units;
+empty/zero responses do not terminate scanning. Unknown Growatt source-lifetime
+metadata does not block backwards progress or become a false archive-complete
+claim. Octopus retains its verified explicit-domain oldest probe and weekly recheck.
 
 Current installation BST evidence supports UTC+1, but regional seasonal behavior
 and repeated-hour sample identity remain unresolved. New acquisitions retain
@@ -92,3 +88,15 @@ has independent aggregate plans, both Octopus oldest boundaries were observed by
 the running server, and source attempts remain visible. Public verification output
 contained booleans only. Final preview browser recheck passed after the last image
 replacement. No exhaustive live archive completion is claimed.
+
+## Whole-history correction verification
+
+The user rejected the120-day stop. New tests passed for continuous acquisition
+through a full empty/zero year into older positive generation, year-boundary
+rejection preservation, restart without replay/skipping, automatic continuation,
+and representable-date underflow protection. A real schema006-to007 migration test
+passed: a formerly stopped plan resumes at the identical frontier, preserving
+accepted aggregate/version/checkpoint and durable quota reservations.
+
+The remaining whole-suite, image, migration/preview and browser checks for this
+correction are pending; older executed results above describe the prior revision.

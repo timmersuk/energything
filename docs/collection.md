@@ -1,6 +1,6 @@
 # Automatic collection and recovery
 
-Task06 implementation introduces migration006 and two independent in-process
+Task06 implementation introduces migrations006 and007 and two independent in-process
 provider lanes. Discovery runs asynchronously after storage opens and HTTP binds.
 Credentials and confirmed selections are sufficient; no initialization switch or
 historical-start environment setting is used. Browsing reads local storage only.
@@ -36,22 +36,51 @@ marks old running attempts interrupted and requeues their unfinished units.
 Shutdown cancels HTTP/provider waits, joins both lanes, then closes storage. Each
 collector has at most five seconds for cancellation audit cleanup.
 
-## Historical boundary gate remains open
+## Continuous acquisition of the whole available history
 
-Growatt exploration currently has a **120-calendar-day engineering budget**,
-anchored once per identity at bootstrap, plus the bootstrap current day for Growatt.
-Octopus steps backward in at most14 absolute days to its observed oldest-reading boundary; detailed Growatt steps in one date;
-generation in seven inclusive dates, shortened at the limit. Every unit is fetched
-and validated completely. Empty gaps do not stop progression; generated zeros do
-not establish availability. At the limit the persisted state is
-`search_limit_boundary_unresolved`, never archive complete. Restarts retain the
-same target/frontier and do not restart the search. Repair can request older data.
+There is no120-day lookback cap. Each selected stream acquires history backwards
+from recent dates, using one detailed provider date or seven inclusive generation
+dates per acquisition unit. Octopus uses at most14 absolute days per unit. The
+scheduler yields between units, and retained progress survives restart.
 
-The Growatt policy is limited exploratory recovery, **not all discoverably available
-history**, and is not a verified provider-supported lifetime domain. Task06 cannot
-be declared complete while the Growatt domain gate remains unresolved. The 15 October detailed
-MIX observation of about95 days is dated, installation-scoped evidence only;
-aggregate history is independent and known to include older dates.
+When no authoritative oldest-reading boundary is known, `search_policy=calendar`
+means the stored `search_limit` is the **current calendar target**, not a stopping
+date. The first target is January1 of the current year. Reaching it automatically
+extends the target to January1 of the preceding year in the same transaction that
+plans the next bounded unit. This repeats through older years. Empty responses,
+zero aggregates, the observed roughly95-day telemetry expiry edge, plant creation,
+and old locally retained rows never stop or truncate that scan.
+
+Consequently every successively older calendar period is eventually requested,
+including older nonempty data after long empty gaps. The only date-domain guard is
+January1 of year0001, the lower limit of the application's four-digit date/storage
+representation. Reaching it records `calendar_domain_scanned`, which describes
+requests made, not proof of physical measurement completeness or a provider-wide
+retention promise. A provider date rejection is a failed unit, not a new oldest
+boundary; it remains visible with its retry/pause state. Newly established source
+semantics can narrow the scan to a verified observed boundary, as for Octopus.
+
+Migration007 converts the old limited plans automatically, including plans already
+stopped at the old cap. It preserves their frontier, current job/range, retry state,
+accepted observations/versions/evidence, completion checkpoints and quota ledger.
+It does not start over at the newest sample. Existing routine work and explicit
+repair requests retain their independent policies.
+
+Generation history has a separate frontier from device telemetry and retains each
+day separately. Its documented quota remains five-minute spacing and ten local
+reservations per rolling24h. With one routine request and single-page historical
+units, nine historical requests can cover up to63 older dates per rolling24h;
+errors, pagination, contention and quota deferrals can reduce that rate. Several
+years can therefore take weeks to populate. No operator backfill date or manual
+repair command is needed to progress beyond120 days.
+
+Detailed readings, including SOC, are retained first while still accessible. A
+provider-expired detailed sample cannot be recovered from a daily aggregate or
+manufactured from power. The dated95-day observation remains installation-specific
+availability evidence, not a configured scan limit or a claim about aggregate
+retention. The official aggregate/history contracts do not expose a verified
+all-time oldest-reading index, so the status stays honest about unknown source
+lifetime boundaries while acquisition continues.
 
 The freshly reviewed [Octopus endpoint documentation](https://developer.octopus.energy/guides/rest/api-endpoints/)
 supports ascending period ordering and bounded pagination, but warns that omitted
@@ -71,10 +100,9 @@ existing frontier without restarting newer accepted units. Transport inline
 retry ownership is unchanged; transient probe failures defer at least15 minutes,
 long provider deferrals prevail, and authentication/configuration pauses until
 successful startup discovery after configuration correction. If no verified bound
-is available, the120-day fallback remains explicitly incomplete.
-Growatt needs authoritative aggregate/detail retention or a supported finite
-calendar domain; plant creation, retained observations and empty probes are not
-substitutes. No binary search or consecutive-empty stopping rule is used.
+is available, the calendar scan continues backwards without a fixed-age stop.
+Unknown Growatt earliest-history metadata no longer blocks older acquisition.
+No binary search, consecutive-empty cutoff or plant-creation assumption is used.
 
 ## Retry ownership and quotas
 

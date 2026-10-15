@@ -136,3 +136,15 @@ Open or recovery from an audit/UI handler. Refresh uses the HMAC token described
 HTTP API. New clock candidate fields preserve original timestamps and deliberately
 leave authoritative instant/key unset pending seasonal/identity evidence. No task06a
 routes were implemented as part of this handoff.
+
+## Whole-history correction (15 October2026)
+
+Migration007 removes the fixed120-day stop. Persisted backfill plans with
+`search_policy=calendar` continue into the preceding year whenever their current
+annual target is fetched. The status field `search_limit` is then a current calendar
+target, not an archive boundary; the page labels that distinction. No empty/zero
+cutoff or initialization/backfill setting is required. Old stopped plans resume
+from the same frontier and current unit, preserving accepted data, versions,
+checkpoints, retries and quota reservations. Unit sizes, routine priority, repair
+binding, clock qualifications and the aggregate ten-per-rolling24h limit remain.
+Earlier passages describing a120-day exploration limit are superseded.

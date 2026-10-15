@@ -122,16 +122,17 @@ type statusView struct {
 }
 
 type scheduleView struct {
-	IdentityID  int64  `json:"identity_id"`
-	Identity    string `json:"identity"`
-	Kind        string `json:"kind"`
-	Policy      string `json:"policy"`
-	State       string `json:"state"`
-	Provenance  string `json:"provenance"`
-	Frontier    string `json:"frontier"`
-	SearchLimit string `json:"search_limit"`
-	NextDue     string `json:"next_due"`
-	CurrentJob  *int64 `json:"current_job"`
+	SearchPolicy string `json:"search_policy"`
+	IdentityID   int64  `json:"identity_id"`
+	Identity     string `json:"identity"`
+	Kind         string `json:"kind"`
+	Policy       string `json:"policy"`
+	State        string `json:"state"`
+	Provenance   string `json:"provenance"`
+	Frontier     string `json:"frontier"`
+	SearchLimit  string `json:"search_limit"`
+	NextDue      string `json:"next_due"`
+	CurrentJob   *int64 `json:"current_job"`
 }
 
 func statusData(ctx context.Context, store recordStore, c config.Config, build string) (statusView, error) {
@@ -159,7 +160,7 @@ func statusData(ctx context.Context, store recordStore, c config.Config, build s
 					identity = i.Metadata.DisplayIdentity(i.Provider, i.Stream, i.IdentityID)
 				}
 			}
-			out.Schedules = append(out.Schedules, scheduleView{p.IdentityID, identity, p.Kind, p.Policy, p.State, p.Provenance, instant(p.Frontier), instant(p.SearchLimit), instant(p.NextDue), p.CurrentJob})
+			out.Schedules = append(out.Schedules, scheduleView{SearchPolicy: p.SearchPolicy, IdentityID: p.IdentityID, Identity: identity, Kind: p.Kind, Policy: p.Policy, State: p.State, Provenance: p.Provenance, Frontier: instant(p.Frontier), SearchLimit: instant(p.SearchLimit), NextDue: instant(p.NextDue), CurrentJob: p.CurrentJob})
 		}
 	}
 	for _, p := range []struct {

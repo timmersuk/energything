@@ -10,6 +10,7 @@ async page => {
  await page.getByRole('status').filter({hasText:'Routine work queued'}).waitFor();
  const status=await(await page.context().request.get(base+'/api/v1/status')).json();
  assert(status.schedules.some(p=>p.policy==='routine'),'durable local queue');
+ assert(status.schedules.some(p=>p.search_policy==='calendar'),'continuous archive policy retained');
  assert(status.providers.some(p=>p.streams?.some(s=>s.state==='failed')),'provider outage visible');
  const rejected=await page.context().request.post(base+'/api/v1/refresh',{data:{source:'octopus'}});
  assert(rejected.status()===403,'missing CSRF rejected');
@@ -19,6 +20,7 @@ async page => {
  assert((await page.locator('main').innerText()).includes('1.234567890123456789'),'independent aggregates retained');
  await page.setViewportSize({width:390,height:844});
  await page.goto(base+'/');assert(await page.getByRole('heading',{name:'Automatic progress'}).count()===1,'mobile status');
+ assert((await page.locator('main').innerText()).includes('extends automatically; no lookback stop'),'calendar target is not an archive cap');
  await page.screenshot({path:'.cache/task06-browser.png',fullPage:true});
  assert(external===0,'browser stayed local');
  return {passed:true,actualImage:true,refresh:true,csrf:true,providerOutage:true,storedBrowsing:true,independentGeneration:true,external};
