@@ -189,6 +189,4 @@ context remains available when discovery fails before identity selection.
 
 Growatt HTML uses compact reading columns and an expandable Details view for all
 exact values and original timestamp evidence. Visual ellipsis does not change API
-precision. `/static/growatt.js` is an authenticated GET asset for local accessible
-table-scroll controls; it performs no network requests or mutations. Query and
-record JSON contracts are unchanged.
+precision. The table uses normal browser scrolling; query and record JSON contracts are unchanged.

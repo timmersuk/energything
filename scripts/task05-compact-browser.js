@@ -11,9 +11,10 @@ async page => {
  await page.locator('.sample-details summary').first().click();
  assert((await page.locator('.sample-detail-content').first().innerText()).includes('123.4567890123456789'),'exact decimal detail');
  await page.locator('.sample-details summary').first().click();
- await page.getByRole('slider',{name:'Horizontal table position'}).fill('1000');
- assert(await region.evaluate(el=>el.scrollLeft>0),'visible slider moves table');
- await page.getByRole('slider',{name:'Horizontal table position'}).fill('0');
+ assert(await page.getByRole('slider').count()===0,'no extra scrolling controls');
+ await region.focus();await page.keyboard.press('ArrowRight');
+ assert(await region.evaluate(el=>el.scrollLeft>0),'normal keyboard scrolling works');
+ await region.evaluate(el=>el.scrollLeft=0);
  await page.screenshot({path:'.cache/task05-growatt-compact.png',fullPage:true});
  return {compactRows:true,rowHeight:row.height,visibleScrollbarTrack:true,detailsExpandable:true,exactValuesRetained:true};
 }

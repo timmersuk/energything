@@ -10,10 +10,11 @@ async page => {
  const region=page.getByRole('region',{name:'Growatt samples'});
  const height=await page.locator('.growatt-table tbody tr').first().boundingBox();
  if(height.height>140)throw new Error('Preview rows are not compact');
- await page.getByRole('slider',{name:'Horizontal table position'}).fill('1000');
- if(!(await region.evaluate(el=>el.scrollLeft>0)))throw new Error('Horizontal slider unavailable');
- await page.getByRole('slider',{name:'Vertical table position'}).fill('1000');
- if(!(await region.evaluate(el=>el.scrollTop>0)))throw new Error('Vertical slider unavailable');
+ if(await page.getByRole('slider').count()!==0)throw new Error('Extra scroll controls remain');
+ await region.focus();await page.keyboard.press('ArrowRight');await page.waitForTimeout(250);
+ if(!(await region.evaluate(el=>el.scrollLeft>0)))throw new Error('Normal horizontal scrolling unavailable');
+ await page.keyboard.press('PageDown');await page.waitForTimeout(250);
+ if(!(await region.evaluate(el=>el.scrollTop>0)))throw new Error('Normal vertical scrolling unavailable');
  await page.goto('http://localhost:8080/records/octopus');
  if(!(await page.locator('main').innerText()).includes('Octopus'))throw new Error('Octopus browsing unavailable');
  return {previewBuildVerified:true,changedUIVerified:true,octopusBrowsing:true};

@@ -162,3 +162,13 @@ with clean backup; original mount, all retained counts, health and new build ver
 No schema or provider semantics changed. The explicit task06 time-resolution gate
 now requires investigation before completion and a concrete blocker/follow-up if
 independent UTC/repeated-hour identity evidence remains unavailable.
+
+### Scrolling correction
+
+The user rejected the extra across/down sliders. Removed the controls, JavaScript
+asset/route and related CSS. Compact rows, native table scrolling, sticky headers
+and expandable details remain. Targeted web tests, both Linux builds and actual
+populated-preview Edge verification passed, including normal keyboard scrolling in
+both directions and absence of sliders. Preview image was recreated on the original
+mount with clean backup and unchanged retained counts. This supersedes the custom
+scroll-control description above.
