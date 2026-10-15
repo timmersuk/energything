@@ -214,3 +214,51 @@ superseded values/evidence remain stored. Dates with no rows have unknown availa
 The compact local table offers plant/date filters, stable next-page links and
 optional provenance expansion. It displays calendar dates, exact kWh and full
 plant identity without a raw JSON wall, charts or custom scrolling controls.
+
+## Task06 scheduling handoff
+
+See [collection contracts](collection.md) for the current automatic routine/bootstrap, repair CLI,
+retry/quota and qualified time policy. ONCE/BACKFILL_START/startup RANGE_REFRESH
+controls are obsolete and ignored. Migration006 retains independent schedules;
+OpenQueue deliberately performs no startup recovery. The authenticated status
+includes plans and explicit search-limit/boundary-unresolved state. A short search
+is not an archive. Seasonal clock and stable repeated-hour identity remain gated;
+old evidence and accepted observations are retained. Task06a must consume these
+stored states without inferring history completion or adding another scheduler.
+Older one-shot procedures above describe prior task verification, not current startup.
+
+### POST /api/v1/refresh
+
+Basic Auth is required. GET `/api/v1/status` returns `X-CSRF-Token` and `csrf_token`;
+the authenticated status page embeds the same process-secret HMAC token. Send it
+as `X-CSRF-Token`. Missing/foreign token is403. When Origin is supplied it must
+match scheme/host/port; null/foreign/multiple origins are403. Restart invalidates
+old tokens; reload status. No query parameters are accepted.
+
+Body is at most1024 bytes of one JSON object, with no unknown fields:
+`{"source":"octopus","stream":"import"}` or
+`{"source":"growatt","stream":"generation"}`. Optional stream selects all selected
+configured streams for that source. Allowed streams are import/export and
+telemetry/generation. Ranges belong to the enqueue CLI. Unknown selectors, malformed
+JSON, additional JSON values and oversized bodies are400; wrong methods405.
+Success202 returns `{"job_ids":[123]}`. Pending/running equivalents coalesce;
+requests perform no cloud call. An unavailable selection/store returns503 without
+inventing successful enqueue. GET status includes independent `schedules` with
+readable owner identity, kind/policy, queued/running/paused/retry/limit state,
+frontier, search_limit, next_due and current_job. Each Octopus source may include
+historical_boundary state, oldest, observed, next_probe_due and provenance.
+These fields describe fetched progress or observed availability, not fabricated
+measurement completeness. Stored discovery failures retain class/code/context and
+supported deferred-until, including across restart.
+
+## Whole-history correction (15 October2026)
+
+Migration007 removes the fixed 120-day stop. Persisted backfill plans with
+`search_policy=calendar` continue into the preceding year whenever their current
+annual target is fetched. The status field `search_limit` is then a current calendar
+target, not an archive boundary; the page labels that distinction. No empty/zero
+cutoff or initialization/backfill setting is required. Old stopped plans resume
+from the same frontier and current unit, preserving accepted data, versions,
+checkpoints, retries and quota reservations. Unit sizes, routine priority, repair
+binding, clock qualifications and the aggregate ten-per-rolling24h limit remain.
+Earlier passages describing a120-day exploration limit are superseded.

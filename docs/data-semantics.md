@@ -184,13 +184,10 @@ not wait. Collection writes deferred next_due (otherwise now+1m on fetch failure
 and pauses authentication/configuration failures; no scheduler executes reattempts.
 Task 06 must not multiply this inner retry budget.
 
-`ENERGYTHING_OCTOPUS_ONCE=true` explicitly enables a single startup discovery and
-one bounded fetch per selected stream. Default false; no handler triggers it.
-Default window: previous calendar midnight to latest elapsed half-hour; optional
-backfill start selects only its first <=14-day unit. Explicit reinvocation permits
-replay/correction. Range-refresh and recurring progression remain task 06.
-Absolute elapsed expected slots preserve London 46/50-slot days and partial days.
-Status distinguishes latest fetched coverage from retained observation count.
+Task06 supersedes the task04 startup one-shot controls with automatic collection.
+ONCE, BACKFILL_START and startup range settings are ignored and removed from the
+supported configuration. Use [the durable enqueue CLI](collection.md#refresh-and-exceptional-repair)
+for explicit repair, and credentials/selections alone for ordinary collection.
 
 ## User-approved Octopus identity visibility
 
@@ -304,3 +301,27 @@ first date, End is the exclusive UTC bookkeeping midnight after its final date.
 All dates validate/commit atomically, absent dates remain absent, and existing
 one-day units/rows remain valid without a migration. No additional calls per day
 or inline retry ownership changes.
+
+## Task06 scheduling handoff
+
+See [collection contracts](collection.md) for the current automatic routine/bootstrap, repair CLI,
+retry/quota and qualified time policy. ONCE/BACKFILL_START/startup RANGE_REFRESH
+controls are obsolete and ignored. Migration006 retains independent schedules;
+OpenQueue deliberately performs no startup recovery. The authenticated status
+includes plans and explicit search-limit/boundary-unresolved state. A short search
+is not an archive. Seasonal clock and stable repeated-hour identity remain gated;
+old evidence and accepted observations are retained. Task06a must consume these
+stored states without inferring history completion or adding another scheduler.
+Older one-shot procedures above describe prior task verification, not current startup.
+
+## Whole-history correction (15 October2026)
+
+Migration007 removes the fixed 120-day stop. Persisted backfill plans with
+`search_policy=calendar` continue into the preceding year whenever their current
+annual target is fetched. The status field `search_limit` is then a current calendar
+target, not an archive boundary; the page labels that distinction. No empty/zero
+cutoff or initialization/backfill setting is required. Old stopped plans resume
+from the same frontier and current unit, preserving accepted data, versions,
+checkpoints, retries and quota reservations. Unit sizes, routine priority, repair
+binding, clock qualifications and the aggregate ten-per-rolling24h limit remain.
+Earlier passages describing a120-day exploration limit are superseded.

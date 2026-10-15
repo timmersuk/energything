@@ -12,10 +12,11 @@ type Device struct{ PlantID, Serial, Family string }
 func (d Device) Key() string { b, _ := json.Marshal([]string{d.PlantID, d.Serial}); return string(b) }
 
 type Discovery struct {
-	Candidates []Device
-	Selected   *Device
-	State      string
-	Retries    []Retry
+	SelectedPlant string
+	Candidates    []Device
+	Selected      *Device
+	State         string
+	Retries       []Retry
 }
 
 func text(v any) string {
@@ -95,6 +96,24 @@ func (c *Client) Discover(ctx context.Context, plant, serial string) (Discovery,
 			return d, problem("protocol", "conflict", 0)
 		}
 		seenPlants[id] = true
+	}
+	if plant != "" && seenPlants[plant] {
+		d.SelectedPlant = plant
+	} else if plant == "" && len(seenPlants) == 1 {
+		for id := range seenPlants {
+			d.SelectedPlant = id
+		}
+	}
+	seenPlants = map[string]bool{}
+	for _, p := range plants {
+		id := text(p["plant_id"])
+		if !identifier(id) {
+			return d, problem("protocol", "invalid_identity", 0)
+		}
+		if seenPlants[id] {
+			return d, problem("protocol", "conflict", 0)
+		}
+		seenPlants[id] = true
 		if plant != "" && id != plant {
 			continue
 		}
@@ -127,6 +146,9 @@ func (c *Client) Discover(ctx context.Context, plant, serial string) (Discovery,
 	}
 	if len(eligible) == 1 {
 		d.Selected = &eligible[0]
+		if d.SelectedPlant == "" {
+			d.SelectedPlant = eligible[0].PlantID
+		}
 		d.State = "selected"
 	} else if len(eligible) > 1 || plant != "" || serial != "" {
 		d.State = "selection_required"

@@ -22,21 +22,58 @@ type octopusStore interface {
 // OctopusOnce discovers once, then fetches one bounded unit per selected stream.
 // No timer, scheduler retry or browser-triggered provider call exists here.
 func OctopusOnce(ctx context.Context, db octopusStore, client *octopus.Client, p config.Provider, from, to time.Time) error {
+	stored, meters, err := discoverOctopus(ctx, db, client, p)
+	if err != nil {
+		return err
+	}
+	var result error
+	for _, identity := range stored {
+		if !identity.Selected {
+			continue
+		}
+		jobs, err := db.EnsureJobs(ctx, []storage.Job{{IdentityID: identity.ID, Kind: "history", Policy: "backfill", Start: storage.At(from), End: storage.At(to), NextDue: storage.At(time.Now())}})
+		if err != nil {
+			return err
+		}
+		if err = db.ResumeJob(ctx, jobs[0].ID, storage.At(time.Now())); err != nil {
+			return err
+		}
+		result = errors.Join(result, CollectOctopusWindow(ctx, db, client, jobs[0], meters[identity.StableKey]))
+	}
+	return result
+}
+
+func DiscoverOctopus(ctx context.Context, db octopusStore, client *octopus.Client, p config.Provider) error {
+	_, _, e := discoverOctopus(ctx, db, client, p)
+	return e
+}
+func discoverOctopus(ctx context.Context, db octopusStore, client *octopus.Client, p config.Provider) ([]storage.Identity, map[string]octopus.Meter, error) {
 	states := func(d octopus.Discovery) []storage.DiscoveryState {
 		return []storage.DiscoveryState{{Provider: "octopus", Stream: "import", State: d.Import.State, Occurred: storage.At(time.Now())}, {Provider: "octopus", Stream: "export", State: d.Export.State, Occurred: storage.At(time.Now())}}
 	}
 	if _, err := db.RecordOctopusDiscovery(ctx, states(octopus.Discovery{Import: octopus.Stream{State: "discovering"}, Export: octopus.Stream{State: "discovering"}}), nil); err != nil {
-		return errors.New("storage: discovery start not recorded")
+		return nil, nil, errors.New("storage: discovery start not recorded")
 	}
 	account, err := client.Account(ctx, p.Account)
 	if err != nil {
 		// Account/address data and raw provider errors are never persisted.
 		auditCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 		defer cancel()
-		if _, storageErr := db.RecordOctopusDiscovery(auditCtx, states(octopus.Discovery{Import: octopus.Stream{State: "failed"}, Export: octopus.Stream{State: "failed"}}), nil); storageErr != nil {
-			return errors.New("storage: discovery failure not recorded")
+		failed := states(octopus.Discovery{Import: octopus.Stream{State: "failed"}, Export: octopus.Stream{State: "failed"}})
+		var pe *octopus.Error
+		if errors.As(err, &pe) {
+			for n := range failed {
+				failed[n].Failure = &storage.DiscoveryFailure{Class: pe.Class, Code: pe.Code, Page: pe.Page}
+				if !pe.DeferredUntil.IsZero() {
+					due := storage.At(pe.DeferredUntil)
+					failed[n].Failure.DeferredUntil = &due
+				}
+			}
 		}
-		return err
+		if _, storageErr := db.RecordOctopusDiscovery(auditCtx, failed, nil); storageErr != nil {
+			return nil, nil, errors.New("storage: discovery failure not recorded")
+		}
+		return nil, nil, err
 	}
 	d := octopus.Select(account, octopus.Choice{MPAN: p.ImportMPAN, Serial: p.ImportSerial}, octopus.Choice{MPAN: p.ExportMPAN, Serial: p.ExportSerial})
 	identities := []storage.Identity{}
@@ -50,30 +87,9 @@ func OctopusOnce(ctx context.Context, db octopusStore, client *octopus.Client, p
 	}
 	stored, err := db.RecordOctopusDiscovery(ctx, states(d), identities)
 	if err != nil {
-		return errors.New("storage: discovery not recorded")
+		return nil, nil, errors.New("storage: discovery not recorded")
 	}
-	var result error
-	for _, identity := range stored {
-		if !identity.Selected {
-			continue
-		}
-		if ctx.Err() != nil {
-			break
-		}
-		jobs, err := db.EnsureJobs(ctx, []storage.Job{{IdentityID: identity.ID, Kind: "history", Policy: "backfill", Start: storage.At(from), End: storage.At(to), NextDue: storage.At(time.Now())}})
-		if err != nil {
-			return errors.New("storage: one-shot work not recorded")
-		}
-		job := jobs[0]
-		if err = db.ResumeJob(ctx, job.ID, storage.At(time.Now())); err != nil {
-			return errors.New("storage: one-shot work not resumed")
-		}
-		// Explicit one-shot invocation permits a replay/correction of the same unit.
-		if err = CollectOctopusWindow(ctx, db, client, job, meters[identity.StableKey]); err != nil {
-			result = errors.Join(result, err)
-		}
-	}
-	return result
+	return stored, meters, nil
 }
 func CollectOctopusWindow(ctx context.Context, db octopusStore, client *octopus.Client, job storage.Job, m octopus.Meter) error {
 	id, err := db.BeginAttempt(ctx, storage.AttemptRequest{JobID: job.ID, Started: storage.At(time.Now())})
@@ -121,9 +137,9 @@ func CollectOctopusWindow(ctx context.Context, db octopusStore, client *octopus.
 	if providerErr.Code == "cancelled" {
 		outcome = "cancelled"
 	}
-	due := time.Now().Add(time.Minute)
+	due := retryDue(job, time.Now(), time.Time{})
 	if !providerErr.DeferredUntil.IsZero() {
-		due = providerErr.DeferredUntil
+		due = retryDue(job, time.Now(), providerErr.DeferredUntil)
 	}
 	page := providerErr.Page
 	err = db.RecordRejectedOrFailedAttempt(auditCtx, storage.FailedAttempt{AttemptID: id, Finished: finished, NextDue: storage.At(due), Outcome: outcome, ErrorClass: providerErr.Class, ErrorCode: providerErr.Code, Page: &page, Paused: providerErr.Class == "authentication" || providerErr.Class == "configuration", Evidence: evidence, Retries: retries})
@@ -131,20 +147,4 @@ func CollectOctopusWindow(ctx context.Context, db octopusStore, client *octopus.
 		return errors.New("storage: failed attempt audit unavailable; no completion claimed")
 	}
 	return fetchErr
-}
-
-// StartupWindow makes the explicit one-shot path finite. Default: previous local
-// midnight through the latest elapsed half hour; configured start: first <=14 days.
-func StartupWindow(p config.Provider, location *time.Location, now time.Time) (time.Time, time.Time) {
-	local := now.In(location)
-	midnight := time.Date(local.Year(), local.Month(), local.Day(), 0, 0, 0, 0, location)
-	from := midnight.AddDate(0, 0, -1).UTC()
-	if p.BackfillStart != nil {
-		from = p.BackfillStart.UTC()
-	}
-	to := now.UTC().Truncate(octopus.Slot)
-	if to.Sub(from) > octopus.MaxWindow {
-		to = from.Add(octopus.MaxWindow)
-	}
-	return from, to
 }

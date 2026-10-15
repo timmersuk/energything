@@ -24,17 +24,19 @@ func main() {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
-		cmd := exec.Command(*goExe, "build", "-trimpath", "-ldflags", "-s -w -X main.BuildID="+*id, "-o", filepath.Join(dir, "energything"), "./cmd/server")
-		for _, v := range os.Environ() {
-			if !strings.HasPrefix(v, "GOOS=") && !strings.HasPrefix(v, "GOARCH=") && !strings.HasPrefix(v, "CGO_ENABLED=") {
-				cmd.Env = append(cmd.Env, v)
+		for _, target := range []struct{ name, path string }{{"energything", "./cmd/server"}, {"energything-enqueue", "./cmd/enqueue"}} {
+			cmd := exec.Command(*goExe, "build", "-trimpath", "-ldflags", "-s -w -X main.BuildID="+*id, "-o", filepath.Join(dir, target.name), target.path)
+			for _, v := range os.Environ() {
+				if !strings.HasPrefix(v, "GOOS=") && !strings.HasPrefix(v, "GOARCH=") && !strings.HasPrefix(v, "CGO_ENABLED=") {
+					cmd.Env = append(cmd.Env, v)
+				}
 			}
-		}
-		cmd.Env = append(cmd.Env, "GOOS=linux", "GOARCH="+arch, "CGO_ENABLED=0")
-		cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
-		if err := cmd.Run(); err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			os.Exit(1)
+			cmd.Env = append(cmd.Env, "GOOS=linux", "GOARCH="+arch, "CGO_ENABLED=0")
+			cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
+			if err := cmd.Run(); err != nil {
+				fmt.Fprintln(os.Stderr, err)
+				os.Exit(1)
+			}
 		}
 	}
 }

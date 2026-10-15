@@ -30,6 +30,10 @@ func DiscoverGrowatt(ctx context.Context, db growattStore, client *growatt.Clien
 		var pe *growatt.Error
 		if errors.As(e, &pe) {
 			state.Failure = &storage.DiscoveryFailure{Class: pe.Class, Code: pe.Code, Page: pe.Page, Diagnostic: pe.Diagnostic}
+			if !pe.DeferredUntil.IsZero() {
+				due := storage.At(pe.DeferredUntil)
+				state.Failure.DeferredUntil = &due
+			}
 		}
 	}
 	rows := []storage.Identity{}
@@ -69,6 +73,9 @@ func CollectGrowattUnit(ctx context.Context, db growattStore, client *growatt.Cl
 	auditCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 	defer cancel()
 	if fetchErr == nil {
+		for n := range w.Samples {
+			growatt.QualifyClock(&w.Samples[n], zone)
+		}
 		e = db.CommitAcceptedWindow(ctx, storage.AcceptedWindow{AttemptID: id, Finished: finished, NextDue: finished, Evidence: w.Evidence, Samples: w.Samples, Retries: retries, TimestampQuality: len(w.Samples) > 0, Coverage: storage.Coverage{Valid: len(w.Samples), Qualified: len(w.Samples)}})
 		if e == nil {
 			return nil
@@ -93,9 +100,9 @@ func CollectGrowattUnit(ctx context.Context, db growattStore, client *growatt.Cl
 	if pe.Code == "cancelled" {
 		outcome = "cancelled"
 	}
-	due := time.Now().Add(time.Minute)
+	due := retryDue(job, time.Now(), time.Time{})
 	if !pe.DeferredUntil.IsZero() {
-		due = pe.DeferredUntil
+		due = retryDue(job, time.Now(), pe.DeferredUntil)
 	}
 	page := pe.Page
 	if db.RecordRejectedOrFailedAttempt(auditCtx, storage.FailedAttempt{AttemptID: id, Finished: finished, NextDue: storage.At(due), Outcome: outcome, ErrorClass: pe.Class, ErrorCode: pe.Code, Page: &page, Diagnostic: pe.Diagnostic, Paused: pe.Class == "authentication" || pe.Class == "configuration", Evidence: w.Evidence, Retries: retries}) != nil {

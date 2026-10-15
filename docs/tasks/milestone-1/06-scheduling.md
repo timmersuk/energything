@@ -260,3 +260,23 @@ HTTP; acceptance rejects any row outside it, with no partial corrections/checkpo
 Use seven-date units for task06 bootstrap and shorten only at range boundaries.
 The unchanged daily quota can therefore cover up to70 calendar dates in ten
 single-page calls; absent rows remain unknown, and pages each consume a call.
+
+## Superseding whole-history correction (15 October 2026)
+
+The user explicitly rejected task06's 120-day implementation budget and requires
+that it eventually populate the whole available history. Acquisition budgets must
+bound each request/unit and fair scheduling, not impose a lifetime lookback stop.
+Use persistent backward calendar scans when no verified earliest boundary exists:
+finishing the current annual target automatically extends it to the preceding
+year, across empty/zero gaps. Source-lifetime qualifications remain visible without
+blocking continued older acquisition or requesting an operator backfill date.
+Annual target completion is never archive completion. Migration007 preserves the
+existing frontier and unfinished unit, resumes old capped plans automatically,
+and leaves accepted data/evidence/checkpoints/retries/quota reservations intact.
+
+
+### Configured historical boundary (15 October 2026)
+
+Superseding unlimited calendar acquisition: `ENERGYTHING_HISTORY_START` is the inclusive earliest date for automatic Octopus and Growatt history, default `2022-01-01` (ISO `YYYY-MM-DD`). Invalid and future dates reject startup. Octopus uses midnight UTC; Growatt uses provider calendar dates with qualified timezone. A verified later provider oldest reading remains the effective boundary.
+
+Restart after changing the setting. Existing plans adopt it without resetting progress or deleting records. Moving it earlier resumes older acquisition; moving it later stops older queued automatic units. An in-flight unit may finish. `configured_boundary_reached` does not claim the provider archive is exhausted. Recent routine refresh and explicit repair remain independent.

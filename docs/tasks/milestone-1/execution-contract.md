@@ -84,13 +84,9 @@ baseline in the task before handoff to a dependent task.
 | OCTOPUS_EXPORT_MPAN / OCTOPUS_EXPORT_SERIAL | Explicit export selection when needed |
 | GROWATT_API_TOKEN | Configures Growatt; no automatic .env loading |
 | GROWATT_PLANT_ID / GROWATT_DEVICE_SERIAL | Explicit discovery selection when needed |
-| OCTOPUS_BACKFILL_START / GROWATT_BACKFILL_START | Optional YYYY-MM-DD in configured calendar timezone; bounded start, never a future date |
 | OCTOPUS_REFRESH_INTERVAL | 1h; positive duration |
 | GROWATT_LATEST_INTERVAL | 5m; positive duration |
 | GROWATT_HISTORY_INTERVAL | 1h; positive duration |
-| OCTOPUS_RANGE_REFRESH_START / OCTOPUS_RANGE_REFRESH_END | Optional paired YYYY-MM-DD bounds; inclusive calendar dates |
-| GROWATT_RANGE_REFRESH_START / GROWATT_RANGE_REFRESH_END | Optional paired YYYY-MM-DD provider-date bounds; inclusive dates |
-| ENERGYTHING_RANGE_REFRESH_ID | Required nonempty request ID when either range refresh is configured; persist ID/ranges and enqueue once; new ID deliberately repeats a range |
 | ENERGYTHING_SHUTDOWN_TIMEOUT | 10s; positive duration |
 | ENERGYTHING_IMAGE / ENERGYTHING_HTTP_PORT / ENERGYTHING_DATA_PATH | Compose substitution values, separate from process configuration |
 
@@ -343,10 +339,21 @@ accepted records/completion. No scheduler/bootstrap/refresh was added.
 
 The protocol amendment documents **10 calls/day** as well as five-minute spacing.
 The aggregate client has one HTTP transmission/page and requires a durable permit;
-ReserveAggregateCall enforces five-minute spacing/ten reservations per rolling24h
+ReserveAggregateCall enforces five-minute spacing/ten reservations per rolling 24h
 in one database. Quota deferral records failure and retains partial evidence;
 no inline retry/page wait. Task06 consumes DeferredUntil and shares the ledger.
 It must coordinate any other clients and keep independent aggregate bootstrap.
 Calendar timezone, live placeholder semantics, real multi-page daily behavior and
 oldest available history remain qualified/unverified; do not treat generated zeros
 or empty units as a historical boundary. See 05a-verification.md and protocol docs.
+
+## Task06 superseding implementation handoff
+
+Automatic collection replaces ONCE, BACKFILL_START and startup range controls.
+See [collection](../../collection.md) for migrations006/007, lane/window/retry/queue
+contracts and explicit unresolved time/identity qualifications. The user rejected the
+120-day lifetime limit. Migration007 replaces it with durable calendar scans whose
+annual targets extend automatically through successively older years, across
+empty/zero gaps. An annual target is a pacing/planning unit, never archive
+completion. Source lifetime/oldest metadata remains unknown without preventing
+ongoing older collection; verified nonempty oldest probes can bound the scan.

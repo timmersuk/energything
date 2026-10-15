@@ -110,3 +110,41 @@ versions, and local/provider rate-limit deferrals. Expose these alongside detail
 attempts without describing calendar bookkeeping bounds as measurement instants.
 Task06a raw evidence routes remain its scope; aggregate browsing exposes compact
 retrieval/calendar provenance only. Full plant IDs remain owner-visible.
+
+## Task06 scheduling handoff
+
+See [collection contracts](../../collection.md) for the current automatic routine/bootstrap, repair CLI,
+retry/quota and qualified time policy. ONCE/BACKFILL_START/startup RANGE_REFRESH
+controls are obsolete and ignored. Migration006 retains independent schedules;
+OpenQueue deliberately performs no startup recovery. The authenticated status
+includes plans and explicit search-limit/boundary-unresolved state. A short search
+is not an archive. Seasonal clock and stable repeated-hour identity remain gated;
+old evidence and accepted observations are retained. Task06a must consume these
+stored states without inferring history completion or adding another scheduler.
+Older one-shot procedures above describe prior task verification, not current startup.
+
+Task06 final handoff: source selection, automatic routine and historical schedules
+are separate. Plant generation proceeds while transient device discovery retries;
+a permanent source discovery failure pauses with its typed diagnostic. Long source
+Retry-After deadlines persist in discovery failure JSON and survive restart.
+Octopus boundary probes use one explicit-domain oldest record, retained in typed
+HistoryBoundary with observation time and provenance, refreshed weekly. Growatt
+search-limit state remains an unresolved gate. Do not relabel a120-day budget as
+archive completion. Inspect latest attempts independently of accepted coverage.
+The image's energything-enqueue performs only same-OS durable enqueue; never call
+Open or recovery from an audit/UI handler. Refresh uses the HMAC token described in
+HTTP API. New clock candidate fields preserve original timestamps and deliberately
+leave authoritative instant/key unset pending seasonal/identity evidence. No task06a
+routes were implemented as part of this handoff.
+
+## Whole-history correction (15 October2026)
+
+Migration007 removes the fixed 120-day stop. Persisted backfill plans with
+`search_policy=calendar` continue into the preceding year whenever their current
+annual target is fetched. The status field `search_limit` is then a current calendar
+target, not an archive boundary; the page labels that distinction. No empty/zero
+cutoff or initialization/backfill setting is required. Old stopped plans resume
+from the same frontier and current unit, preserving accepted data, versions,
+checkpoints, retries and quota reservations. Unit sizes, routine priority, repair
+binding, clock qualifications and the aggregate ten-per-rolling24h limit remain.
+Earlier passages describing a120-day exploration limit are superseded.

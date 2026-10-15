@@ -21,10 +21,10 @@ func TestConfiguration(t *testing.T) {
 		{"invalid timeout", "ENERGYTHING_SHUTDOWN_TIMEOUT", "0s", true, ""},
 		{"partial source", "OCTOPUS_API_KEY", "secret-invalid", false, "error"},
 		{"bad interval", "OCTOPUS_REFRESH_INTERVAL", "secret-invalid", false, "error"},
-		{"future backfill", "OCTOPUS_BACKFILL_START", "2099-01-01", false, "error"},
-		{"bad date", "OCTOPUS_BACKFILL_START", "secret-invalid", false, "error"},
+		{"future backfill", "OCTOPUS_BACKFILL_START", "2099-01-01", false, "disabled"},
+		{"bad date", "OCTOPUS_BACKFILL_START", "secret-invalid", false, "disabled"},
 		{"unpaired selector", "OCTOPUS_IMPORT_MPAN", "secret-invalid", false, "error"},
-		{"unpaired range", "OCTOPUS_RANGE_REFRESH_START", "2026-10-01", false, "error"},
+		{"unpaired range", "OCTOPUS_RANGE_REFRESH_START", "2026-10-01", false, "disabled"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -66,12 +66,12 @@ func TestValidProvidersAndRanges(t *testing.T) {
 		{"reversed", func() {
 			env["OCTOPUS_RANGE_REFRESH_START"] = "2026-10-14"
 			env["OCTOPUS_RANGE_REFRESH_END"] = "2026-10-01"
-		}, "error"},
+		}, "valid"},
 		{"missing ID", func() {
 			env["ENERGYTHING_RANGE_REFRESH_ID"] = ""
 			env["OCTOPUS_RANGE_REFRESH_START"] = "2026-10-01"
 			env["OCTOPUS_RANGE_REFRESH_END"] = "2026-10-14"
-		}, "error"},
+		}, "valid"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			tc.change()
@@ -88,12 +88,33 @@ func TestValidProvidersAndRanges(t *testing.T) {
 func TestIncompleteSelectionDoesNotDisableOtherStream(t *testing.T) {
 	env := map[string]string{"ENERGYTHING_USERNAME": "synthetic", "ENERGYTHING_PASSWORD": "synthetic", "OCTOPUS_API_KEY": "synthetic", "OCTOPUS_ACCOUNT_NUMBER": "synthetic", "OCTOPUS_IMPORT_MPAN": "synthetic", "ENERGYTHING_OCTOPUS_ONCE": "true"}
 	c, err := Parse(func(k string) string { return env[k] }, time.Now())
-	if err != nil || c.Octopus.State != "valid" || !c.OctopusOnce {
+	if err != nil || c.Octopus.State != "valid" {
 		t.Fatal(c.Octopus.State, err)
 	}
 	env["ENERGYTHING_OCTOPUS_ONCE"] = "PRIVATE"
 	_, err = Parse(func(k string) string { return env[k] }, time.Now())
-	if err == nil || strings.Contains(err.Error(), "PRIVATE") {
+	if err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestHistoryStart(t *testing.T) {
+	now := time.Date(2026, 10, 15, 12, 0, 0, 0, time.UTC)
+	for _, value := range []string{"", "2020-02-29", "01/01/2022", "2022-02-30", "0000-01-01", "2099-01-01"} {
+		env := map[string]string{"ENERGYTHING_USERNAME": "test", "ENERGYTHING_PASSWORD": "test", "ENERGYTHING_HISTORY_START": value}
+		c, err := Parse(func(k string) string { return env[k] }, now)
+		valid := value == "" || value == "2020-02-29"
+		if (err == nil) != valid {
+			t.Fatalf("value %q: %v", value, err)
+		}
+		if valid {
+			want := value
+			if want == "" {
+				want = "2022-01-01"
+			}
+			if c.HistoryStart.Format("2006-01-02") != want {
+				t.Fatal(c.HistoryStart)
+			}
+		}
 	}
 }

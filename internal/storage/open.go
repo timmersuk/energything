@@ -24,6 +24,21 @@ type Store struct {
 func (s *Store) Close() error { return s.db.Close() }
 
 func Open(ctx context.Context, dir string) (*Store, error) {
+	return open(ctx, dir, true)
+}
+
+// OpenQueue opens an existing server database without migration or orphan recovery.
+// A repair CLI must never reconcile attempts owned by the running server.
+func OpenQueue(ctx context.Context, dir string) (*Store, error) {
+	return open(ctx, dir, false)
+}
+
+func open(ctx context.Context, dir string, server bool) (*Store, error) {
+	if !server {
+		if _, err := os.Stat(filepath.Join(dir, "energything.sqlite")); err != nil {
+			return nil, ErrNotFound
+		}
+	}
 	if err := os.MkdirAll(dir, 0700); err != nil {
 		return nil, errors.New("ENERGYTHING_DATA_DIR cannot be created; grant the service directory access")
 	}
@@ -47,6 +62,7 @@ func Open(ctx context.Context, dir string) (*Store, error) {
 	}
 	u := url.URL{Scheme: "file", Path: slash}
 	q := url.Values{}
+	q.Set("_txlock", "immediate") // Serialize cross-process read/modify/write claims.
 	for _, p := range []string{"journal_mode(WAL)", "foreign_keys(1)", "busy_timeout(5000)"} {
 		q.Add("_pragma", p)
 	}
@@ -61,9 +77,19 @@ func Open(ctx context.Context, dir string) (*Store, error) {
 		return nil, errors.New("SQLite cannot open DATA_DIR/energything.sqlite; check directory and database permissions")
 	}
 	s := &Store{db: db, now: time.Now}
-	if err := s.initialize(ctx); err != nil {
+	var initErr error
+	if server {
+		initErr = s.initialize(ctx)
+	} else {
+		var version int
+		initErr = db.QueryRowContext(ctx, `SELECT max(version) FROM schema_migrations`).Scan(&version)
+		if initErr == nil && version != schemaVersion {
+			initErr = errors.New("queue requires the current server schema")
+		}
+	}
+	if initErr != nil {
 		db.Close()
-		return nil, err
+		return nil, initErr
 	}
 	return s, nil
 }

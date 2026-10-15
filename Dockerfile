@@ -4,6 +4,7 @@ RUN apk add --no-cache ca-certificates tzdata && \
     adduser -S -D -H -u 10001 -G users -h /nonexistent -s /sbin/nologin energything && \
     mkdir /data && chown energything:users /data
 COPY bin/${TARGETPLATFORM}/energything /usr/local/bin/energything
+COPY bin/${TARGETPLATFORM}/energything-enqueue /usr/local/bin/energything-enqueue
 ENV ENERGYTHING_HTTP_ADDR=:8080 ENERGYTHING_DATA_DIR=/data ENERGYTHING_TIMEZONE=Europe/London TZ=Europe/London
 VOLUME ["/data"]
 EXPOSE 8080

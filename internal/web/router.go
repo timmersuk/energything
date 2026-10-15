@@ -18,6 +18,13 @@ func writeError(w http.ResponseWriter, status int, code, message string) {
 	_ = json.NewEncoder(w).Encode(map[string]any{"error": map[string]string{"code": code, "message": message}})
 }
 func NewRouter(c config.Config, buildID string, store recordStore) (http.Handler, error) {
+	return NewRouterWithRefresh(c, buildID, store, nil)
+}
+func NewRouterWithRefresh(c config.Config, buildID string, store recordStore, refresh Refresh) (http.Handler, error) {
+	token, err := csrfToken()
+	if err != nil {
+		return nil, err
+	}
 	if c.Username == "" || c.Password == "" {
 		return nil, errors.New("web credentials are required")
 	}
@@ -29,14 +36,21 @@ func NewRouter(c config.Config, buildID string, store recordStore) (http.Handler
 		return nil, err
 	}
 	protected := require(c.Username, c.Password, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/v1/refresh" {
+			refreshHandler(refresh, token)(w, r)
+			return
+		}
 		if r.Method != "GET" {
 			w.Header().Set("Allow", "GET")
 			writeError(w, 405, "method_not_allowed", "Method not allowed")
 			return
 		}
-		if r.URL.Path == "/static/style.css" {
-			data, _ := files.ReadFile("static/style.css")
+		if r.URL.Path == "/static/style.css" || r.URL.Path == "/static/refresh.js" {
+			data, _ := files.ReadFile(strings.TrimPrefix(r.URL.Path, "/"))
 			w.Header().Set("Content-Type", "text/css; charset=utf-8")
+			if strings.HasSuffix(r.URL.Path, ".js") {
+				w.Header().Set("Content-Type", "text/javascript; charset=utf-8")
+			}
 			_, _ = w.Write(data)
 			return
 		}
@@ -49,11 +63,16 @@ func NewRouter(c config.Config, buildID string, store recordStore) (http.Handler
 		}
 		name := "status.html"
 		if r.URL.Path == "/" || r.URL.Path == "/api/v1/status" {
+			w.Header().Set("X-CSRF-Token", token)
 			if len(values) != 0 {
 				writeError(w, 400, "invalid_query", "Invalid query parameters")
 				return
 			}
 			data, err = statusData(r.Context(), store, c, buildID)
+			if view, ok := data.(statusView); ok {
+				view.CSRFToken = token
+				data = view
+			}
 		} else if r.URL.Path == "/records/growatt/aggregates" || r.URL.Path == "/api/v1/growatt/aggregates" {
 			data, err = aggregateData(r.Context(), store, values, r.URL.Path)
 			name = "aggregates.html"
@@ -105,7 +124,7 @@ func NewRouter(c config.Config, buildID string, store recordStore) (http.Handler
 			}
 			w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 			_, _ = w.Write([]byte("ok\n"))
-		case "/records/growatt/aggregates", "/api/v1/growatt/aggregates", "/", "/static/style.css", "/records/octopus", "/records/growatt", "/api/v1/status", "/api/v1/octopus/intervals", "/api/v1/growatt/samples":
+		case "/static/refresh.js", "/api/v1/refresh", "/records/growatt/aggregates", "/api/v1/growatt/aggregates", "/", "/static/style.css", "/records/octopus", "/records/growatt", "/api/v1/status", "/api/v1/octopus/intervals", "/api/v1/growatt/samples":
 			protected.ServeHTTP(w, r)
 		default:
 			writeError(w, 404, "not_found", "Not found")

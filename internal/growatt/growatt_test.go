@@ -63,6 +63,23 @@ func TestDiscoverySelection(t *testing.T) {
 		t.Fatal(d, e)
 	}
 }
+
+func TestSerialOnlySelectionEstablishesPlantAcrossMultiplePlants(t *testing.T) {
+	c := NewClient("synthetic", roundTrip(func(r *http.Request) (*http.Response, error) {
+		if strings.HasSuffix(r.URL.Path, "plant/list") {
+			return reply(`{"error_code":0,"data":{"count":2,"plants":[{"plant_id":"P1"},{"plant_id":"P2"}]}}`), nil
+		}
+		sn := "A"
+		if r.URL.Query().Get("plant_id") == "P2" {
+			sn = "B"
+		}
+		return reply(`{"error_code":0,"data":{"count":1,"devices":[{"device_sn":"` + sn + `","type":5}]}}`), nil
+	}))
+	d, e := c.Discover(context.Background(), "", "B")
+	if e != nil || d.Selected == nil || d.SelectedPlant != "P2" {
+		t.Fatal(d, e)
+	}
+}
 func TestNormalizationExactOptionalAndTime(t *testing.T) {
 	row := decode(`{"serialNum":"SYN-A","time":"2026-10-25 01:30:00","soc":0,"bmsSOC":7,"ppv":1.234567890123456789e2,"pcharge1":-1,"unknown":{"sensor":99}}`)
 	s, e := normalize(row, "2026-10-25", "SYN-A", 0)
