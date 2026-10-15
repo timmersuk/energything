@@ -187,3 +187,16 @@ and exact numeric summaries remain ignored/private. Generic findings and primary
 source caveats are in docs/growatt-time-investigation.md and growatt-time-source-notes.md.
 No production code, stored timestamps, database or preview image changed; this was
 empirical protocol research, not another full test/build or collection acceptance.
+
+## Historical availability investigation (15 October 2026)
+
+User authorized checking how far back current Growatt detailed history could be
+retrieved. Thirty bounded read-only history requests examined sixteen fixed age
+probes, twelve adjacent days and the edge page twice. The observed edge behaves
+as a rolling approximately 95-day window; its oldest createTime age remained close
+to 95 days while oldest clock advanced and count decreased. No official universal
+retention guarantee was found. Reports/code/timestamp evidence remain ignored/private;
+only generic findings are recorded in docs/growatt-history-investigation.md and
+source notes. No data ingestion, timestamp rewrites, schema/image change or scheduler
+was performed. The preview remains unchanged. No full tests/builds were rerun for
+this documentation-only research follow-up.

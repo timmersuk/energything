@@ -197,3 +197,11 @@ use this narrowed evidence rather than treating ordinary recent samples as wholl
 uninterpretable. Seasonal provider-clock behavior remains untested because the
 selected winter probe was empty. Distinguish that specific seasonal/overlap gate
 from the strongly supported interpretation of the observed current period.
+
+The [15 October history availability investigation](../../growatt-history-investigation.md)
+now supplies empirical evidence of an approximately 95-day moving detailed-telemetry
+edge for the selected installation. Expiry can advance while backfill runs. Preserve
+this dated, identity-scoped provenance and already retained samples; do not hardcode
+it as a universal lifetime/retention guarantee or count sparse older empty probes as
+proof of an exhaustive archive scan. The investigation made no ingestion/checkpoint
+changes and does not complete the automatic boundary-search/stopping-policy gate.

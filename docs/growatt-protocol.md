@@ -121,3 +121,15 @@ see [the investigation](growatt-time-investigation.md) and
 some repeated-hour occurrences still lack independent evidence. The existing
 normalizer/storage are unchanged until an explicit evidenced policy is implemented;
 do not treat this installation-specific comparison as a universal Growatt rule.
+
+## Observed detailed-history window (15 October 2026)
+
+A [bounded availability investigation](growatt-history-investigation.md) found a
+moving edge approximately 95 elapsed days old for this selected installation's
+MIX detailed-history endpoint. Nearby older days and sampled much older dates were
+empty. Two edge-page observations showed old data expire minute by minute while
+oldest createTime age remained close to 95 days. The official history documentation
+does not promise this retention duration: treat it as scoped empirical evidence,
+not a universal guaranteed limit. Partial availability probes were not ingested.
+Task06 must retain local history beyond cloud expiry and preserve/revisit boundary
+provenance; no scheduler or complete available-history claim is implemented here.
