@@ -28,7 +28,15 @@ $mountAfter=docker inspect $container --format '{{json .Mounts}}' | ConvertFrom-
 $actual=docker inspect $container --format '{{.Image}}';$expected=docker image inspect energything:local --format '{{.Id}}'
 $preserved=$true
 foreach($old in $before.providers.sources){$new=@($after.providers.sources|Where-Object {$_.identity_id -eq $old.identity_id});if($new.Count -ne 1 -or $new[0].retained_count -lt $old.retained_count){$preserved=$false}}
-$summary=[ordered]@{build_verified=($after.build_id -eq $BuildID);health_ok=($health.StatusCode -eq 200);original_mount=($mountAfter[0].Source -eq $data);actual_image=($actual -eq $expected);prior_counts_preserved=$preserved;clean_full_backup=$true;automatic_collection_enabled=$true}
+$frontiersPreserved=$true
+foreach($old in @($before.schedules|Where-Object policy -eq 'backfill')){
+ $new=@($after.schedules|Where-Object {$_.identity_id -eq $old.identity_id -and $_.kind -eq $old.kind -and $_.policy -eq 'backfill'})
+ if($new.Count -ne 1 -or [DateTimeOffset]$new[0].frontier -gt [DateTimeOffset]$old.frontier){$frontiersPreserved=$false}
+}
+$growattIdentityIds=@(($after.providers|Where-Object source -eq 'growatt').sources.identity_id)
+$growattPlans=@($after.schedules|Where-Object {$_.policy -eq 'backfill' -and $_.identity_id -in $growattIdentityIds})
+$continuous=($growattPlans.Count -gt 0 -and @($growattPlans|Where-Object search_policy -ne 'calendar').Count -eq 0)
+$summary=[ordered]@{build_verified=($after.build_id -eq $BuildID);health_ok=($health.StatusCode -eq 200);original_mount=($mountAfter[0].Source -eq $data);actual_image=($actual -eq $expected);prior_counts_preserved=$preserved;backfill_frontiers_preserved=$frontiersPreserved;growatt_history_continues=$continuous;clean_full_backup=$true;automatic_collection_enabled=$true}
 $summary|ConvertTo-Json|Set-Content .cache/task06-preview-summary.json
 $summary|ConvertTo-Json -Compress|Write-Output
 if($summary.Values -contains $false){throw 'Preview verification failed'}

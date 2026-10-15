@@ -339,7 +339,7 @@ accepted records/completion. No scheduler/bootstrap/refresh was added.
 
 The protocol amendment documents **10 calls/day** as well as five-minute spacing.
 The aggregate client has one HTTP transmission/page and requires a durable permit;
-ReserveAggregateCall enforces five-minute spacing/ten reservations per rolling24h
+ReserveAggregateCall enforces five-minute spacing/ten reservations per rolling 24h
 in one database. Quota deferral records failure and retains partial evidence;
 no inline retry/page wait. Task06 consumes DeferredUntil and shares the ledger.
 It must coordinate any other clients and keep independent aggregate bootstrap.

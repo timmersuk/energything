@@ -38,9 +38,9 @@ collector has at most five seconds for cancellation audit cleanup.
 
 ## Continuous acquisition of the whole available history
 
-There is no120-day lookback cap. Each selected stream acquires history backwards
+There is no 120-day lookback cap. Each selected stream acquires history backwards
 from recent dates, using one detailed provider date or seven inclusive generation
-dates per acquisition unit. Octopus uses at most14 absolute days per unit. The
+dates per acquisition unit. Octopus uses at most 14 absolute days per unit. The
 scheduler yields between units, and retained progress survives restart.
 
 When no authoritative oldest-reading boundary is known, `search_policy=calendar`
@@ -48,12 +48,12 @@ means the stored `search_limit` is the **current calendar target**, not a stoppi
 date. The first target is January1 of the current year. Reaching it automatically
 extends the target to January1 of the preceding year in the same transaction that
 plans the next bounded unit. This repeats through older years. Empty responses,
-zero aggregates, the observed roughly95-day telemetry expiry edge, plant creation,
+zero aggregates, the observed roughly 95-day telemetry expiry edge, plant creation,
 and old locally retained rows never stop or truncate that scan.
 
 Consequently every successively older calendar period is eventually requested,
 including older nonempty data after long empty gaps. The only date-domain guard is
-January1 of year0001, the lower limit of the application's four-digit date/storage
+January1 of year 0001, the lower limit of the application's four-digit date/storage
 representation. Reaching it records `calendar_domain_scanned`, which describes
 requests made, not proof of physical measurement completeness or a provider-wide
 retention promise. A provider date rejection is a failed unit, not a new oldest
@@ -68,15 +68,15 @@ repair requests retain their independent policies.
 
 Generation history has a separate frontier from device telemetry and retains each
 day separately. Its documented quota remains five-minute spacing and ten local
-reservations per rolling24h. With one routine request and single-page historical
-units, nine historical requests can cover up to63 older dates per rolling24h;
+reservations per rolling 24h. With one routine request and single-page historical
+units, nine historical requests can cover up to 63 older dates per rolling 24h;
 errors, pagination, contention and quota deferrals can reduce that rate. Several
 years can therefore take weeks to populate. No operator backfill date or manual
-repair command is needed to progress beyond120 days.
+repair command is needed to progress beyond 120 days.
 
 Detailed readings, including SOC, are retained first while still accessible. A
 provider-expired detailed sample cannot be recovered from a daily aggregate or
-manufactured from power. The dated95-day observation remains installation-specific
+manufactured from power. The dated 95-day observation remains installation-specific
 availability evidence, not a configured scan limit or a claim about aggregate
 retention. The official aggregate/history contracts do not expose a verified
 all-time oldest-reading index, so the status stays honest about unknown source
@@ -121,7 +121,7 @@ is the recovery mechanism; audit and retained observations remain intact.
 
 Generation has exactly one transmission/page, no inline retries. All attempts share
 the existing durable reservation ledger: at least five minutes and at most ten
-reservations per rolling24h, including failed transmissions. Local deferrals leave
+reservations per rolling 24h, including failed transmissions. Local deferrals leave
 the lane available. Other databases/software are outside that ledger and must be
 coordinated separately. No feed is added to another feed or inferred from power.
 

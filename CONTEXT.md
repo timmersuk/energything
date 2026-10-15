@@ -55,3 +55,11 @@ is not an archive. Seasonal clock and stable repeated-hour identity remain gated
 old evidence and accepted observations are retained. Task06a must consume these
 stored states without inferring history completion or adding another scheduler.
 Older one-shot procedures above describe prior task verification, not current startup.
+
+Task06 whole-history correction: migration007 replaces the rejected120-day stop
+with persistent calendar scans. Completing a year automatically plans older
+bounded units; empty/zero years never terminate acquisition. Existing frontiers,
+unfinished jobs, records/checkpoints/retries/quotas are preserved. Growatt
+source-lifetime metadata remains qualified but does not prevent ongoing older
+collection. Octopus's verified oldest bound remains separate. Several years of
+generation can take weeks under the unchanged ten-per-rolling24h quota.

@@ -130,7 +130,7 @@ synthetic fixtures into preview.
 
 This endpoint documents five-minute spacing **and 10 calls/day**. A durable local
 ledger counts every reserved transmission, including failures, and enforces ten
-per rolling24h. It does not see calls made by other databases/clients; coordinate
+per rolling 24h. It does not see calls made by other databases/clients; coordinate
 manual probes accordingly. Failures require a later explicit invocation; no
 inline aggregate retries. A page deferred by the ledger rejects the complete
 unit, preserving accepted data and completion. Repeated calls without waiting
@@ -176,7 +176,7 @@ This action only inserts immutable durable work; the existing server performs it
 
 ## Whole-history correction (15 October2026)
 
-Migration007 removes the fixed120-day stop. Persisted backfill plans with
+Migration007 removes the fixed 120-day stop. Persisted backfill plans with
 `search_policy=calendar` continue into the preceding year whenever their current
 annual target is fetched. The status field `search_limit` is then a current calendar
 target, not an archive boundary; the page labels that distinction. No empty/zero

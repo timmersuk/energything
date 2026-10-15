@@ -51,6 +51,38 @@ func TestMigrationResumesLegacyHistoryWithoutResettingProgress(t *testing.T) {
 	}
 }
 
+func TestMigrationKeepsUnfinishedUnitAndRetryPause(t *testing.T) {
+	ctx := context.Background()
+	s, dir, base := aggregateFixture(t)
+	frontier := time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)
+	start := frontier.AddDate(0, 0, -7)
+	jobs, e := s.EnsureJobs(ctx, []Job{{IdentityID: base.IdentityID, Kind: "aggregate", Policy: "backfill", Start: At(start), End: At(frontier), ProviderDate: start.Format("2006-01-02"), NextDue: testStart}})
+	if e != nil {
+		t.Fatal(e)
+	}
+	job := jobs[0]
+	if e = s.RecordRejectedOrFailedAttempt(ctx, FailedAttempt{AttemptID: begin(t, s, job), Finished: testStart + 4*halfHour, NextDue: testStart + 8*halfHour, Outcome: "failed", ErrorClass: "authentication", ErrorCode: "unauthorized", Paused: true}); e != nil {
+		t.Fatal(e)
+	}
+	if _, e = s.db.Exec(`ALTER TABLE schedules DROP COLUMN search_policy; DELETE FROM schema_migrations WHERE version=7; INSERT INTO schedules(identity_id,kind,policy,frontier,search_limit,interval_us,next_due,state,provenance,current_job) VALUES(?,'aggregate','backfill',?,?,3600000000,?,'paused','old120-day budget',?)`, base.IdentityID, At(frontier), At(start.AddDate(0, 0, -120)), testStart+8*halfHour, job.ID); e != nil {
+		t.Fatal(e)
+	}
+	s.Close()
+	s, e = Open(ctx, dir)
+	if e != nil {
+		t.Fatal(e)
+	}
+	defer s.Close()
+	p, e := s.QuerySchedules(ctx)
+	if e != nil || p[0].CurrentJob == nil || *p[0].CurrentJob != job.ID || p[0].Frontier != At(frontier) || p[0].State != "paused" || p[0].NextDue != testStart+8*halfHour {
+		t.Fatal("unfinished unit changed", p, e)
+	}
+	jobs, e = s.EnsureJobs(ctx, []Job{job})
+	if e != nil || jobs[0].ID != job.ID || jobs[0].RetryCount != 1 || !jobs[0].Paused || jobs[0].Checkpoint != nil || jobs[0].Start != At(start) || jobs[0].End != At(frontier) {
+		t.Fatal("retry/pause/window changed", jobs, e)
+	}
+}
+
 func TestCalendarHistoryContinuesAcrossYearsEmptyGapsAndRestart(t *testing.T) {
 	ctx := context.Background()
 	s, dir, base := aggregateFixture(t)

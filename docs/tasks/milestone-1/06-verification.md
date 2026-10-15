@@ -91,12 +91,33 @@ replacement. No exhaustive live archive completion is claimed.
 
 ## Whole-history correction verification
 
-The user rejected the120-day stop. New tests passed for continuous acquisition
+The user rejected the 120-day stop. New tests passed for continuous acquisition
 through a full empty/zero year into older positive generation, year-boundary
 rejection preservation, restart without replay/skipping, automatic continuation,
 and representable-date underflow protection. A real schema006-to007 migration test
 passed: a formerly stopped plan resumes at the identical frontier, preserving
 accepted aggregate/version/checkpoint and durable quota reservations.
 
-The remaining whole-suite, image, migration/preview and browser checks for this
-correction are pending; older executed results above describe the prior revision.
+Whole-history correction checks completed:
+
+- Full go test ./..., go vet ./..., native server/enqueue and CGO-disabled Linux
+  amd64/arm64 builds passed.
+- Both actual images passed SQLite initialization/restart, non-root/CA/timezone,
+  CLI execution and clean shutdown checks.
+- Actual-image Edge checks passed calendar-policy retention and the explicit
+  expanding-target label, plus refresh/CSRF and retained browsing during outage.
+- Original preview was cleanly stopped and its entire data directory backed up
+  before schema007 migration. Recreated with the saved Compose pair/project and
+  original mount; exact image/build, health, every retained identity count,
+  non-resetting backfill frontiers and continuous Growatt policy were verified.
+  Private preview browser checks passed. Automatic collection continues under
+  the existing quota ledger, with no manual historical initialization.
+- An initial preview verification assertion mishandled PowerShell's automatic
+  JSON-date conversion; the check was corrected and passed on rerun. The server
+  migration itself had completed; no provider failure was manufactured.
+
+Standards review: zero hard violations and zero actionable heuristic findings.
+Spec review: zero actionable findings. The original120-day limit is superseded;
+source oldest/retention and seasonal/repeated-hour identity qualifications do not
+become false completeness or timestamp claims. The old research note and private
+backups/evidence remain preserved.
