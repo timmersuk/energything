@@ -160,3 +160,16 @@ invention, invalid/outside/conflicting rows, oversized/reversed/malformed ranges
 month/year/leap-day transitions, atomic seven-row acceptance/reopen and no partial
 corrections, wrong ending-bound selector with an empty response and no HTTP, plus
 CLI seven-date default, explicit short range, today cap and invalid/mixed flags.
+
+Seven-date revision results: full go test ./..., go vet ./..., native CLI/server
+builds, Linux amd64/arm64 builds and both-architecture SQLite range/migration
+runtime tests passed. An authorized production-CLI request for January12–18 used
+one aggregate page and accepted seven separate daily rows into the cleanly stopped,
+fully backed-up original preview. Earlier records were preserved, the original
+Compose pair/project/mount and task image verified, health and private browser
+checks passed, including both inclusive endpoints and existing provider browsing.
+No automatic scan/scheduler or additional daily quota allowance was introduced.
+
+Revision review against28c4023: Spec zero findings. Standards found two stale
+one-day documentation passages; corrected to describe `-from` seven-date batching
+and `-day` single-date compatibility. No actionable code findings.

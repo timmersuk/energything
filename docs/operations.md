@@ -115,7 +115,7 @@ keeps generated credential-bearing code/output ignored and removes them after ch
 ## Explicit bounded daily aggregate collection (task05a)
 
 `go run ./cmd/growatt-aggregate -data-dir <stopped-or-private-directory>
--discovery <existing-private-growatt-discovery.json> -day 2026-01-15` collects
+-discovery <existing-private-growatt-discovery.json> -from 2026-01-12` collects
 up to seven inclusive dates for the confirmed plant in that report. Requires runtime
 GROWATT_API_TOKEN; never loads .env. No device totals, discovery calls, automatic
 scan, timer, refresh endpoint or bootstrap. Maximum CLI duration2m plus bounded

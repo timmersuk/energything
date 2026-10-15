@@ -164,9 +164,10 @@ zero examples but does not distinguish generated zero placeholders from producti
 zero therefore carries `reported_zero_availability_unknown`. Missing periods are
 absent, never zero; null/missing/placeholder/malformed energy rejects the unit.
 
-The allowlist adds only GET plant/energy, paired nonfuture YYYY-MM-DD bounds spanning one through seven inclusive dates,
-time_unit=day, confirmed plant ID, page1..100, perpage100. Production unit is one
-day, stricter than the documented <=7-day span. Whole-unit validation requires
+The allowlist adds only GET plant/energy, paired nonfuture YYYY-MM-DD bounds
+spanning one through seven inclusive dates, time_unit=day, confirmed plant ID,
+page1..100, perpage100. Normal production units include seven dates (end-start
+<=6 calendar days), shortened at range boundaries. Whole-unit validation requires
 stable nonnegative count, day unit, results array, dates within those inclusive bounds, exact nonnegative
 string energy and complete pagination. Equal numeric duplicates collapse; conflicts,
 cycles, count changes, early termination and budgets reject all rows. Selected
