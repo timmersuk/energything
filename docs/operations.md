@@ -111,3 +111,27 @@ Task 05 also adds migration 004 for discovery failure diagnostics. Apply the sam
 clean-stop/full-directory backup procedure before upgrading from intermediate schema003.
 Run private preview browser checks with `scripts/task05-preview-browser.ps1`; it
 keeps generated credential-bearing code/output ignored and removes them after checking.
+
+## Explicit bounded daily aggregate collection (task05a)
+
+`go run ./cmd/growatt-aggregate -data-dir <stopped-or-private-directory>
+-discovery <existing-private-growatt-discovery.json> -day 2026-01-15` collects
+exactly one day for the confirmed plant in that report. Requires runtime
+GROWATT_API_TOKEN; never loads .env. No device totals, discovery calls, automatic
+scan, timer, refresh endpoint or bootstrap. Maximum CLI duration2m plus bounded
+5s failure-audit cleanup. Do not open any live server database with this CLI.
+
+Back up the entire cleanly stopped original data directory before migration005.
+Use the saved Compose project/pair/mount procedure above; keep Octopus one-shot
+false and the approved pinned Alpine image. The explicit CLI may populate one
+older day while stopped, then recreate the preview from the exact same setup.
+Private/browser databases and evidence stay under ignored .cache; never copy
+synthetic fixtures into preview.
+
+This endpoint documents five-minute spacing **and 10 calls/day**. A durable local
+ledger counts every reserved transmission, including failures, and enforces ten
+per rolling24h. It does not see calls made by other databases/clients; coordinate
+manual probes accordingly. Failures require a later explicit invocation; no
+inline aggregate retries. A page deferred by the ledger rejects the complete
+unit, preserving accepted data and completion. Repeated calls without waiting
+produce durable rate-limit diagnostics, no cloud transmissions.

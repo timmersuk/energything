@@ -328,3 +328,24 @@ protocol, plant/metric/period identity, exact-value/provenance/correction and st
 HTTP contracts before coding. Task06 consumes those bounded operations for automatic
 collection and independent available-history recovery. Charts/derived seasonal
 analytics remain later work. Scope agreement does not start task05a implementation.
+
+## Task05a handoff (15 October 2026)
+
+Daily plant generation now has its own typed Aggregate, AggregateQuery and
+AcceptedWindow.Aggregates, migration005 current/version tables and quota ledger.
+Use CollectGrowattAggregateUnit with a kind=aggregate one-day job; bounds are UTC
+calendar bookkeeping only, provider date preserved, no measurement UTC guessed.
+Identity is growatt/generation/plant ID, not device serial. Discovery deselection
+is telemetry-specific and does not deselect the independent generation stream.
+Accepted transactions preserve correction versions/evidence; failure never advances
+accepted records/completion. No scheduler/bootstrap/refresh was added.
+
+The protocol amendment documents **10 calls/day** as well as five-minute spacing.
+The aggregate client has one HTTP transmission/page and requires a durable permit;
+ReserveAggregateCall enforces five-minute spacing/ten reservations per rolling24h
+in one database. Quota deferral records failure and retains partial evidence;
+no inline retry/page wait. Task06 consumes DeferredUntil and shares the ledger.
+It must coordinate any other clients and keep independent aggregate bootstrap.
+Calendar timezone, live placeholder semantics, real multi-page daily behavior and
+oldest available history remain qualified/unverified; do not treat generated zeros
+or empty units as a historical boundary. See 05a-verification.md and protocol docs.

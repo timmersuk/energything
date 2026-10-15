@@ -120,7 +120,7 @@ func (s *Store) RecordGrowattDiscovery(ctx context.Context, state DiscoveryState
 	}
 	out := append([]Identity(nil), identities...)
 	err := s.write(ctx, func(tx *sql.Tx) error {
-		if _, err := tx.ExecContext(ctx, `UPDATE identities SET selected=0 WHERE provider='growatt'`); err != nil {
+		if _, err := tx.ExecContext(ctx, `UPDATE identities SET selected=0 WHERE provider='growatt' AND stream='telemetry'`); err != nil {
 			return err
 		}
 		for i, x := range out {

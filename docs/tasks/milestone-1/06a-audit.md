@@ -103,3 +103,10 @@ this milestone. No Discord webhook, test-post button or hidden outbound call.
 Document exact response field names and evidence-reference behavior. Provide
 synthetic query examples and verification results. Task 07/08 must include this
 feature in release and private host acceptance; audit is now a completion criterion.
+
+Task05a adds kind=aggregate audits and specific aggregate_unit/date/decimal/conflict
+rejection codes, plant-only generation identities, retrieval-linked aggregate
+versions, and local/provider rate-limit deferrals. Expose these alongside detailed
+attempts without describing calendar bookkeeping bounds as measurement instants.
+Task06a raw evidence routes remain its scope; aggregate browsing exposes compact
+retrieval/calendar provenance only. Full plant IDs remain owner-visible.

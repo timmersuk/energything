@@ -143,3 +143,48 @@ observation above applies to MIX detailed history, not every Growatt dataset.
 Production's four-endpoint allowlist and current storage remain unchanged. Aggregate
 period/generation semantics need a separate reviewed contract before ingestion;
 do not infer historical SOC or battery/grid/load series from generation totals.
+
+## Task05a: daily plant generation aggregates
+
+The separate `GET /v1/plant/energy` feed reports plant generation in **kWh**.
+The saved official public page (1494061730868556, reviewed 15 October 2026) states
+both **once per five minutes** and **10 calls per day**. Its documented errors are
+10001 system, 10002 nonexistent plant, 10003 missing plant ID and 10004 date format;
+the existing client retains the numeric code without provider free text. Token is
+sent only in a header to the exact HTTPS host; redirects remain disabled.
+
+Authorized new private checks on 15 October returned seven rows for January 12–18,
+including both endpoints, ascending dates, count7, time_unit day and exact decimal
+strings. A separate one-day January15 request through the production CLI accepted
+one older generation aggregate. Values and identifiers remain ignored locally.
+The endpoint supplies no timezone. Calendar provenance is explicitly unverified;
+UTC measurement boundaries are null. No inference from detailed sample clocks.
+No reported zero occurred in the seven-day response. The documentation includes
+zero examples but does not distinguish generated zero placeholders from production;
+zero therefore carries `reported_zero_availability_unknown`. Missing periods are
+absent, never zero; null/missing/placeholder/malformed energy rejects the unit.
+
+The allowlist adds only GET plant/energy, paired identical nonfuture YYYY-MM-DD,
+time_unit=day, confirmed plant ID, page1..100, perpage100. Production unit is one
+day, stricter than the documented <=7-day span. Whole-unit validation requires
+stable nonnegative count, day unit, results array, matching dates, exact nonnegative
+string energy and complete pagination. Equal numeric duplicates collapse; conflicts,
+cycles, count changes, early termination and budgets reject all rows. Selected
+page evidence (including unknown row telemetry) is retained on rejection.
+
+Limits: context cancellation; 30s/request; 4MiB/page; 100 pages/10,000 raw rows.
+Unlike detailed telemetry, this feed owns **one HTTP transmission per page**, no
+inline retries. A durable local reservation ledger enforces five-minute spacing
+and <=10 reservations per rolling24h, counting failed transmissions conservatively.
+When another page is not yet allowed, the complete attempt fails/defer with retained
+partial evidence and no checkpoint. The caller never accepts partial results.
+No waits or hidden retries multiply calls. Other databases/software cannot be
+observed by this ledger; coordinate manual verification across them. Task06 owns
+later attempts and must consume DeferredUntil and this ledger, not retry immediately.
+
+Unverified: daily pagination beyond one real page (synthetic tested), absent/null
+and generated-zero availability behavior on the live service, provider calendar
+zone/DST boundaries, oldest available date/retention, completeness of an annual
+archive, month/year formats/ranges and exact seven-day rejection behavior. No
+month/year ingestion or retention boundary is claimed. Qualification makes these
+limits visible without fabricating measured instants or availability.

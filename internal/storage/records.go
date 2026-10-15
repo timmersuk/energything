@@ -81,6 +81,7 @@ type Coverage struct {
 	MeasurementComplete                 bool
 }
 type AcceptedWindow struct {
+	Aggregates        []Aggregate
 	AttemptID         int64
 	Finished, NextDue Instant
 	Evidence          []Evidence
@@ -144,6 +145,7 @@ type WindowStatus struct {
 	Coverage         Coverage
 }
 type Status struct {
+	AggregateCount                              int64
 	Metadata                                    DiscoveryMetadata `json:"-"`
 	IdentityID                                  int64
 	Provider, Stream                            string

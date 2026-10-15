@@ -251,3 +251,45 @@ Diagnostic. QueryDiscovery/status expose this stored context even when no identi
 could be selected. Diagnostic includes `http_status`; nonnegative count diagnostics
 can represent rejected overruns beyond the acceptance budget. Such counts never
 increase the permitted fetch/commit budget.
+
+## Task05a daily aggregate contract (15 October 2026)
+
+Protocol gate: the saved official plant/energy page additionally limits this feed
+ to **10 calls/day**, alongside one call per five minutes. A fresh authorized
+January 12–18 query returned seven daily rows, including both endpoints, outside
+ the observed detailed-telemetry window. Evidence is private under .cache.
+The feed reports plant generation in kWh, not inverter/grid/load energy.
+Provider calendar date is retained verbatim. No timezone is supplied by this
+endpoint: calendar provenance is `provider_date_zone_unverified`, with no UTC
+measurement boundaries. A zero is `reported_zero_availability_unknown`; it is
+never evidence of operation, coverage or an oldest available date. Absent rows
+remain absent; null/placeholder/invalid energy rejects the whole unit.
+
+Initial engineering unit is **one calendar day**, start=end, perpage=100. A
+complete stable count is required, maximum 100 rows/page, 100 pages/10,000 rows;
+all rows must match the requested date. Identical numeric duplicates collapse;
+conflicting duplicates reject. Seven-day inclusivity was investigated but larger
+production units and month/year are deferred. Complete pagination is validated
+synthetically; large real pagination is not established for daily units.
+Aggregate requests have **one HTTP transmission per page**, no inline retries.
+A durable local ledger enforces five-minute spacing and ten calls per rolling 24h; a page requiring a later slot defers the whole unit. Errors defer to a later explicit
+invocation/task06; no caller retry loop. Task06 must use this ledger across restarts and coordinate calls from other clients. The explicit CLI permits one bounded
+unit per invocation; operator must account for calls by other clients.
+
+Storage identity is provider growatt, stream generation, stable plant ID alone,
+metadata PlantID only. Job kind `aggregate`, existing backfill policy and UTC date
+bookkeeping bounds (not measurement instants). Separate energy_aggregates current
+rows and append-only aggregate_versions key identity/metric/resolution/date.
+Exact nonnegative decimal TEXT, kWh, day, provider date, calendar provenance,
+quality, retrieval/evidence and attempt associations are retained. Corrections
+update current and preserve versions. Replays preserve one current record and
+record distinct retrievals. Acceptance atomically writes aggregate rows, evidence,
+versions, fetched completion, checkpoint and terminal audit; failure changes only
+audit/retry state. Fetched completion never asserts measurement completeness.
+
+Query: GET /api/v1/growatt/aggregates and /records/growatt/aggregates, authenticated,
+no-store, local only. Optional plant_id, metric=generation, resolution=day,
+from/to inclusive YYYY-MM-DD, limit default100/max500, cursor. Ascending date then
+identity; cursor binds all filters/page size. Unknown/duplicate arguments reject.
+Expose full plant ID, exact decimal string, kWh, period, calendar provenance,
+quality, retrieved UTC and retrieval ID. Never combine aggregate and sample feeds.

@@ -412,7 +412,7 @@ func (s *Store) QueryStatus(ctx context.Context) (out []Status, err error) {
   (SELECT count(*) FROM samples WHERE identity_id=i.id AND instant IS NULL),
   (SELECT max(retrieved) FROM retrievals WHERE identity_id=i.id),
   (SELECT max(t) FROM (SELECT max(end) t FROM intervals WHERE identity_id=i.id UNION ALL SELECT max(instant) t FROM samples WHERE identity_id=i.id))
-  FROM identities i ORDER BY i.id`)
+  , (SELECT count(*) FROM energy_aggregates WHERE identity_id=i.id) FROM identities i ORDER BY i.id`)
 	if err != nil {
 		return nil, err
 	}
@@ -420,7 +420,7 @@ func (s *Store) QueryStatus(ctx context.Context) (out []Status, err error) {
 	for rows.Next() {
 		var x Status
 		var metadata string
-		err = rows.Scan(&x.IdentityID, &x.Provider, &x.Stream, &x.Selected, &metadata, &x.IntervalCount, &x.SampleCount, &x.UnresolvedCount, &x.LastRetrieval, &x.NewestMeasurement)
+		err = rows.Scan(&x.IdentityID, &x.Provider, &x.Stream, &x.Selected, &metadata, &x.IntervalCount, &x.SampleCount, &x.UnresolvedCount, &x.LastRetrieval, &x.NewestMeasurement, &x.AggregateCount)
 		if err != nil {
 			break
 		}

@@ -54,6 +54,9 @@ func NewRouter(c config.Config, buildID string, store recordStore) (http.Handler
 				return
 			}
 			data, err = statusData(r.Context(), store, c, buildID)
+		} else if r.URL.Path == "/records/growatt/aggregates" || r.URL.Path == "/api/v1/growatt/aggregates" {
+			data, err = aggregateData(r.Context(), store, values, r.URL.Path)
+			name = "aggregates.html"
 		} else {
 			growatt := strings.Contains(r.URL.Path, "growatt")
 			var q recordQuery
@@ -102,7 +105,7 @@ func NewRouter(c config.Config, buildID string, store recordStore) (http.Handler
 			}
 			w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 			_, _ = w.Write([]byte("ok\n"))
-		case "/", "/static/style.css", "/records/octopus", "/records/growatt", "/api/v1/status", "/api/v1/octopus/intervals", "/api/v1/growatt/samples":
+		case "/records/growatt/aggregates", "/api/v1/growatt/aggregates", "/", "/static/style.css", "/records/octopus", "/records/growatt", "/api/v1/status", "/api/v1/octopus/intervals", "/api/v1/growatt/samples":
 			protected.ServeHTTP(w, r)
 		default:
 			writeError(w, 404, "not_found", "Not found")

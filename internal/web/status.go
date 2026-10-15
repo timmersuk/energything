@@ -11,6 +11,7 @@ import (
 )
 
 type recordStore interface {
+	QueryAggregates(context.Context, storage.AggregateQuery) (storage.AggregatePage, error)
 	QueryDiscovery(context.Context) ([]storage.DiscoveryState, error)
 	QueryStatus(context.Context) ([]storage.Status, error)
 	QueryIntervals(context.Context, storage.RecordQuery) (storage.IntervalPage, error)
@@ -130,7 +131,7 @@ func statusData(ctx context.Context, store recordStore, c config.Config, build s
 				continue
 			}
 			v.Discovery = "Stored identities available; selection shown below"
-			s := sourceView{IdentityID: x.IdentityID, Source: x.Provider, Stream: x.Stream, Identity: x.Metadata.DisplayIdentity(x.Provider, x.Stream, x.IdentityID), Selected: x.Selected, RetainedCount: x.IntervalCount + x.SampleCount, UnresolvedCount: x.UnresolvedCount, LastRetrieval: nullableTime(x.LastRetrieval), NewestMeasurement: nullableTime(x.NewestMeasurement), LastAttempt: attempt(x.LastAttempt), LastAccepted: attempt(x.LastAcceptedAttempt), JobCount: x.JobCount, WindowCount: x.WindowCount, Jobs: []jobView{}, Coverage: []coverageView{}}
+			s := sourceView{IdentityID: x.IdentityID, Source: x.Provider, Stream: x.Stream, Identity: x.Metadata.DisplayIdentity(x.Provider, x.Stream, x.IdentityID), Selected: x.Selected, RetainedCount: x.IntervalCount + x.SampleCount + x.AggregateCount, UnresolvedCount: x.UnresolvedCount, LastRetrieval: nullableTime(x.LastRetrieval), NewestMeasurement: nullableTime(x.NewestMeasurement), LastAttempt: attempt(x.LastAttempt), LastAccepted: attempt(x.LastAcceptedAttempt), JobCount: x.JobCount, WindowCount: x.WindowCount, Jobs: []jobView{}, Coverage: []coverageView{}}
 			if x.Provider == "octopus" {
 				s.MPAN = x.Metadata.MPAN
 				s.Serial = x.Metadata.Serial

@@ -134,9 +134,16 @@ Use a private report and separate verification database as described in
 plant/device identifiers, exact values and qualified telemetry. Task 06 owns
 recurring work and automatic available-history recovery.
 
-## Agreed next slice
+## Retained daily generation (task05a)
 
 On 15 October 2026 the user agreed to a separate aggregate-ingestion task before
 scheduling. [Task05a](docs/tasks/milestone-1/05a-growatt-aggregates.md) defines the
 historical generation baseline, separate storage and read API/table contract.
-This is planned scope; aggregate collection is not implemented yet.
+Daily plant generation is retained separately through an explicit bounded CLI,
+versioned SQLite aggregate storage, authenticated `/api/v1/growatt/aggregates` and
+compact `/records/growatt/aggregates` browsing. See [protocol](docs/growatt-protocol.md),
+[operations](docs/operations.md#explicit-bounded-daily-aggregate-collection-task05a)
+and [verification](docs/tasks/milestone-1/05a-verification.md). Exact kWh, provider
+calendar dates, unverified timezone/zero availability qualifications and corrections
+are retained. One day per invocation; documented five-minute and 10/day limits.
+No automatic aggregate scheduling, archive scan or refresh endpoint is added.
