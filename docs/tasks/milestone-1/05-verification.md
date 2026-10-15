@@ -200,3 +200,16 @@ only generic findings are recorded in docs/growatt-history-investigation.md and
 source notes. No data ingestion, timestamp rewrites, schema/image change or scheduler
 was performed. The preview remains unchanged. No full tests/builds were rerun for
 this documentation-only research follow-up.
+
+## Aggregate-history discovery (15 October 2026)
+
+User asked about the website's older coarser history. Official plant/energy docs
+confirm day/month/year generation aggregates in kWh. One newly documented read-only
+GET was privately tested for an older winter day: successful envelope, matching date,
+day unit and exact positive generation returned despite empty detailed telemetry.
+No amount, identity or raw payload was published. Newer detailed-device V4 docs were
+read publicly but not called; rich long-term battery/grid/load aggregation remains
+unestablished. Findings are in docs/growatt-aggregate-investigation.md/source notes.
+Production code, database, preview image and allowlist are unchanged; no tests/builds
+were rerun for documentation-only research. The detailed 95-day observation must not
+be presented as a limit on all Growatt history.

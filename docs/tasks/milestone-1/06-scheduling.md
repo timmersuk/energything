@@ -205,3 +205,11 @@ this dated, identity-scoped provenance and already retained samples; do not hard
 it as a universal lifetime/retention guarantee or count sparse older empty probes as
 proof of an exhaustive archive scan. The investigation made no ingestion/checkpoint
 changes and does not complete the automatic boundary-search/stopping-policy gate.
+
+[Aggregate-history research](../../growatt-aggregate-investigation.md) now establishes
+that plant generation totals are a different documented feed (plant/energy with
+day/month/year), and one older winter-day aggregate was successfully retrieved.
+The detailed-history 95-day observation is not a boundary for all Growatt data.
+Account for aggregate versus detailed availability when defining historical scope;
+propose a period/metric/storage contract amendment before aggregate ingestion.
+This research did not expand the production allowlist or implement another collector.

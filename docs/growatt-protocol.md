@@ -133,3 +133,13 @@ does not promise this retention duration: treat it as scoped empirical evidence,
 not a universal guaranteed limit. Partial availability probes were not ingested.
 Task06 must retain local history beyond cloud expiry and preserve/revisit boundary
 provenance; no scheduler or complete available-history claim is implemented here.
+
+## Aggregate history is a separate feed (15 October 2026)
+
+[Aggregate-history research](growatt-aggregate-investigation.md) verified the official
+GET /v1/plant/energy day/month/year generation API and one positive older daily
+aggregate outside the detailed telemetry window. Therefore the approximately 95-day
+observation above applies to MIX detailed history, not every Growatt dataset.
+Production's four-endpoint allowlist and current storage remain unchanged. Aggregate
+period/generation semantics need a separate reviewed contract before ingestion;
+do not infer historical SOC or battery/grid/load series from generation totals.
