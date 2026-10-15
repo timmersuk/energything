@@ -126,3 +126,79 @@ func TestRoutineCoalescesPrioritizesAndRepeatsAfterDue(t *testing.T) {
 		t.Fatal("accepted routine excluded", due, e)
 	}
 }
+
+func TestConfiguredBoundaryReplacesQueuedUnitAndResumesEarlier(t *testing.T) {
+	ctx := context.Background()
+	s, _, i, _ := fixture(t, "octopus")
+	defer s.Close()
+	seed := Schedule{IdentityID: i.ID, Kind: "history", Policy: "backfill", Frontier: testStart + 4*halfHour, SearchLimit: testStart, Interval: time.Hour, ConfiguredBoundary: true}
+	planner := func(p Schedule) Job {
+		start := p.Frontier - 2*halfHour
+		if start < p.SearchLimit {
+			start = p.SearchLimit
+		}
+		return Job{Start: start, End: p.Frontier}
+	}
+	first, err := s.PrepareSchedule(ctx, seed, testStart, false, planner)
+	if err != nil || first == nil {
+		t.Fatal(first, err)
+	}
+	seed.SearchLimit = seed.Frontier
+	stopped, err := s.PrepareSchedule(ctx, seed, testStart, false, planner)
+	if err != nil || stopped != nil {
+		t.Fatal(stopped, err)
+	}
+	schedules, _ := s.QuerySchedules(ctx)
+	if schedules[0].State != "configured_boundary_reached" {
+		t.Fatal(schedules)
+	}
+	jobs, err := s.ScheduledJobs(ctx, testStart)
+	if err != nil || len(jobs) != 0 {
+		t.Fatal(jobs, err)
+	}
+	seed.SearchLimit = testStart - halfHour
+	resumed, err := s.PrepareSchedule(ctx, seed, testStart, false, planner)
+	if err != nil || resumed == nil || resumed.Start != first.Start {
+		t.Fatal(resumed, err)
+	}
+}
+
+func TestConfiguredBoundaryPreservesAcceptedCrossingUnit(t *testing.T) {
+	for _, running := range []bool{false, true} {
+		t.Run(map[bool]string{false: "accepted before change", true: "in flight at change"}[running], func(t *testing.T) {
+			ctx := context.Background()
+			s, _, i, _ := fixture(t, "octopus")
+			defer s.Close()
+			seed := Schedule{IdentityID: i.ID, Kind: "history", Policy: "backfill", Frontier: testStart + 4*halfHour, SearchLimit: testStart, Interval: time.Hour, ConfiguredBoundary: true}
+			planner := func(p Schedule) Job {
+				start := p.Frontier - 2*halfHour
+				if start < p.SearchLimit {
+					start = p.SearchLimit
+				}
+				return Job{Start: start, End: p.Frontier}
+			}
+			j, err := s.PrepareSchedule(ctx, seed, testStart, false, planner)
+			if err != nil {
+				t.Fatal(err)
+			}
+			id := begin(t, s, *j)
+			seed.SearchLimit = testStart + 3*halfHour
+			if running {
+				if _, err = s.PrepareSchedule(ctx, seed, testStart, false, planner); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if err = s.CommitAcceptedWindow(ctx, AcceptedWindow{AttemptID: id, Finished: testStart + 5*halfHour, NextDue: testStart + 5*halfHour, Evidence: []Evidence{{Content: []byte(`{"results":[]}`), Retrieved: testStart + 5*halfHour, Complete: true}}}); err != nil {
+				t.Fatal(err)
+			}
+			next, err := s.PrepareSchedule(ctx, seed, testStart+6*halfHour, false, planner)
+			if err != nil || next != nil {
+				t.Fatal("refetched accepted unit", next, err)
+			}
+			plans, err := s.QuerySchedules(ctx)
+			if err != nil || plans[0].Frontier != j.Start {
+				t.Fatal("lost frontier", plans, err)
+			}
+		})
+	}
+}

@@ -97,3 +97,24 @@ func TestIncompleteSelectionDoesNotDisableOtherStream(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestHistoryStart(t *testing.T) {
+	now := time.Date(2026, 10, 15, 12, 0, 0, 0, time.UTC)
+	for _, value := range []string{"", "2020-02-29", "01/01/2022", "2022-02-30", "0000-01-01", "2099-01-01"} {
+		env := map[string]string{"ENERGYTHING_USERNAME": "test", "ENERGYTHING_PASSWORD": "test", "ENERGYTHING_HISTORY_START": value}
+		c, err := Parse(func(k string) string { return env[k] }, now)
+		valid := value == "" || value == "2020-02-29"
+		if (err == nil) != valid {
+			t.Fatalf("value %q: %v", value, err)
+		}
+		if valid {
+			want := value
+			if want == "" {
+				want = "2022-01-01"
+			}
+			if c.HistoryStart.Format("2006-01-02") != want {
+				t.Fatal(c.HistoryStart)
+			}
+		}
+	}
+}

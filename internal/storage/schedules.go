@@ -10,19 +10,20 @@ import (
 // Schedule owns progress independently of retained observations. For calendar
 // scans SearchLimit is the current annual target, never an archive stopping date.
 type Schedule struct {
-	SearchPolicy string        `json:"search_policy"`
-	IdentityID   int64         `json:"identity_id"`
-	Kind         string        `json:"kind"`
-	Policy       string        `json:"policy"`
-	Slot         int           `json:"slot"`
-	Frontier     Instant       `json:"frontier"`
-	SearchLimit  Instant       `json:"search_limit"`
-	Interval     time.Duration `json:"-"`
-	NextDue      Instant       `json:"next_due"`
-	CurrentJob   *int64        `json:"current_job"`
-	AfterAttempt int64         `json:"-"`
-	State        string        `json:"state"`
-	Provenance   string        `json:"provenance"`
+	ConfiguredBoundary bool          `json:"-"`
+	SearchPolicy       string        `json:"search_policy"`
+	IdentityID         int64         `json:"identity_id"`
+	Kind               string        `json:"kind"`
+	Policy             string        `json:"policy"`
+	Slot               int           `json:"slot"`
+	Frontier           Instant       `json:"frontier"`
+	SearchLimit        Instant       `json:"search_limit"`
+	Interval           time.Duration `json:"-"`
+	NextDue            Instant       `json:"next_due"`
+	CurrentJob         *int64        `json:"current_job"`
+	AfterAttempt       int64         `json:"-"`
+	State              string        `json:"state"`
+	Provenance         string        `json:"provenance"`
 }
 
 func (s *Store) Identities(ctx context.Context) ([]Identity, error) {
@@ -79,7 +80,7 @@ func (s *Store) PrepareSchedule(ctx context.Context, seed Schedule, now Instant,
 		seed.SearchPolicy = "bounded"
 	}
 	e := s.write(ctx, func(tx *sql.Tx) error {
-		if seed.Interval <= 0 || seed.IdentityID <= 0 || seed.Frontier <= seed.SearchLimit || (seed.SearchPolicy != "bounded" && seed.SearchPolicy != "calendar") || (seed.SearchPolicy == "calendar" && seed.Policy != "backfill") {
+		if seed.Interval <= 0 || seed.IdentityID <= 0 || seed.Frontier < seed.SearchLimit || (seed.SearchPolicy != "bounded" && seed.SearchPolicy != "calendar") || (seed.SearchPolicy == "calendar" && seed.Policy != "backfill") {
 			return ErrInvalid
 		}
 		_, e := tx.ExecContext(ctx, `INSERT INTO schedules(identity_id,kind,policy,slot,frontier,search_limit,interval_us,next_due,provenance,search_policy) VALUES(?,?,?,?,?,?,?,?,?,?) ON CONFLICT DO NOTHING`, seed.IdentityID, seed.Kind, seed.Policy, seed.Slot, seed.Frontier, seed.SearchLimit, seed.Interval.Microseconds(), now, seed.Provenance, seed.SearchPolicy)
@@ -94,6 +95,27 @@ func (s *Store) PrepareSchedule(ctx context.Context, seed Schedule, now Instant,
 		update := func() error {
 			_, e := tx.ExecContext(ctx, `UPDATE schedules SET frontier=?,next_due=?,current_job=?,after_attempt=?,state=?,interval_us=?,search_limit=?,provenance=?,search_policy=? WHERE identity_id=? AND kind=? AND policy=? AND slot=?`, append([]any{p.Frontier, p.NextDue, p.CurrentJob, p.AfterAttempt, p.State, seed.Interval.Microseconds(), p.SearchLimit, p.Provenance, p.SearchPolicy}, args...)...)
 			return e
+		}
+		// Apply current configuration to persisted plans without resetting progress.
+		if seed.ConfiguredBoundary {
+			p.SearchPolicy, p.SearchLimit, p.Provenance = seed.SearchPolicy, seed.SearchLimit, seed.Provenance
+			if p.CurrentJob != nil {
+				j, err := scanJob(tx.QueryRowContext(ctx, jobSelect+` WHERE id=?`, *p.CurrentJob))
+				if err != nil {
+					return err
+				}
+				// Leave in-flight work owned until it finishes; replace queued work
+				// crossing the new boundary with a freshly bounded unit.
+				if j.Start < p.SearchLimit && j.RunningAttempt == nil {
+					var accepted bool
+					if err := tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM attempts WHERE job_id=? AND id>? AND outcome IN ('success','empty'))`, j.ID, p.AfterAttempt).Scan(&accepted); err != nil {
+						return err
+					}
+					if !accepted {
+						p.CurrentJob = nil
+					}
+				}
+			}
 		}
 		if p.CurrentJob != nil {
 			j, e := scanJob(tx.QueryRowContext(ctx, jobSelect+` WHERE id=?`, *p.CurrentJob))
@@ -137,8 +159,11 @@ func (s *Store) PrepareSchedule(ctx context.Context, seed Schedule, now Instant,
 				p.SearchLimit = At(time.Date(frontier.Year()-1, time.January, 1, 0, 0, 0, 0, time.UTC))
 			} else {
 				p.State = "search_limit_boundary_unresolved"
+				if seed.ConfiguredBoundary {
+					p.State = "configured_boundary_reached"
+				}
 				var bounded bool
-				if e := tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM history_boundaries WHERE identity_id=? AND oldest IS NOT NULL AND state='observed')`, p.IdentityID).Scan(&bounded); e != nil {
+				if e := tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM history_boundaries WHERE identity_id=? AND oldest= ? AND state='observed')`, p.IdentityID, p.SearchLimit).Scan(&bounded); e != nil {
 					return e
 				}
 				if bounded {

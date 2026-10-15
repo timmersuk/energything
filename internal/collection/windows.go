@@ -56,8 +56,14 @@ func plans(i storage.Identity, c config.Config, now time.Time) []storage.Schedul
 		out = append(out, p)
 	}
 	base.Policy = "backfill"
-	base.SearchPolicy = "calendar"
-	base.Provenance = "Continuous backward calendar acquisition; annual targets extend automatically; empty responses and zeros are not archive boundaries"
+	base.SearchPolicy = "bounded"
+	base.ConfiguredBoundary = true
+	boundary := c.HistoryStart
+	if boundary.IsZero() {
+		boundary = time.Date(2022, 1, 1, 0, 0, 0, 0, time.UTC)
+	}
+	base.SearchLimit = storage.At(boundary)
+	base.Provenance = "Automatic historical acquisition bounded by ENERGYTHING_HISTORY_START"
 	out = append(out, base)
 	return out
 }

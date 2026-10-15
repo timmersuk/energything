@@ -169,3 +169,10 @@ hours contain no positive PV. Fixed UTC+1 versus seasonal London and repeated-ho
 identity remain open. The existing 26 October2026 10:00 UK automation will collect
 post-transition evidence; it was not duplicated or altered. See the preserved time,
 history and generation-comparison notes for qualifications and private evidence.
+
+
+### Configured historical boundary (15 October 2026)
+
+Superseding unlimited calendar acquisition: `ENERGYTHING_HISTORY_START` is the inclusive earliest date for automatic Octopus and Growatt history, default `2022-01-01` (ISO `YYYY-MM-DD`). Invalid and future dates reject startup. Octopus uses midnight UTC; Growatt uses provider calendar dates with qualified timezone. A verified later provider oldest reading remains the effective boundary.
+
+Restart after changing the setting. Existing plans adopt it without resetting progress or deleting records. Moving it earlier resumes older acquisition; moving it later stops older queued automatic units. An in-flight unit may finish. `configured_boundary_reached` does not claim the provider archive is exhausted. Recent routine refresh and explicit repair remain independent.

@@ -121,3 +121,8 @@ Spec review: zero actionable findings. The original120-day limit is superseded;
 source oldest/retention and seasonal/repeated-hour identity qualifications do not
 become false completeness or timestamp claims. The old research note and private
 backups/evidence remain preserved.
+
+
+### Configurable history boundary verification (15 October 2026)
+
+ENERGYTHING_HISTORY_START defaults to 2022-01-01 across automatic backfills. Full go test ./... and go vet ./... passed. Regression tests cover date validation, queued work cancellation, earlier-boundary resumption, accepted crossing units and in-flight completion. Standards and spec reviews found a redundant-refetch issue; fixed and both targeted rereviews passed. Existing preview was stopped, its complete data directory backed up, and the updated image deployed. Authenticated status confirmed the new build, configured default, no remaining calendar backfill plans, and effective boundaries at or after 2022-01-01. Provider retry states remain visible. Retained records were not deleted.

@@ -18,6 +18,7 @@ type Provider struct {
 }
 type Config struct {
 	HTTPAddr, DataDir, Username, Password string
+	HistoryStart                          time.Time
 	Timezone                              *time.Location
 	ShutdownTimeout                       time.Duration
 	Octopus, Growatt                      Provider
@@ -50,6 +51,10 @@ func Parse(get func(string) string, now time.Time) (Config, error) {
 	c.ShutdownTimeout, err = time.ParseDuration(value("ENERGYTHING_SHUTDOWN_TIMEOUT", "10s"))
 	if err != nil || c.ShutdownTimeout <= 0 {
 		return c, errors.New("ENERGYTHING_SHUTDOWN_TIMEOUT must be a positive duration")
+	}
+	c.HistoryStart, err = time.Parse("2006-01-02", value("ENERGYTHING_HISTORY_START", "2022-01-01"))
+	if err != nil || c.HistoryStart.Year() < 1 || c.HistoryStart.After(time.Date(now.UTC().Year(), now.UTC().Month(), now.UTC().Day(), 0, 0, 0, 0, time.UTC)) {
+		return c, errors.New("ENERGYTHING_HISTORY_START must be YYYY-MM-DD and not in the future")
 	}
 	c.Octopus = Provider{APIKey: get("OCTOPUS_API_KEY"), Account: get("OCTOPUS_ACCOUNT_NUMBER"), ImportMPAN: get("OCTOPUS_IMPORT_MPAN"), ImportSerial: get("OCTOPUS_IMPORT_SERIAL"), ExportMPAN: get("OCTOPUS_EXPORT_MPAN"), ExportSerial: get("OCTOPUS_EXPORT_SERIAL")}
 	c.Growatt = Provider{Token: get("GROWATT_API_TOKEN"), PlantID: get("GROWATT_PLANT_ID"), DeviceSerial: get("GROWATT_DEVICE_SERIAL")}
