@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"time"
 )
 
 func (s *Store) write(ctx context.Context, fn func(*sql.Tx) error) error {
@@ -39,6 +40,9 @@ func (s *Store) UpsertIdentities(ctx context.Context, in []Identity) ([]Identity
 			if x.Provider == "octopus" && x.Stream != "import" && x.Stream != "export" {
 				return ErrInvalid
 			}
+			if x.Provider == "growatt" && x.Stream == "generation" && (x.Metadata.PlantID == "" || x.StableKey != x.Metadata.PlantID || x.Metadata.Serial != "" || x.Metadata.DeviceType != "") {
+				return ErrInvalid
+			}
 			metadata, _ := json.Marshal(x.Metadata)
 			err := tx.QueryRowContext(ctx, `INSERT INTO identities(provider,stream,stable_key,selected,metadata) VALUES(?,?,?,?,?)
     ON CONFLICT(provider,stream,stable_key) DO UPDATE SET selected=excluded.selected,metadata=excluded.metadata RETURNING id`,
@@ -53,7 +57,7 @@ func (s *Store) UpsertIdentities(ctx context.Context, in []Identity) ([]Identity
 }
 
 func validateJob(x Job) error {
-	if x.IdentityID <= 0 || (x.Kind != "history" && x.Kind != "latest") || (x.Policy != "routine" && x.Policy != "backfill" && x.Policy != "range") || !validInstant(x.Start) || !validInstant(x.End) || x.End <= x.Start || !validDate(x.ProviderDate) {
+	if x.IdentityID <= 0 || (x.Kind != "history" && x.Kind != "latest" && x.Kind != "aggregate") || (x.Policy != "routine" && x.Policy != "backfill" && x.Policy != "range") || !validInstant(x.Start) || !validInstant(x.End) || x.End <= x.Start || !validDate(x.ProviderDate) {
 		return ErrInvalid
 	}
 	return nil
@@ -74,6 +78,21 @@ func ensureJobs(ctx context.Context, tx *sql.Tx, in []Job) ([]Job, error) {
 		}
 		if provider == "growatt" && x.Kind == "history" && (x.ProviderDate == "" || x.End-x.Start > Instant(25*60*60*1e6)) {
 			return nil, ErrInvalid
+		}
+		if x.Kind == "aggregate" {
+			var stream, key, metadata string
+			if err := tx.QueryRowContext(ctx, `SELECT stream,stable_key,metadata FROM identities WHERE id=?`, x.IdentityID).Scan(&stream, &key, &metadata); err != nil {
+				return nil, err
+			}
+			var m DiscoveryMetadata
+			if json.Unmarshal([]byte(metadata), &m) != nil || provider != "growatt" || stream != "generation" || m.PlantID == "" || m.Serial != "" || key != m.PlantID || x.ProviderDate == "" {
+				return nil, ErrInvalid
+			}
+			last := time.UnixMicro(int64(x.End)).UTC().AddDate(0, 0, -1).Format("2006-01-02")
+			start, end, err := AggregateDateBounds(x.ProviderDate, last)
+			if err != nil || x.Start != At(start) || x.End != At(end) {
+				return nil, ErrInvalid
+			}
 		}
 		// Conflicts coalesce without resetting due/checkpoint/retry state.
 		var request any

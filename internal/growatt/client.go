@@ -81,6 +81,14 @@ func destination(raw, method string, form url.Values) bool {
 			return false
 		}
 		keys = []string{"page", "perpage"}
+	case "/v1/plant/energy":
+		if method != "GET" || !identifier(form.Get("plant_id")) || form.Get("time_unit") != "day" {
+			return false
+		}
+		if _, _, e := storage.AggregateDateBounds(form.Get("start_date"), form.Get("end_date")); e != nil {
+			return false
+		}
+		keys = []string{"plant_id", "start_date", "end_date", "time_unit", "page", "perpage"}
 	case "/v1/device/list":
 		if method != "GET" || !identifier(form.Get("plant_id")) {
 			return false
@@ -139,7 +147,11 @@ func (c *Client) request(ctx context.Context, path, method string, form url.Valu
 	if !destination(raw, method, form) || c.token == "" {
 		return nil, problem("configuration", "invalid", page)
 	}
-	for attempt := 1; attempt <= 3; attempt++ {
+	maxAttempts := 3
+	if path == "/v1/plant/energy" {
+		maxAttempts = 1
+	}
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
 		if ctx.Err() != nil {
 			return nil, problem("network", "cancelled", page)
 		}
@@ -240,7 +252,7 @@ func (c *Client) request(ctx context.Context, path, method string, form url.Valu
 		if delay > 30*time.Second {
 			return nil, &Error{Class: class, Code: code, Page: page, DeferredUntil: c.now().Add(delay)}
 		}
-		if attempt == 3 {
+		if attempt == maxAttempts {
 			return nil, problem(class, code, page)
 		}
 		if c.wait(ctx, delay) != nil {

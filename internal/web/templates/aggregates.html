@@ -1,0 +1,8 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Growatt daily generation · Energything</title><link rel="stylesheet" href="/static/style.css"></head><body><main>
+<nav><a href="/">Status</a> · <a href="/records/growatt">Growatt samples</a> · <a href="/records/octopus">Octopus</a></nav>
+<h1>Daily generation</h1><p>Plant totals reported by Growatt, in kWh. Provider calendar dates; calendar timezone is unverified. These totals are separate from detailed samples and meter energy.</p>
+<form method="get"><label>Plant <input name="plant_id" value="{{.PlantID}}"></label><label>From <input type="date" name="from" value="{{.From}}"></label><label>Through <input type="date" name="to" value="{{.To}}"></label><button>Filter</button></form>
+<table><thead><tr><th>Calendar day</th><th>Plant</th><th>Generation (kWh)</th><th>Qualification / provenance</th></tr></thead><tbody>{{range .Records}}<tr><td>{{.Period}}</td><td>{{.PlantID}}</td><td>{{.Value}}</td><td>{{.Quality}}<details><summary>Provenance</summary><p>{{.Calendar}} · retrieved {{.RetrievedAt}} · retrieval {{.RetrievalID}}</p></details></td></tr>{{else}}<tr><td colspan="4">No retained aggregate rows match this range. Missing periods are unavailable; they do not mean zero generation.</td></tr>{{end}}</tbody></table>
+<p>Reported zero values have unknown availability meaning. Retained rows do not prove complete coverage of a range or a source lifetime.</p>
+{{if .NextURL}}<a href="{{.NextURL}}">Next page</a>{{end}}
+</main></body></html>

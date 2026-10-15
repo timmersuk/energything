@@ -119,7 +119,7 @@ func sameDecimal(a, b string) bool {
 	return ok && x.Cmp(y) == 0
 }
 func validateAccepted(a Audit, provider string, in AcceptedWindow) ([]Interval, error) {
-	if len(in.Intervals)+len(in.Samples) > 10000 || len(in.Evidence) == 0 || len(in.Evidence) > 100 || validateRetries(in.Retries) != nil {
+	if len(in.Intervals)+len(in.Samples)+len(in.Aggregates) > 10000 || len(in.Evidence) == 0 || len(in.Evidence) > 100 || validateRetries(in.Retries) != nil {
 		return nil, ErrInvalid
 	}
 	for _, e := range in.Evidence {
@@ -128,6 +128,16 @@ func validateAccepted(a Audit, provider string, in AcceptedWindow) ([]Interval, 
 		}
 	}
 	if provider == "octopus" && len(in.Samples) > 0 || provider == "growatt" && len(in.Intervals) > 0 {
+		return nil, ErrInvalid
+	}
+	if a.Kind == "aggregate" {
+		if provider != "growatt" || len(in.Intervals)+len(in.Samples) != 0 {
+			return nil, ErrInvalid
+		}
+		if _, err := validateAggregates(a, in); err != nil {
+			return nil, err
+		}
+	} else if len(in.Aggregates) != 0 {
 		return nil, ErrInvalid
 	}
 	intervals := append([]Interval(nil), in.Intervals...)
@@ -192,9 +202,20 @@ func (s *Store) CommitAcceptedWindow(ctx context.Context, in AcceptedWindow) err
 		if err != nil {
 			return err
 		}
-		var provider string
-		if err = tx.QueryRowContext(ctx, `SELECT provider FROM identities WHERE id=?`, a.IdentityID).Scan(&provider); err != nil {
+		var provider, stream, metadata string
+		if err = tx.QueryRowContext(ctx, `SELECT provider,stream,metadata FROM identities WHERE id=?`, a.IdentityID).Scan(&provider, &stream, &metadata); err != nil {
 			return err
+		}
+		if a.Kind == "aggregate" {
+			var m DiscoveryMetadata
+			if json.Unmarshal([]byte(metadata), &m) != nil || stream != "generation" || m.PlantID == "" || m.Serial != "" {
+				return ErrInvalid
+			}
+			for _, x := range in.Aggregates {
+				if x.PlantID != m.PlantID {
+					return ErrInvalid
+				}
+			}
 		}
 		intervals, err := validateAccepted(a, provider, in)
 		if err != nil {
@@ -218,6 +239,20 @@ func (s *Store) CommitAcceptedWindow(ctx context.Context, in AcceptedWindow) err
 				return err
 			}
 			if _, err = tx.ExecContext(ctx, `INSERT INTO interval_versions(identity_id,start,end,kwh,retrieval_id) VALUES(?,?,?,?,?)`, a.IdentityID, x.Start, x.End, x.KWh, retrieval); err != nil {
+				return err
+			}
+		}
+		aggregates, err := validateAggregates(a, in)
+		if err != nil {
+			return err
+		}
+		for _, x := range aggregates {
+			retrieval := ids[x.Evidence]
+			args := []any{a.IdentityID, x.Metric, x.Resolution, x.Period, x.Value, x.Unit, x.Calendar, x.Quality, in.Evidence[x.Evidence].Retrieved, retrieval}
+			if _, err = tx.ExecContext(ctx, `INSERT INTO energy_aggregates VALUES(?,?,?,?,?,?,?,?,?,?) ON CONFLICT(identity_id,metric,resolution,period) DO UPDATE SET value=excluded.value,unit=excluded.unit,calendar=excluded.calendar,quality=excluded.quality,retrieved=excluded.retrieved,retrieval_id=excluded.retrieval_id`, args...); err != nil {
+				return err
+			}
+			if _, err = tx.ExecContext(ctx, `INSERT INTO aggregate_versions(identity_id,metric,resolution,period,value,unit,calendar,quality,retrieval_id) VALUES(?,?,?,?,?,?,?,?,?)`, append(args[:8], retrieval)...); err != nil {
 				return err
 			}
 		}
@@ -245,6 +280,9 @@ func (s *Store) CommitAcceptedWindow(ctx context.Context, in AcceptedWindow) err
 			}
 		}
 		coverage := in.Coverage
+		if a.Kind == "aggregate" {
+			coverage = Coverage{Valid: len(aggregates), Qualified: len(aggregates)}
+		}
 		if provider == "octopus" {
 			elapsed := a.End
 			if in.Finished < elapsed {
@@ -257,7 +295,7 @@ func (s *Store) CommitAcceptedWindow(ctx context.Context, in AcceptedWindow) err
 			coverage.Missing = coverage.Expected - coverage.Valid
 			coverage.MeasurementComplete = coverage.Expected > 0 && coverage.Missing == 0
 		}
-		rows := len(intervals) + len(in.Samples)
+		rows := len(intervals) + len(in.Samples) + len(aggregates)
 		if coverage.Expected < 0 || coverage.Valid < 0 || coverage.Missing < 0 || coverage.Qualified < 0 || coverage.Valid > rows || coverage.Qualified > coverage.Valid || ((provider == "octopus" || coverage.Expected > 0) && coverage.Expected != coverage.Valid+coverage.Missing) || (coverage.MeasurementComplete && (coverage.Expected == 0 || coverage.Missing != 0 || coverage.Qualified != 0)) {
 			return ErrInvalid
 		}

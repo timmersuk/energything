@@ -1,6 +1,6 @@
 # 05a — Retained Growatt generation aggregates
 
-Status: agreed scope, implementation not started (15 October 2026).
+Status: daily implementation verified for review (15 October 2026); open protocol qualifications in [verification](05a-verification.md).
 Depends on: 02, 03, 05. Unlocks: 06, 06a.
 Read: [execution contract](execution-contract.md), [task05 handoff](05-verification.md),
 [aggregate investigation](../../growatt-aggregate-investigation.md), storage/HTTP

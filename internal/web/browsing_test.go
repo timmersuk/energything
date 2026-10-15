@@ -320,3 +320,7 @@ func TestGrowattIdentifiersVisibleWithoutStableKey(t *testing.T) {
 		}
 	}
 }
+
+func (failStore) QueryAggregates(context.Context, storage.AggregateQuery) (storage.AggregatePage, error) {
+	return storage.AggregatePage{}, errors.New("synthetic storage failure")
+}

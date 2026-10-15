@@ -190,3 +190,27 @@ context remains available when discovery fails before identity selection.
 Growatt HTML uses compact reading columns and an expandable Details view for all
 exact values and original timestamp evidence. Visual ellipsis does not change API
 precision. The table uses normal browser scrolling; query and record JSON contracts are unchanged.
+
+## Daily Growatt aggregate queries (task05a)
+
+GET `/api/v1/growatt/aggregates` and `/records/growatt/aggregates` require Basic Auth,
+GET only, no-store. They read SQLite only. Optional filters: `plant_id` (full plant
+identifier), `metric=generation`, `resolution=day`, `from` and `to` inclusive ISO
+calendar dates. No conversion through the configured display timezone. `limit`
+default100/max500 and opaque filter/page-size-bound `cursor`; order period then
+local identity ascending. Duplicate/unknown fields, wrong resolution/metric,
+malformed dates/cursors and changed cursor filters return the usual 400 envelope.
+Empty matches return 200 with records[], never invented zero values.
+
+JSON has version=v1, records and optional next_cursor. Each row contains source
+(growatt), identity_id, full plant_id, metric, resolution, period, value (exact
+nonnegative decimal string), unit=kWh, calendar=provider_date_zone_unverified,
+quality (provider_reported or reported_zero_availability_unknown), period_start
+and period_end (null; UTC boundaries unestablished), retrieved_at (UTC RFC3339),
+and retrieval_id. Retrieval links retained selected evidence internally; task06a
+owns authenticated raw-evidence inspection. Records are current accepted versions;
+superseded values/evidence remain stored. Dates with no rows have unknown availability.
+
+The compact local table offers plant/date filters, stable next-page links and
+optional provenance expansion. It displays calendar dates, exact kWh and full
+plant identity without a raw JSON wall, charts or custom scrolling controls.
