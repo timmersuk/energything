@@ -16,7 +16,8 @@ type aggregateStore interface {
 	ReserveAggregateCall(context.Context, storage.Instant) (time.Time, error)
 }
 
-// CollectGrowattAggregateUnit accepts only explicit daily plant jobs. No scheduler.
+// CollectGrowattAggregateUnit accepts one through seven dates of daily plant
+// generation as one atomic unit. No scheduler.
 func CollectGrowattAggregateUnit(ctx context.Context, db aggregateStore, client *growatt.Client, job storage.Job, plant string) error {
 	if job.Kind != "aggregate" {
 		return storage.ErrInvalid
@@ -33,7 +34,8 @@ func CollectGrowattAggregateUnit(ctx context.Context, db aggregateStore, client 
 			fetchErr = &growatt.Error{Class: "configuration", Code: "aggregate_request"}
 		}
 	} else {
-		w, fetchErr = client.FetchAggregateDay(ctx, plant, job.ProviderDate, func(ctx context.Context) (time.Time, error) {
+		last := time.UnixMicro(int64(job.End)).UTC().AddDate(0, 0, -1).Format("2006-01-02")
+		w, fetchErr = client.FetchAggregateRange(ctx, plant, job.ProviderDate, last, func(ctx context.Context) (time.Time, error) {
 			return db.ReserveAggregateCall(ctx, storage.At(time.Now()))
 		})
 	}

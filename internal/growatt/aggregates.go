@@ -22,9 +22,14 @@ var aggregateDecimal = regexp.MustCompile(`^(0|[1-9][0-9]*)(\.[0-9]+)?$`)
 // permit durably reserves each transmission before credentials can leave the process.
 // A quota deferral fails the complete unit; it never accepts a partial page set.
 func (c *Client) FetchAggregateDay(ctx context.Context, plant, date string, permit func(context.Context) (time.Time, error)) (AggregateWindow, error) {
+	return c.FetchAggregateRange(ctx, plant, date, date, permit)
+}
+
+// FetchAggregateRange retrieves up to seven inclusive dates in one bounded unit.
+func (c *Client) FetchAggregateRange(ctx context.Context, plant, from, to string, permit func(context.Context) (time.Time, error)) (AggregateWindow, error) {
 	w := AggregateWindow{}
-	parsed, e := time.Parse("2006-01-02", date)
-	if e != nil || parsed.Year() < 1 || parsed.After(c.now().UTC()) || !identifier(plant) || permit == nil {
+	_, end, e := storage.AggregateDateBounds(from, to)
+	if e != nil || end.AddDate(0, 0, -1).After(c.now().UTC()) || !identifier(plant) || permit == nil {
 		return w, problem("configuration", "invalid", 0)
 	}
 	expected := -1
@@ -42,11 +47,11 @@ func (c *Client) FetchAggregateDay(ctx context.Context, plant, date string, perm
 		if !due.IsZero() {
 			return w, &Error{Class: "rate_limit", Code: "limited", Page: page, DeferredUntil: due}
 		}
-		data, e := c.request(ctx, "/v1/plant/energy", "GET", url.Values{"plant_id": {plant}, "start_date": {date}, "end_date": {date}, "time_unit": {"day"}, "page": {strconv.Itoa(page)}, "perpage": {"100"}}, page, &w.Retries)
+		data, e := c.request(ctx, "/v1/plant/energy", "GET", url.Values{"plant_id": {plant}, "start_date": {from}, "end_date": {to}, "time_unit": {"day"}, "page": {strconv.Itoa(page)}, "perpage": {"100"}}, page, &w.Retries)
 		if e != nil {
 			return w, e
 		}
-		b, _ := json.Marshal(telemetry(map[string]any{"energys": data["energys"], "count": data["count"], "time_unit": data["time_unit"], "requested_date": date, "page": page}))
+		b, _ := json.Marshal(telemetry(map[string]any{"energys": data["energys"], "count": data["count"], "time_unit": data["time_unit"], "requested_from": from, "requested_to": to, "page": page}))
 		w.Evidence = append(w.Evidence, storage.Evidence{Content: b, Retrieved: storage.At(c.now())})
 		if data["time_unit"] != "day" {
 			return w, problem("validation", "aggregate_unit", page)
@@ -81,7 +86,8 @@ func (c *Client) FetchAggregateDay(ctx context.Context, plant, date string, perm
 				return w, problem("protocol", "missing_results", page)
 			}
 			period, ok := row["date"].(string)
-			if !ok || period != date {
+			_, dateErr := time.Parse("2006-01-02", period)
+			if !ok || dateErr != nil || period < from || period > to {
 				return w, problem("validation", "aggregate_date", page)
 			}
 			value, ok := row["energy"].(string)

@@ -10,6 +10,24 @@ import (
 
 const AggregateCalendar = "provider_date_zone_unverified"
 
+// AggregateDateBounds validates one through seven inclusive provider calendar
+// dates. UTC midnights are bookkeeping keys, not measured period boundaries.
+func AggregateDateBounds(from, to string) (time.Time, time.Time, error) {
+	start, err := time.Parse("2006-01-02", from)
+	if err != nil || start.Year() < 1 {
+		return time.Time{}, time.Time{}, ErrInvalid
+	}
+	last, err := time.Parse("2006-01-02", to)
+	if err != nil || last.Before(start) || last.Sub(start) > 6*24*time.Hour {
+		return time.Time{}, time.Time{}, ErrInvalid
+	}
+	end := last.AddDate(0, 0, 1)
+	if end.Year() > 9999 {
+		return time.Time{}, time.Time{}, ErrInvalid
+	}
+	return start, end, nil
+}
+
 type Aggregate struct {
 	IdentityID  int64   `json:"identity_id"`
 	PlantID     string  `json:"plant_id"`
@@ -35,7 +53,8 @@ func validateAggregates(a Audit, in AcceptedWindow) ([]Aggregate, error) {
 	out := []Aggregate{}
 	seen := map[string]Aggregate{}
 	for _, x := range in.Aggregates {
-		if a.Kind != "aggregate" || (x.IdentityID != 0 && x.IdentityID != a.IdentityID) || x.Period == "" || !validDate(x.Period) || x.Period != a.ProviderDate || x.Metric != "generation" || x.Resolution != "day" || x.Unit != "kWh" || x.Calendar != AggregateCalendar || len(x.Value) > 128 || !decimal.MatchString(x.Value) || x.Quality != AggregateQuality(x.Value) || x.Evidence < 0 || x.Evidence >= len(in.Evidence) {
+		period, err := time.Parse("2006-01-02", x.Period)
+		if a.Kind != "aggregate" || (x.IdentityID != 0 && x.IdentityID != a.IdentityID) || err != nil || At(period) < a.Start || At(period) >= a.End || x.Metric != "generation" || x.Resolution != "day" || x.Unit != "kWh" || x.Calendar != AggregateCalendar || len(x.Value) > 128 || !decimal.MatchString(x.Value) || x.Quality != AggregateQuality(x.Value) || x.Evidence < 0 || x.Evidence >= len(in.Evidence) {
 			return nil, ErrInvalid
 		}
 		if old, ok := seen[x.Period]; ok {

@@ -88,8 +88,9 @@ func ensureJobs(ctx context.Context, tx *sql.Tx, in []Job) ([]Job, error) {
 			if json.Unmarshal([]byte(metadata), &m) != nil || provider != "growatt" || stream != "generation" || m.PlantID == "" || m.Serial != "" || key != m.PlantID || x.ProviderDate == "" {
 				return nil, ErrInvalid
 			}
-			day, _ := time.Parse("2006-01-02", x.ProviderDate)
-			if x.Start != At(day) || x.End != At(day.AddDate(0, 0, 1)) {
+			last := time.UnixMicro(int64(x.End)).UTC().AddDate(0, 0, -1).Format("2006-01-02")
+			start, end, err := AggregateDateBounds(x.ProviderDate, last)
+			if err != nil || x.Start != At(start) || x.End != At(end) {
 				return nil, ErrInvalid
 			}
 		}

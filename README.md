@@ -145,5 +145,5 @@ compact `/records/growatt/aggregates` browsing. See [protocol](docs/growatt-prot
 [operations](docs/operations.md#explicit-bounded-daily-aggregate-collection-task05a)
 and [verification](docs/tasks/milestone-1/05a-verification.md). Exact kWh, provider
 calendar dates, unverified timezone/zero availability qualifications and corrections
-are retained. One day per invocation; documented five-minute and 10/day limits.
+are retained. Up to seven inclusive dates per invocation; documented five-minute and 10/day limits.
 No automatic aggregate scheduling, archive scan or refresh endpoint is added.

@@ -227,8 +227,8 @@ No task06 implementation is authorized by this planning update.
 
 ## Task05a bounded-operation handoff
 
-Use collection.CollectGrowattAggregateUnit and typed aggregate jobs (one provider
-date; UTC date bookkeeping bounds). Plant identity is independent growatt/generation,
+Use collection.CollectGrowattAggregateUnit and typed aggregate jobs (up to seven
+inclusive provider dates; UTC date bookkeeping bounds). Plant identity is independent growatt/generation,
 without device serial. Reuse storage.AcceptedWindow.Aggregates and migration005;
 never treat sample/Octopus progress as aggregate progress. Retain corrections and
 qualified calendar-date values; do not add overlapping feeds together.
@@ -246,3 +246,17 @@ See [05a verification](05a-verification.md) for exact contracts/checks.
 Aggregate request selectors are validated against persisted work before quota or
 HTTP; mismatches produce configuration/aggregate_request, including empty-response
 cases. Task06 must preserve this preflight when invoking bounded aggregate work.
+
+### Seven-date acquisition amendment (15 October 2026)
+
+Aggregate collection now fetches a bounded range of up to seven inclusive dates
+per call (`FetchAggregateRange`), retaining daily rows independently. Normal units
+use seven dates; only a range boundary/today or an explicit short verification
+window reduces the size. Jobs retain the first date in ProviderDate and half-open
+UTC date bookkeeping bounds in Start/End; those are not measurement instants.
+The validated last inclusive date is End minus one calendar day. Existing one-day
+jobs/rows need no migration. ValidateAggregateJob binds the entire range before
+HTTP; acceptance rejects any row outside it, with no partial corrections/checkpoint.
+Use seven-date units for task06 bootstrap and shorten only at range boundaries.
+The unchanged daily quota can therefore cover up to70 calendar dates in ten
+single-page calls; absent rows remain unknown, and pages each consume a call.

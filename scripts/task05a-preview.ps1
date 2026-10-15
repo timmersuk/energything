@@ -22,7 +22,7 @@ Copy-Item -LiteralPath $data -Destination $backup -Recurse
 $collectionPassed=$false
 try {
  $env:GROWATT_API_TOKEN=($runtime|Where-Object {$_.StartsWith('GROWATT_API_TOKEN=')}) -replace '^GROWATT_API_TOKEN=',''
- & go run ./cmd/growatt-aggregate -data-dir $data -discovery .cache/task05-private/preview-populate-discovery.json -day 2026-01-15
+ & go run ./cmd/growatt-aggregate -data-dir $data -discovery .cache/task05-private/preview-populate-discovery.json -from 2026-01-12 -to 2026-01-18
  $collectionPassed=$LASTEXITCODE -eq 0
 } finally {
  Remove-Item Env:GROWATT_API_TOKEN -ErrorAction SilentlyContinue
@@ -35,9 +35,9 @@ if($null -eq $after){throw 'Preview health unavailable'}
 $mountAfter=docker inspect $container --format '{{json .Mounts}}' | ConvertFrom-Json
 $actualImage=docker inspect $container --format '{{.Image}}';$expectedImage=docker image inspect energything:local --format '{{.Id}}'
 $preserved=$true
-foreach($old in $before.providers.sources){$new=@($after.providers.sources|Where-Object {$_.identity_id -eq $old.identity_id});if($new.Count -ne 1 -or $new[0].retained_count -ne $old.retained_count){$preserved=$false}}
-$aggregates=Invoke-RestMethod 'http://localhost:8080/api/v1/growatt/aggregates?from=2026-01-15&to=2026-01-15' -Headers $headers
-$summary=[ordered]@{build_verified=($after.build_id -eq 'task05a-growatt-aggregates');health_ok=($health.StatusCode -eq 200);original_mount=($mountAfter[0].Source -eq $data);actual_image=($actualImage -eq $expectedImage);prior_counts_preserved=$preserved;clean_backup=$true;older_daily_aggregate_visible=($aggregates.records.Count -eq 1);one_off_collection=$collectionPassed}
+foreach($old in $before.providers.sources){$new=@($after.providers.sources|Where-Object {$_.identity_id -eq $old.identity_id});if($new.Count -ne 1 -or (($old.stream -ne 'generation' -and $new[0].retained_count -ne $old.retained_count) -or ($old.stream -eq 'generation' -and $new[0].retained_count -lt $old.retained_count))){$preserved=$false}}
+$aggregates=Invoke-RestMethod 'http://localhost:8080/api/v1/growatt/aggregates?from=2026-01-12&to=2026-01-18' -Headers $headers
+$summary=[ordered]@{build_verified=($after.build_id -eq 'task05a-growatt-aggregates');health_ok=($health.StatusCode -eq 200);original_mount=($mountAfter[0].Source -eq $data);actual_image=($actualImage -eq $expectedImage);prior_counts_preserved=$preserved;clean_backup=$true;older_daily_aggregate_visible=($aggregates.records.Count -eq 7);one_off_collection=$collectionPassed}
 $summary | ConvertTo-Json | Set-Content .cache/task05a-preview-summary.json
 $summary | ConvertTo-Json -Compress | Write-Output
 if($summary.Values -contains $false){throw 'Preview verification failed'}

@@ -122,7 +122,8 @@ No sources configured is a supported empty UI; no collection work is enqueued.
 ## Window and commit contract
 
 A window is a bounded provider fetch unit: at most 14 absolute days for Octopus;
-one provider-calendar day for Growatt history; one response for Growatt latest.
+one provider-calendar day for Growatt detailed history; one response for Growatt
+latest; up to seven inclusive provider dates for daily generation aggregates.
 All pages belonging to the unit must be fetched and validated before acceptance.
 A larger backfill is a sequence of independently committed windows.
 
@@ -333,7 +334,7 @@ analytics remain later work. Scope agreement does not start task05a implementati
 
 Daily plant generation now has its own typed Aggregate, AggregateQuery and
 AcceptedWindow.Aggregates, migration005 current/version tables and quota ledger.
-Use CollectGrowattAggregateUnit with a kind=aggregate one-day job; bounds are UTC
+Use CollectGrowattAggregateUnit with a kind=aggregate job spanning one through seven inclusive provider dates; bounds are UTC
 calendar bookkeeping only, provider date preserved, no measurement UTC guessed.
 Identity is growatt/generation/plant ID, not device serial. Discovery deselection
 is telemetry-specific and does not deselect the independent generation stream.

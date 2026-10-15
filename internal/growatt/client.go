@@ -82,10 +82,10 @@ func destination(raw, method string, form url.Values) bool {
 		}
 		keys = []string{"page", "perpage"}
 	case "/v1/plant/energy":
-		if method != "GET" || !identifier(form.Get("plant_id")) || form.Get("time_unit") != "day" || form.Get("start_date") != form.Get("end_date") {
+		if method != "GET" || !identifier(form.Get("plant_id")) || form.Get("time_unit") != "day" {
 			return false
 		}
-		if _, e := time.Parse("2006-01-02", form.Get("start_date")); e != nil {
+		if _, _, e := storage.AggregateDateBounds(form.Get("start_date"), form.Get("end_date")); e != nil {
 			return false
 		}
 		keys = []string{"plant_id", "start_date", "end_date", "time_unit", "page", "perpage"}

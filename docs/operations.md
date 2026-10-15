@@ -116,7 +116,7 @@ keeps generated credential-bearing code/output ignored and removes them after ch
 
 `go run ./cmd/growatt-aggregate -data-dir <stopped-or-private-directory>
 -discovery <existing-private-growatt-discovery.json> -day 2026-01-15` collects
-exactly one day for the confirmed plant in that report. Requires runtime
+up to seven inclusive dates for the confirmed plant in that report. Requires runtime
 GROWATT_API_TOKEN; never loads .env. No device totals, discovery calls, automatic
 scan, timer, refresh endpoint or bootstrap. Maximum CLI duration2m plus bounded
 5s failure-audit cleanup. Do not open any live server database with this CLI.
@@ -135,3 +135,17 @@ manual probes accordingly. Failures require a later explicit invocation; no
 inline aggregate retries. A page deferred by the ledger rejects the complete
 unit, preserving accepted data and completion. Repeated calls without waiting
 produce durable rate-limit diagnostics, no cloud transmissions.
+
+### Seven-date acquisition amendment (15 October 2026)
+
+`-from YYYY-MM-DD` retrieves seven inclusive calendar dates by default, capped at
+today's UTC date to avoid requesting future dates; `-to YYYY-MM-DD` explicitly
+selects a shorter inclusive window. `-day` remains a one-day diagnostic option and
+cannot be combined with range arguments. No scan/chunk loop or scheduler is added.
+Example: `go run ./cmd/growatt-aggregate -data-dir <stopped-or-private-directory>
+-discovery <private-report.json> -from 2026-01-12 -to 2026-01-18`.
+
+Each returned date retains its own logical record and correction history. One
+quota reservation covers the single HTTP page, rather than seven separate daily
+calls. All rows/pages validate and commit atomically; missing dates remain absent.
+Existing one-day jobs and stored rows remain valid; no schema upgrade is required.

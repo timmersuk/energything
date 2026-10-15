@@ -6,7 +6,7 @@ No task06 implementation or automatic archive search was added.
 
 ## Files and contracts
 
-- cmd/growatt-aggregate: explicit one-day confirmed-plant CLI; process token,
+- cmd/growatt-aggregate: explicit bounded (up to seven dates) confirmed-plant CLI; process token,
   existing private discovery report, stopped/private database, 2m context and
   bounded audit cleanup. No .env loading, ONCE/start-date settings or scheduler.
 - internal/growatt/{aggregates,client}: only GET plant/energy added to the exact
@@ -114,7 +114,7 @@ is fail-closed, zero explicitly has unknown availability meaning. Oldest aggrega
 history/retention and annual completeness remain unknown. No zero/empty result
 establishes a boundary. Daily real multi-page output remains unverified; whole
 pagination is synthetic tested and quota deferral never accepts partial results.
-The exact seven-day rejection edge was not probed; production uses start=end.
+The provider rejection edge beyond seven dates was not probed; production rejects eight dates locally.
 Month/year formats and overlap remain unverified and are not ingested. Richer
 battery/grid/load/SOC aggregates are not established. Task06 owns independent
 bootstrap, availability investigation/stopping policy, scheduling and retries;
@@ -135,3 +135,28 @@ After the review fix, full tests/vet/native and both Linux builds passed again;
 both architecture SQLite runtime/migration gates passed on rebuilt final images.
 Preview was cleanly backed up/recreated again with the saved Compose pair (no
 additional provider call), retained counts and private browser checks passed.
+
+## Seven-date acquisition revision (15 October 2026)
+
+The user requested maximum useful batching under the documented call quota.
+FetchAggregateRange now requests one through seven inclusive provider dates;
+normal CLI `-from` uses seven dates, capped at today's UTC date, and optional
+`-to` selects a shorter window. `-day` remains a deliberate single-date option.
+Each day remains separately keyed. Bounds are first-date ProviderDate plus
+half-open UTC bookkeeping Start/End, validated against persisted work before
+quota reservation/HTTP, including empty responses. Existing one-day jobs, daily
+rows, correction history and quota ledger require no schema migration.
+
+The authenticated destination allowlist validates both dates and rejects eight
+inclusive dates (end-start >6 days), reversed or malformed ranges. Every returned
+date must be inside the inclusive requested window. Missing dates stay absent.
+All pages/dates commit atomically; any invalid/conflicting/outside row rejects
+all changes. One complete seven-row page consumes one quota reservation, keeping
+five-minute/ten-per-rolling24h and no-inline-retry policy unchanged. Task06 must
+use seven-date units and shorten at explicit range boundaries.
+
+New synthetic checks cover seven dates in one request, missing dates without zero
+invention, invalid/outside/conflicting rows, oversized/reversed/malformed ranges,
+month/year/leap-day transitions, atomic seven-row acceptance/reopen and no partial
+corrections, wrong ending-bound selector with an empty response and no HTTP, plus
+CLI seven-date default, explicit short range, today cap and invalid/mixed flags.

@@ -116,3 +116,62 @@ func TestAggregateFaultPreservesAccepted(t *testing.T) {
 		t.Fatal(p, e)
 	}
 }
+
+func TestAggregateRangeBoundsAndAtomicAcceptance(t *testing.T) {
+	for _, tc := range []struct {
+		from, to string
+		valid    bool
+	}{{"2026-01-12", "2026-01-18", true}, {"2026-01-12", "2026-01-12", true}, {"2024-02-27", "2024-03-04", true}, {"2026-12-29", "2027-01-04", true}, {"2026-01-12", "2026-01-19", false}, {"2026-01-18", "2026-01-12", false}, {"2026-02-30", "2026-03-01", false}, {"0000-01-01", "0000-01-01", false}} {
+		_, _, e := AggregateDateBounds(tc.from, tc.to)
+		if (e == nil) != tc.valid {
+			t.Fatal(tc, e)
+		}
+	}
+	ctx := context.Background()
+	s, dir, j := aggregateFixture(t)
+	j.ID = 0
+	j.End = j.Start + 7*48*halfHour
+	jobs, e := s.EnsureJobs(ctx, []Job{j})
+	if e != nil {
+		t.Fatal(e)
+	}
+	j = jobs[0]
+	in := aggregateInput(begin(t, s, j), "1")
+	for n := 1; n < 7; n++ {
+		x := in.Aggregates[0]
+		x.Period = time.UnixMicro(int64(j.Start)).AddDate(0, 0, n).Format("2006-01-02")
+		in.Aggregates = append(in.Aggregates, x)
+	}
+	if e = s.CommitAcceptedWindow(ctx, in); e != nil {
+		t.Fatal(e)
+	}
+	in = aggregateInput(begin(t, s, j), "2")
+	bad := in.Aggregates[0]
+	bad.Period = "2026-10-08"
+	in.Aggregates = append(in.Aggregates, bad)
+	if e = s.CommitAcceptedWindow(ctx, in); !errors.Is(e, ErrInvalid) {
+		t.Fatal("outside row accepted", e)
+	}
+	if count(t, s, "energy_aggregates") != 7 || count(t, s, "aggregate_versions") != 7 {
+		t.Fatal("partial correction")
+	}
+	if e = s.RecordRejectedOrFailedAttempt(ctx, FailedAttempt{AttemptID: in.AttemptID, Finished: in.Finished, NextDue: in.NextDue, Outcome: "rejected", ErrorClass: "validation", ErrorCode: "aggregate_date", Evidence: in.Evidence}); e != nil {
+		t.Fatal(e)
+	}
+	if e = s.Close(); e != nil {
+		t.Fatal(e)
+	}
+	s, e = Open(ctx, dir)
+	if e != nil {
+		t.Fatal(e)
+	}
+	defer s.Close()
+	p, e := s.QueryAggregates(ctx, AggregateQuery{})
+	if e != nil || len(p.Records) != 7 || p.Records[0].Value != "1" || p.Records[6].Period != "2026-10-07" {
+		t.Fatal(p, e)
+	}
+	j.End += 48 * halfHour
+	if _, e = s.EnsureJobs(ctx, []Job{j}); !errors.Is(e, ErrInvalid) {
+		t.Fatal("eight days accepted", e)
+	}
+}

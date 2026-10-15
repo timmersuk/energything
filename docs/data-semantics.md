@@ -265,11 +265,11 @@ measurement boundaries. A zero is `reported_zero_availability_unknown`; it is
 never evidence of operation, coverage or an oldest available date. Absent rows
 remain absent; null/placeholder/invalid energy rejects the whole unit.
 
-Initial engineering unit is **one calendar day**, start=end, perpage=100. A
+The acquisition unit is **one through seven inclusive calendar dates**, perpage=100. A
 complete stable count is required, maximum 100 rows/page, 100 pages/10,000 rows;
-all rows must match the requested date. Identical numeric duplicates collapse;
-conflicting duplicates reject. Seven-day inclusivity was investigated but larger
-production units and month/year are deferred. Complete pagination is validated
+all rows must fall within the requested inclusive date range. Identical numeric duplicates collapse;
+conflicting duplicates reject. Seven-date inclusivity was privately verified;
+month/year are deferred. Complete pagination is validated
 synthetically; large real pagination is not established for daily units.
 Aggregate requests have **one HTTP transmission per page**, no inline retries.
 A durable local ledger enforces five-minute spacing and ten calls per rolling 24h; a page requiring a later slot defers the whole unit. Errors defer to a later explicit
@@ -297,3 +297,10 @@ quality, retrieved UTC and retrieval ID. Never combine aggregate and sample feed
 `ValidateAggregateJob` binds supplied plant/identity/kind/date/bounds to persisted
 work before aggregate quota reservation or transmission, including empty response
 units. A mismatch records `configuration/aggregate_request`, never fetched progress.
+
+Seven-date amendment: normal aggregate acquisition units span up to seven inclusive
+provider dates, while record identity remains daily. ProviderDate is the range's
+first date, End is the exclusive UTC bookkeeping midnight after its final date.
+All dates validate/commit atomically, absent dates remain absent, and existing
+one-day units/rows remain valid without a migration. No additional calls per day
+or inline retry ownership changes.
