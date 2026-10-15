@@ -149,3 +149,15 @@ Each returned date retains its own logical record and correction history. One
 quota reservation covers the single HTTP page, rather than seven separate daily
 calls. All rows/pages validate and commit atomically; missing dates remain absent.
 Existing one-day jobs and stored rows remain valid; no schema upgrade is required.
+
+## Task06 scheduling handoff
+
+See [collection contracts](collection.md) for the current automatic routine/bootstrap, repair CLI,
+retry/quota and qualified time policy. ONCE/BACKFILL_START/startup RANGE_REFRESH
+controls are obsolete and ignored. Migration006 retains independent schedules;
+OpenQueue deliberately performs no startup recovery. The authenticated status
+includes plans and explicit search-limit/boundary-unresolved state. A short search
+is not an archive. Seasonal clock and stable repeated-hour identity remain gated;
+old evidence and accepted observations are retained. Task06a must consume these
+stored states without inferring history completion or adding another scheduler.
+Older one-shot procedures above describe prior task verification, not current startup.

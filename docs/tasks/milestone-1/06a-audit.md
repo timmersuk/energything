@@ -110,3 +110,15 @@ versions, and local/provider rate-limit deferrals. Expose these alongside detail
 attempts without describing calendar bookkeeping bounds as measurement instants.
 Task06a raw evidence routes remain its scope; aggregate browsing exposes compact
 retrieval/calendar provenance only. Full plant IDs remain owner-visible.
+
+## Task06 scheduling handoff
+
+See [collection contracts](../../collection.md) for the current automatic routine/bootstrap, repair CLI,
+retry/quota and qualified time policy. ONCE/BACKFILL_START/startup RANGE_REFRESH
+controls are obsolete and ignored. Migration006 retains independent schedules;
+OpenQueue deliberately performs no startup recovery. The authenticated status
+includes plans and explicit search-limit/boundary-unresolved state. A short search
+is not an archive. Seasonal clock and stable repeated-hour identity remain gated;
+old evidence and accepted observations are retained. Task06a must consume these
+stored states without inferring history completion or adding another scheduler.
+Older one-shot procedures above describe prior task verification, not current startup.

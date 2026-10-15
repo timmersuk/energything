@@ -47,7 +47,7 @@ func CollectGrowattAggregateUnit(ctx context.Context, db aggregateStore, client 
 	auditCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 	defer cancel()
 	if fetchErr == nil {
-		e = db.CommitAcceptedWindow(ctx, storage.AcceptedWindow{AttemptID: id, Finished: finished, NextDue: storage.At(time.Now().Add(5 * time.Minute)), Evidence: w.Evidence, Aggregates: w.Aggregates, Retries: retries, Coverage: storage.Coverage{Valid: len(w.Aggregates), Qualified: len(w.Aggregates)}})
+		e = db.CommitAcceptedWindow(ctx, storage.AcceptedWindow{AttemptID: id, Finished: finished, NextDue: finished, Evidence: w.Evidence, Aggregates: w.Aggregates, Retries: retries, Coverage: storage.Coverage{Valid: len(w.Aggregates), Qualified: len(w.Aggregates)}})
 		if e == nil {
 			return nil
 		}
@@ -65,7 +65,7 @@ func CollectGrowattAggregateUnit(ctx context.Context, db aggregateStore, client 
 		outcome = "cancelled"
 		pe = &growatt.Error{Class: "network", Code: "cancelled"}
 	}
-	due := time.Now().Add(5 * time.Minute)
+	due := retryDue(job, time.Now(), time.Now().Add(5*time.Minute))
 	if pe.DeferredUntil.After(due) {
 		due = pe.DeferredUntil
 	}

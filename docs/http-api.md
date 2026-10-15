@@ -214,3 +214,15 @@ superseded values/evidence remain stored. Dates with no rows have unknown availa
 The compact local table offers plant/date filters, stable next-page links and
 optional provenance expansion. It displays calendar dates, exact kWh and full
 plant identity without a raw JSON wall, charts or custom scrolling controls.
+
+## Task06 scheduling handoff
+
+See [collection contracts](collection.md) for the current automatic routine/bootstrap, repair CLI,
+retry/quota and qualified time policy. ONCE/BACKFILL_START/startup RANGE_REFRESH
+controls are obsolete and ignored. Migration006 retains independent schedules;
+OpenQueue deliberately performs no startup recovery. The authenticated status
+includes plans and explicit search-limit/boundary-unresolved state. A short search
+is not an archive. Seasonal clock and stable repeated-hour identity remain gated;
+old evidence and accepted observations are retained. Task06a must consume these
+stored states without inferring history completion or adding another scheduler.
+Older one-shot procedures above describe prior task verification, not current startup.

@@ -84,13 +84,9 @@ baseline in the task before handoff to a dependent task.
 | OCTOPUS_EXPORT_MPAN / OCTOPUS_EXPORT_SERIAL | Explicit export selection when needed |
 | GROWATT_API_TOKEN | Configures Growatt; no automatic .env loading |
 | GROWATT_PLANT_ID / GROWATT_DEVICE_SERIAL | Explicit discovery selection when needed |
-| OCTOPUS_BACKFILL_START / GROWATT_BACKFILL_START | Optional YYYY-MM-DD in configured calendar timezone; bounded start, never a future date |
 | OCTOPUS_REFRESH_INTERVAL | 1h; positive duration |
 | GROWATT_LATEST_INTERVAL | 5m; positive duration |
 | GROWATT_HISTORY_INTERVAL | 1h; positive duration |
-| OCTOPUS_RANGE_REFRESH_START / OCTOPUS_RANGE_REFRESH_END | Optional paired YYYY-MM-DD bounds; inclusive calendar dates |
-| GROWATT_RANGE_REFRESH_START / GROWATT_RANGE_REFRESH_END | Optional paired YYYY-MM-DD provider-date bounds; inclusive dates |
-| ENERGYTHING_RANGE_REFRESH_ID | Required nonempty request ID when either range refresh is configured; persist ID/ranges and enqueue once; new ID deliberately repeats a range |
 | ENERGYTHING_SHUTDOWN_TIMEOUT | 10s; positive duration |
 | ENERGYTHING_IMAGE / ENERGYTHING_HTTP_PORT / ENERGYTHING_DATA_PATH | Compose substitution values, separate from process configuration |
 
@@ -350,3 +346,11 @@ It must coordinate any other clients and keep independent aggregate bootstrap.
 Calendar timezone, live placeholder semantics, real multi-page daily behavior and
 oldest available history remain qualified/unverified; do not treat generated zeros
 or empty units as a historical boundary. See 05a-verification.md and protocol docs.
+
+## Task06 superseding implementation handoff
+
+Automatic collection replaces ONCE, BACKFILL_START and startup range controls.
+See [collection](../../collection.md) for migration006, lane/window/retry/queue
+contracts and explicit unresolved historical/time gates. Historical exploration
+has an anchored120-day engineering budget; this is not a verified lifetime domain
+or archive completion. Task06 remains incomplete against that source gate.

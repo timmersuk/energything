@@ -349,7 +349,7 @@ func TestPaginationFiltersSanitizationAndRangeIDs(t *testing.T) {
 func TestMigrationRollbackNewerAndReopen(t *testing.T) {
 	ctx := context.Background()
 	s, dir, _, _ := fixture(t, "octopus")
-	if err := migrate(ctx, s.db, []string{"unused", "unused", "unused", "unused", "unused", `CREATE TABLE synthetic_upgrade(value TEXT); INSERT INTO synthetic_upgrade VALUES ('x'); invalid SQL;`}); err == nil {
+	if err := migrate(ctx, s.db, []string{"unused", "unused", "unused", "unused", "unused", "unused", `CREATE TABLE synthetic_upgrade(value TEXT); INSERT INTO synthetic_upgrade VALUES ('x'); invalid SQL;`}); err == nil {
 		t.Fatal("migration error ignored")
 	}
 	var n int
@@ -361,7 +361,7 @@ func TestMigrationRollbackNewerAndReopen(t *testing.T) {
 	if n != schemaVersion {
 		t.Fatal("migration version advanced")
 	}
-	if _, err := s.db.Exec(`INSERT INTO schema_migrations VALUES(6)`); err != nil {
+	if _, err := s.db.Exec(`INSERT INTO schema_migrations VALUES(7)`); err != nil {
 		t.Fatal(err)
 	}
 	s.Close()

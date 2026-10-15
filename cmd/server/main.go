@@ -5,7 +5,6 @@ import (
 	"errors"
 	"github.com/timmersuk/energything/internal/collection"
 	"github.com/timmersuk/energything/internal/config"
-	"github.com/timmersuk/energything/internal/octopus"
 	"github.com/timmersuk/energything/internal/storage"
 	"github.com/timmersuk/energything/internal/web"
 	"log"
@@ -37,7 +36,8 @@ func run(ctx context.Context) (err error) {
 		return err
 	}
 	defer func() { err = errors.Join(err, db.Close()) }()
-	handler, err := web.NewRouter(c, BuildID, db)
+	scheduler := collection.NewScheduler(db, c)
+	handler, err := web.NewRouterWithRefresh(c, BuildID, db, scheduler.Refresh)
 	if err != nil {
 		return errors.New("web initialization failed")
 	}
@@ -49,14 +49,7 @@ func run(ctx context.Context) (err error) {
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		if c.OctopusOnce && c.Octopus.State == "valid" {
-			from, to := collection.StartupWindow(c.Octopus, c.Timezone, time.Now())
-			if to.After(from) {
-				if err := collection.OctopusOnce(workerCtx, db, octopus.NewClient(c.Octopus.APIKey, nil), c.Octopus, from, to); err != nil {
-					log.Print(err)
-				}
-			}
-		}
+		scheduler.Run(workerCtx)
 	}()
 	serveErr := serve(ctx, listener, handler, c.ShutdownTimeout)
 	cancelWorker()

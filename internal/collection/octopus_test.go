@@ -210,20 +210,6 @@ func TestStorageFailureAndCancellation(t *testing.T) {
 		})
 	}
 }
-func TestStartupWindow(t *testing.T) {
-	loc, _ := time.LoadLocation("Europe/London")
-	now := time.Date(2026, 10, 14, 10, 17, 0, 0, loc)
-	from, to := StartupWindow(config.Provider{}, loc, now)
-	if from.In(loc).Format("2006-01-02T15:04") != "2026-10-13T00:00" || to.In(loc).Format("15:04") != "10:00" {
-		t.Fatal(from, to)
-	}
-	start := now.AddDate(0, -2, 0).Truncate(octopus.Slot)
-	from, to = StartupWindow(config.Provider{BackfillStart: &start}, loc, now)
-	if to.Sub(from) != 14*24*time.Hour {
-		t.Fatal("bound")
-	}
-}
-
 func instantPtr(t time.Time) *storage.Instant { v := storage.At(t); return &v }
 func TestNullCountCannotAdvanceCheckpoint(t *testing.T) {
 	ctx := context.Background()

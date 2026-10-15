@@ -102,10 +102,12 @@ type providerView struct {
 	Sources       []sourceView    `json:"sources"`
 }
 type statusView struct {
-	Version   string         `json:"version"`
-	BuildID   string         `json:"build_id"`
-	Timezone  string         `json:"timezone"`
-	Providers []providerView `json:"providers"`
+	CSRFToken string             `json:"csrf_token"`
+	Schedules []storage.Schedule `json:"schedules,omitempty"`
+	Version   string             `json:"version"`
+	BuildID   string             `json:"build_id"`
+	Timezone  string             `json:"timezone"`
+	Providers []providerView     `json:"providers"`
 }
 
 func statusData(ctx context.Context, store recordStore, c config.Config, build string) (statusView, error) {
@@ -118,13 +120,21 @@ func statusData(ctx context.Context, store recordStore, c config.Config, build s
 		return statusView{}, err
 	}
 	out := statusView{Version: "v1", BuildID: build, Timezone: c.Timezone.String(), Providers: []providerView{}}
+	if scheduled, ok := store.(interface {
+		QuerySchedules(context.Context) ([]storage.Schedule, error)
+	}); ok {
+		out.Schedules, err = scheduled.QuerySchedules(ctx)
+		if err != nil {
+			return statusView{}, err
+		}
+	}
 	for _, p := range []struct {
 		name   string
 		config config.Provider
 	}{{"octopus", c.Octopus}, {"growatt", c.Growatt}} {
 		v := providerView{Source: p.name, Configuration: p.config.State, Message: p.config.Message, Discovery: "No stored identities", Sources: []sourceView{}}
 		if p.config.State == "valid" {
-			v.Message = "Configured; browsing stored data only."
+			v.Message = "Configured; automatic collection runs independently of browsing."
 		}
 		for _, x := range rows {
 			if x.Provider != p.name {

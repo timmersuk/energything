@@ -304,3 +304,15 @@ first date, End is the exclusive UTC bookkeeping midnight after its final date.
 All dates validate/commit atomically, absent dates remain absent, and existing
 one-day units/rows remain valid without a migration. No additional calls per day
 or inline retry ownership changes.
+
+## Task06 scheduling handoff
+
+See [collection contracts](collection.md) for the current automatic routine/bootstrap, repair CLI,
+retry/quota and qualified time policy. ONCE/BACKFILL_START/startup RANGE_REFRESH
+controls are obsolete and ignored. Migration006 retains independent schedules;
+OpenQueue deliberately performs no startup recovery. The authenticated status
+includes plans and explicit search-limit/boundary-unresolved state. A short search
+is not an archive. Seasonal clock and stable repeated-hour identity remain gated;
+old evidence and accepted observations are retained. Task06a must consume these
+stored states without inferring history completion or adding another scheduler.
+Older one-shot procedures above describe prior task verification, not current startup.

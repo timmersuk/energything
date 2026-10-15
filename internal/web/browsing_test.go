@@ -65,7 +65,7 @@ func TestBrowsingAuthEmptyAndErrors(t *testing.T) {
 			t.Fatal(w.Code)
 		}
 	}
-	for _, path := range []string{"/audit", "/api/v1/audit", "/api/v1/refresh"} {
+	for _, path := range []string{"/audit", "/api/v1/audit"} {
 		if request(h, path, "synthetic").Code != 404 {
 			t.Fatal("out of scope route")
 		}
