@@ -59,7 +59,18 @@ func discoverOctopus(ctx context.Context, db octopusStore, client *octopus.Clien
 		// Account/address data and raw provider errors are never persisted.
 		auditCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 		defer cancel()
-		if _, storageErr := db.RecordOctopusDiscovery(auditCtx, states(octopus.Discovery{Import: octopus.Stream{State: "failed"}, Export: octopus.Stream{State: "failed"}}), nil); storageErr != nil {
+		failed := states(octopus.Discovery{Import: octopus.Stream{State: "failed"}, Export: octopus.Stream{State: "failed"}})
+		var pe *octopus.Error
+		if errors.As(err, &pe) {
+			for n := range failed {
+				failed[n].Failure = &storage.DiscoveryFailure{Class: pe.Class, Code: pe.Code, Page: pe.Page}
+				if !pe.DeferredUntil.IsZero() {
+					due := storage.At(pe.DeferredUntil)
+					failed[n].Failure.DeferredUntil = &due
+				}
+			}
+		}
+		if _, storageErr := db.RecordOctopusDiscovery(auditCtx, failed, nil); storageErr != nil {
 			return nil, nil, errors.New("storage: discovery failure not recorded")
 		}
 		return nil, nil, err

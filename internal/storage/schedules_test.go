@@ -67,6 +67,27 @@ func TestHistoricalEmptyGapProgressAndRestart(t *testing.T) {
 	if e != nil || len(p) != 1 || p[0].State != "search_limit_boundary_unresolved" {
 		t.Fatal(p, e)
 	}
+	// A new oldest-reading observation extends a previously limited frontier,
+	// without resetting accepted newer units.
+	lower := testStart - 4*halfHour
+	if e = s.RecordHistoryBoundary(ctx, HistoryBoundary{IdentityID: i.ID, Oldest: &lower, Observed: testStart + 4*halfHour, NextDue: testStart + 20*halfHour, State: "observed", Provenance: "synthetic explicit domain", Evidence: []byte(`{"probe":"oldest","results":[]}`)}); e != nil {
+		t.Fatal(e)
+	}
+	continued := prepare()
+	if continued == nil || continued.Start != lower || continued.End != older.Start {
+		t.Fatal("new older boundary restarted history or did not extend", continued)
+	}
+	id = begin(t, s, *continued)
+	if e = s.CommitAcceptedWindow(ctx, AcceptedWindow{AttemptID: id, Finished: testStart + 4*halfHour, NextDue: testStart + 4*halfHour, Evidence: []Evidence{{Content: []byte(`{"results":[]}`), Retrieved: testStart + 4*halfHour, Complete: true}}}); e != nil {
+		t.Fatal(e)
+	}
+	if j := prepare(); j != nil {
+		t.Fatal("past verified boundary", j)
+	}
+	p, e = s.QuerySchedules(ctx)
+	if e != nil || p[0].State != "complete_at_observed_boundary" {
+		t.Fatal(p, e)
+	}
 }
 
 func TestRoutineCoalescesPrioritizesAndRepeatsAfterDue(t *testing.T) {

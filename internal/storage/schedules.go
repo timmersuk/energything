@@ -102,7 +102,18 @@ func (s *Store) PrepareSchedule(ctx context.Context, seed Schedule, now Instant,
 			}
 			if accepted <= p.AfterAttempt || j.RunningAttempt != nil {
 				out = &j
-				return nil
+				p.NextDue = j.NextDue
+				p.State = "queued"
+				if j.RetryCount > 0 {
+					p.State = "retry_due"
+				}
+				if j.Paused {
+					p.State = "paused"
+				}
+				if j.RunningAttempt != nil {
+					p.State = "running"
+				}
+				return update()
 			}
 			p.CurrentJob = nil
 			if p.Policy == "backfill" {
@@ -114,6 +125,13 @@ func (s *Store) PrepareSchedule(ctx context.Context, seed Schedule, now Instant,
 		}
 		if p.Policy == "backfill" && p.Frontier <= p.SearchLimit {
 			p.State = "search_limit_boundary_unresolved"
+			var bounded bool
+			if e := tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM history_boundaries WHERE identity_id=? AND oldest IS NOT NULL AND state='observed')`, p.IdentityID).Scan(&bounded); e != nil {
+				return e
+			}
+			if bounded {
+				p.State = "complete_at_observed_boundary"
+			}
 			return update()
 		}
 		if p.Policy == "routine" && !force && p.NextDue > now {
@@ -142,6 +160,7 @@ func (s *Store) PrepareSchedule(ctx context.Context, seed Schedule, now Instant,
 			}
 		}
 		p.CurrentJob = &j.ID
+		p.NextDue = j.NextDue
 		p.State = "active"
 		out = &j
 		return update()

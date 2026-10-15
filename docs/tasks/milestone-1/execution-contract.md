@@ -351,6 +351,6 @@ or empty units as a historical boundary. See 05a-verification.md and protocol do
 
 Automatic collection replaces ONCE, BACKFILL_START and startup range controls.
 See [collection](../../collection.md) for migration006, lane/window/retry/queue
-contracts and explicit unresolved historical/time gates. Historical exploration
+contracts and explicit unresolved historical/time gates. Growatt historical exploration
 has an anchored120-day engineering budget; this is not a verified lifetime domain
 or archive completion. Task06 remains incomplete against that source gate.

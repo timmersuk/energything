@@ -38,27 +38,40 @@ collector has at most five seconds for cancellation audit cleanup.
 
 ## Historical boundary gate remains open
 
-Automatic exploration currently has a **120-calendar-day engineering budget**,
+Growatt exploration currently has a **120-calendar-day engineering budget**,
 anchored once per identity at bootstrap, plus the bootstrap current day for Growatt.
-Octopus steps backward in at most14 absolute days; detailed Growatt in one date;
+Octopus steps backward in at most14 absolute days to its observed oldest-reading boundary; detailed Growatt steps in one date;
 generation in seven inclusive dates, shortened at the limit. Every unit is fetched
 and validated completely. Empty gaps do not stop progression; generated zeros do
 not establish availability. At the limit the persisted state is
 `search_limit_boundary_unresolved`, never archive complete. Restarts retain the
 same target/frontier and do not restart the search. Repair can request older data.
 
-This is a limited exploratory recovery policy, **not all discoverably available
+The Growatt policy is limited exploratory recovery, **not all discoverably available
 history**, and is not a verified provider-supported lifetime domain. Task06 cannot
-be declared complete while this gate remains unresolved. The 15 October detailed
+be declared complete while the Growatt domain gate remains unresolved. The 15 October detailed
 MIX observation of about95 days is dated, installation-scoped evidence only;
 aggregate history is independent and known to include older dates.
 
 The freshly reviewed [Octopus endpoint documentation](https://developer.octopus.energy/guides/rest/api-endpoints/)
 supports ascending period ordering and bounded pagination, but warns that omitted
-period bounds cause an assumed range. An unbounded-date one-record probe therefore
-cannot yet prove the meter's lifetime boundary. Concrete follow-up: establish and
-verify an explicit supported date domain/earliest metadata contract, then test a
-one-record oldest probe across gaps and identities before replacing the budget.
+period bounds cause an assumed range. Task06 therefore uses **explicit** UTC
+`period_from=0001-01-01T00:00:00Z`, elapsed `period_to`, `page_size=1` and
+`order_by=period`. One bounded private request per selected import/export stream
+accepted these bounds on15 October2026. This verifies the canonical supported
+storage-date domain for this installation, not a provider-wide retention promise.
+The server repeats that one-page metadata probe at most weekly per identity,
+validates its returned half-hour reading and persists the observed oldest bound,
+observation time, provenance and selected evidence without ingesting it. No next
+page is downloaded and the probe cannot become an unbounded observation scan.
+A fully validated nonempty oldest response bounds backward acquisition through
+`complete_at_observed_boundary`. Empty probe results establish no earliest date.
+Failed probes leave recent collection running; a new older boundary extends the
+existing frontier without restarting newer accepted units. Transport inline
+retry ownership is unchanged; transient probe failures defer at least15 minutes,
+long provider deferrals prevail, and authentication/configuration pauses until
+successful startup discovery after configuration correction. If no verified bound
+is available, the120-day fallback remains explicitly incomplete.
 Growatt needs authoritative aggregate/detail retention or a supported finite
 calendar domain; plant creation, retained observations and empty probes are not
 substitutes. No binary search or consecutive-empty stopping rule is used.
@@ -71,8 +84,11 @@ Growatt discovery/detailed transmission is paced at least ten seconds apart,
 including pages and inline retries. Historical units yield between days.
 Scheduler reattempts create new attempt IDs and defer one minute doubling to one
 hour, plus0–1 second jitter. Provider DeferredUntil is a lower bound; long waits
-are stored as job due times rather than holding a provider lane. Authentication and
-configuration pause the affected job. A process restart rediscovering configuration
+are stored as job due times rather than holding a provider lane. Transient discovery errors retry after at least15 minutes (or a later provider
+deferral), independently of healthy streams; a plant can collect generation while
+device discovery retries. Authentication and
+configuration pause the affected job; permanent discovery failures also pause
+automatic discovery until restart, with a durable class/code diagnostic. A process restart rediscovering configuration
 is the recovery mechanism; audit and retained observations remain intact.
 
 Generation has exactly one transmission/page, no inline retries. All attempts share
@@ -103,8 +119,11 @@ into14-day Octopus, one-day detailed, seven-date generation units. The operation
 binds the immutable ordered identity/range list: identical replays coalesce; changed
 bounds reject; a new ID deliberately requests another correction. OpenQueue requires
 the current existing schema, performs no migrations or interrupted-attempt recovery,
-and never fetches. SQLite immediate transactions serialize cross-process enqueue
-and claims. The running server performs all provider requests.
+and never fetches. Run a container server's enqueue command in its Linux lock domain, never a Windows
+host executable against a live Docker bind-mounted WAL. SQLite immediate transactions serialize cross-process enqueue
+and claims. The running server performs all provider requests. The image includes
+`energything-enqueue`; invoke it with docker exec and `-data-dir /data` to share
+the server's Linux SQLite lock domain.
 
 ## Time interpretation
 

@@ -3,8 +3,9 @@
 Automatic recent collection now starts asynchronously for configured selected
 Octopus and Growatt identities. Durable independent plans retain progress and
 recover interrupted units. Generation remains a separate plant-level daily feed.
-Historical recovery currently stops at a visible exploratory budget; earliest
-source-boundary and seasonal Growatt clock gates remain open. See
+Octopus history uses a verified oldest-first explicit-domain probe. Growatt history
+currently stops at a visible exploratory budget; its earliest source-boundary and
+seasonal clock gates remain open. See
 [collection contracts](docs/collection.md) and [task06 verification](docs/tasks/milestone-1/06-verification.md).
 
 Requires Go 1.26.4 (module compatibility 1.26.0). Dependencies are pinned in

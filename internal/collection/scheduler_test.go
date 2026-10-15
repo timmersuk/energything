@@ -3,10 +3,64 @@ package collection
 import (
 	"context"
 	"github.com/timmersuk/energything/internal/config"
+	"github.com/timmersuk/energything/internal/growatt"
 	"github.com/timmersuk/energything/internal/storage"
+	"io"
+	"net/http"
+	"strings"
 	"testing"
 	"time"
 )
+
+func TestGenerationDiscoveryIndependentOfTelemetry(t *testing.T) {
+	for _, mode := range []string{"ambiguous", "unsupported", "device_failure"} {
+		t.Run(mode, func(t *testing.T) {
+			ctx := context.Background()
+			db, e := storage.Open(ctx, t.TempDir())
+			if e != nil {
+				t.Fatal(e)
+			}
+			defer db.Close()
+			s := NewScheduler(db, config.Config{Timezone: time.UTC, Growatt: config.Provider{State: "valid", PlantID: "SYN-PLANT"}})
+			s.Growatt = growatt.NewClient("synthetic", transport(func(r *http.Request) (*http.Response, error) {
+				body := `{"error_code":0,"data":{"count":1,"plants":[{"plant_id":"SYN-PLANT"}]}}`
+				code := 200
+				if strings.HasSuffix(r.URL.Path, "device/list") {
+					body = `{"error_code":0,"data":{"count":2,"devices":[{"device_sn":"A","type":5},{"device_sn":"B","type":5}]}}`
+					if mode == "unsupported" {
+						body = `{"error_code":0,"data":{"count":1,"devices":[{"device_sn":"C","type":2}]}}`
+					}
+					if mode == "device_failure" {
+						code = 401
+						body = "private"
+					}
+				}
+				return &http.Response{StatusCode: code, Header: http.Header{}, Body: io.NopCloser(strings.NewReader(body))}, nil
+			}))
+			if e = s.discover(ctx, "growatt"); e != nil && mode != "device_failure" {
+				t.Fatal(e)
+			}
+			if e = s.prepare(ctx, "growatt", "", false); e != nil {
+				t.Fatal(e)
+			}
+			p, e := db.QuerySchedules(ctx)
+			if e != nil || len(p) != 2 || p[0].Kind != "aggregate" || p[1].Kind != "aggregate" {
+				t.Fatal("generation blocked by telemetry", p, e)
+			}
+		})
+	}
+}
+
+func TestDiscoveryPermanentPauseAndLongDeferral(t *testing.T) {
+	now := time.Now()
+	if _, paused := discoveryRetry(&growatt.Error{Class: "authentication", Code: "unauthorized"}, now); !paused {
+		t.Fatal("authentication retried")
+	}
+	until := now.Add(48 * time.Hour)
+	if delay, paused := discoveryRetry(&growatt.Error{Class: "rate_limit", DeferredUntil: until}, now); paused || delay != 48*time.Hour {
+		t.Fatal(delay, paused)
+	}
+}
 
 func TestIndependentBootstrapAndCoalescedRoutine(t *testing.T) {
 	ctx := context.Background()

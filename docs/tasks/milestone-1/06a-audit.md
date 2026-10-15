@@ -122,3 +122,17 @@ is not an archive. Seasonal clock and stable repeated-hour identity remain gated
 old evidence and accepted observations are retained. Task06a must consume these
 stored states without inferring history completion or adding another scheduler.
 Older one-shot procedures above describe prior task verification, not current startup.
+
+Task06 final handoff: source selection, automatic routine and historical schedules
+are separate. Plant generation proceeds while transient device discovery retries;
+a permanent source discovery failure pauses with its typed diagnostic. Long source
+Retry-After deadlines persist in discovery failure JSON and survive restart.
+Octopus boundary probes use one explicit-domain oldest record, retained in typed
+HistoryBoundary with observation time and provenance, refreshed weekly. Growatt
+search-limit state remains an unresolved gate. Do not relabel a120-day budget as
+archive completion. Inspect latest attempts independently of accepted coverage.
+The image's energything-enqueue performs only same-OS durable enqueue; never call
+Open or recovery from an audit/UI handler. Refresh uses the HMAC token described in
+HTTP API. New clock candidate fields preserve original timestamps and deliberately
+leave authoritative instant/key unset pending seasonal/identity evidence. No task06a
+routes were implemented as part of this handoff.

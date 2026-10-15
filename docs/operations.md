@@ -15,13 +15,13 @@ Linux deployment host in task 08.
 
 The application opens SQLite before binding HTTP. Each connection applies
 journal_mode=WAL, foreign_keys=1 and busy_timeout=5000. The pool currently has
-one connection, establishing a serialized storage seam without application tables.
+one connection per process, with immediate transactions serializing cross-process queue writes.
 SIGTERM/interrupt cancels the server context, drains requests within
 ENERGYTHING_SHUTDOWN_TIMEOUT, closes HTTP if the timeout expires and closes SQLite
 last. A listen failure returns a nonzero process exit.
 
 Keep credentials in private process/Compose configuration. No credentials enter
-SQLite, logs or status cards. No provider calls or background jobs exist in task 01.
+SQLite, logs or status cards. Automatic collection starts after asynchronous discovery.
 Do not put runtime files in the image or commit .env, database companions,
 exports, private evidence or caches.
 
@@ -67,7 +67,6 @@ Preserve the container name, project, port and original mount:
 go run ./scripts/build.go -build-id <task-build-id>
 docker build -t energything:local .
 $env:ENERGYTHING_IMAGE='energything:local'
-$env:ENERGYTHING_OCTOPUS_ONCE='false'
 docker compose -p energything -f docker-compose.yml -f .cache/preview-compose.override.json config --quiet
 # Stop and make a clean private data-directory backup first for a schema upgrade.
 docker compose -p energything -f docker-compose.yml -f .cache/preview-compose.override.json up -d --no-deps --force-recreate energything
@@ -76,8 +75,9 @@ docker compose -p energything -f docker-compose.yml -f .cache/preview-compose.ov
 A plain `docker restart` does not adopt a rebuilt image. After recreation, confirm
 that the container is running on the original mount, public `/healthz` responds,
 and authenticated `/api/v1/status` reports the expected task build ID. Verify any
-changed UI against that build. Keep one-shot live collection disabled during an
-ordinary preview update; enable it only for an explicitly intended collection run.
+changed UI against that build. Starting task06 intentionally enables automatic
+collection for existing selections, including bounded historical exploration.
+The aggregate ledger survives restart and continues to govern quota.
 If a restart cannot be performed, report the reason and stale preview build.
 
 ## Explicit Growatt verification
@@ -97,7 +97,7 @@ Do not publish the report or use the CLI as a scheduled job.
 `-collect` always verifies latest; `-day` adds one history unit. No historical start
 environment variable is required. Use a separate private database: this verification
 CLI calls storage.Open, including startup recovery, and must never open a database
-being used by a live server. It is not the future cross-process enqueue CLI.
+being used by a live server. Use cmd/enqueue for safe cross-process repair; it performs no startup recovery.
 The process is cancellable and has a 15-minute total bound, in addition to client
 request/page/row/body bounds. The CLI prints only generic outcome messages; full
 identities and selected telemetry remain in the opted-in report/database.
@@ -122,8 +122,8 @@ scan, timer, refresh endpoint or bootstrap. Maximum CLI duration2m plus bounded
 5s failure-audit cleanup. Do not open any live server database with this CLI.
 
 Back up the entire cleanly stopped original data directory before migration005.
-Use the saved Compose project/pair/mount procedure above; keep Octopus one-shot
-false and the approved pinned Alpine image. The explicit CLI may populate one
+Use the saved Compose project/pair/mount procedure above and the approved pinned
+Alpine image. Task06 starts automatic collection when the server starts. The explicit CLI may populate one
 older day while stopped, then recreate the preview from the exact same setup.
 Private/browser databases and evidence stay under ignored .cache; never copy
 synthetic fixtures into preview.
@@ -161,3 +161,15 @@ is not an archive. Seasonal clock and stable repeated-hour identity remain gated
 old evidence and accepted observations are retained. Task06a must consume these
 stored states without inferring history completion or adding another scheduler.
 Older one-shot procedures above describe prior task verification, not current startup.
+
+For a container server, run the enqueue binary inside the container or another
+Linux process sharing its filesystem/locking semantics. Do not open its live SQLite
+WAL from a Windows host executable through Docker Desktop's bind mount. The CLI
+cross-process guarantee is for processes using the same OS SQLite lock domain.
+Use scripts/task06-preview.ps1 for clean backup/recreation and
+scripts/task06-preview-browser.ps1 for private browser checks. Earlier task05
+preview helpers preserve historical verification procedures and are superseded.
+
+The task06 image ships `/usr/local/bin/energything-enqueue` for same-OS repair:
+`docker exec energything-preview energything-enqueue -data-dir /data -identity <id> -from <date> -to <date> -operation-id <id>`.
+This action only inserts immutable durable work; the existing server performs it.

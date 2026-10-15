@@ -10,9 +10,21 @@ import (
 // Detailed retention evidence is installation-scoped (~95 days, 2026-10-15).
 const SearchDays = 120
 
+// UnitSpec is shared by automatic planning and exceptional range repair.
+func UnitSpec(i storage.Identity) (kind string, days int) {
+	if i.Provider == "octopus" {
+		return "history", 14
+	}
+	if i.Stream == "generation" {
+		return "aggregate", 7
+	}
+	return "history", 1
+}
+
 func plans(i storage.Identity, c config.Config, now time.Time) []storage.Schedule {
 	day := time.Date(now.In(c.Timezone).Year(), now.In(c.Timezone).Month(), now.In(c.Timezone).Day(), 0, 0, 0, 0, time.UTC)
-	kind, interval := "history", c.Octopus.RefreshInterval
+	kind, _ := UnitSpec(i)
+	interval := c.Octopus.RefreshInterval
 	if i.Provider == "growatt" {
 		interval = c.Growatt.HistoryInterval
 		if i.Stream == "generation" {
@@ -65,13 +77,7 @@ func plannedWindow(p storage.Schedule, i storage.Identity, now time.Time, loc *t
 			}
 		}
 	} else {
-		days := 1
-		if i.Provider == "octopus" {
-			days = 14
-		}
-		if p.Kind == "aggregate" {
-			days = 7
-		}
+		_, days := UnitSpec(i)
 		start = end.AddDate(0, 0, -days)
 		limit := time.UnixMicro(int64(p.SearchLimit))
 		if start.Before(limit) {
@@ -82,7 +88,6 @@ func plannedWindow(p storage.Schedule, i storage.Identity, now time.Time, loc *t
 	if i.Provider == "growatt" {
 		date = start.Format("2006-01-02")
 	}
-	// Detailed bounds use a conservative local-day envelope until the seasonal
-	// clock gate is resolved. Original provider dates remain the request keys.
+	// Growatt bounds are provider-date bookkeeping; clocks remain qualified.
 	return storage.Job{Start: storage.At(start), End: storage.At(end), ProviderDate: date}
 }

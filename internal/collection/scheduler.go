@@ -58,31 +58,61 @@ func (s *Scheduler) Run(ctx context.Context) {
 func (s *Scheduler) discover(ctx context.Context, provider string) error {
 	if provider == "growatt" {
 		d, _, e := DiscoverGrowatt(ctx, s.DB, s.Growatt, s.Config.Growatt.PlantID, s.Config.Growatt.DeviceSerial)
+		if d.SelectedPlant != "" {
+			_, se := s.DB.SelectGeneration(ctx, d.SelectedPlant)
+			if se != nil {
+				return se
+			}
+			return e
+		}
 		if e != nil {
 			return e
 		}
-		if d.Selected == nil {
-			return storage.ErrNotFound
-		}
-		_, e = s.DB.SelectGeneration(ctx, d.Selected.PlantID)
+		_, e = s.DB.SelectGeneration(ctx, "")
 		return e
 	}
 	return DiscoverOctopus(ctx, s.DB, s.Octopus, s.Config.Octopus)
 }
 
 func (s *Scheduler) lane(ctx context.Context, provider string) {
-	for ctx.Err() == nil {
-		if e := s.discover(ctx, provider); e == nil {
-			if s.DB.ResumeDiscoveredJobs(ctx, provider, storage.At(s.Now())) != nil {
-				return
+	discoveryPending := true
+	nextDiscovery := s.Now()
+	if states, e := s.DB.QueryDiscovery(ctx); e == nil {
+		for _, state := range states {
+			if state.Provider == provider && state.Failure != nil && state.Failure.DeferredUntil != nil {
+				due := time.UnixMicro(int64(*state.Failure.DeferredUntil))
+				if due.After(nextDiscovery) {
+					nextDiscovery = due
+				}
 			}
-			break
-		}
-		if s.Wait(ctx, 15*time.Minute) != nil {
-			return
 		}
 	}
+	resumedStartup := false
 	for ctx.Err() == nil {
+		if discoveryPending && !s.Now().Before(nextDiscovery) {
+			e := s.discover(ctx, provider)
+			if !resumedStartup {
+				if s.DB.ResumeDiscoveredJobs(ctx, provider, storage.At(s.Now())) != nil {
+					return
+				}
+				resumedStartup = true
+			}
+			if e == nil {
+				discoveryPending = false
+			} else {
+				delay, paused := discoveryRetry(e, s.Now())
+				discoveryPending = !paused
+				nextDiscovery = s.Now().Add(delay)
+			}
+		}
+		if provider == "octopus" {
+			if s.probeBoundaries(ctx) != nil {
+				if s.Wait(ctx, time.Minute) != nil {
+					return
+				}
+				continue
+			}
+		}
 		if e := s.prepare(ctx, provider, "", false); e != nil {
 			if s.Wait(ctx, time.Minute) != nil {
 				return
@@ -145,6 +175,13 @@ func (s *Scheduler) prepare(ctx context.Context, provider, stream string, force 
 		for _, p := range plans(i, s.Config, s.Now()) {
 			if force && p.Policy != "routine" {
 				continue
+			}
+			if i.Provider == "octopus" && p.Policy == "backfill" {
+				b, be := s.DB.HistoryBoundary(ctx, i.ID)
+				if be == nil && b.Oldest != nil {
+					p.SearchLimit = *b.Oldest
+					p.Provenance = b.Provenance
+				}
 			}
 			_, e = s.DB.PrepareSchedule(ctx, p, storage.At(s.Now()), force, func(saved storage.Schedule) storage.Job { return plannedWindow(saved, i, s.Now(), s.Config.Timezone) })
 			if e != nil {

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"github.com/timmersuk/energything/internal/collection"
 	"github.com/timmersuk/energything/internal/storage"
 	"os"
 	"time"
@@ -53,14 +54,7 @@ func run(args []string) error {
 	if selected == nil {
 		return errors.New("confirmed selected identity not found")
 	}
-	kind, days := "history", 1
-	if selected.Provider == "octopus" {
-		days = 14
-	}
-	if selected.Stream == "generation" {
-		kind = "aggregate"
-		days = 7
-	}
+	kind, days := collection.UnitSpec(*selected)
 	jobs := []storage.Job{}
 	end := last.AddDate(0, 0, 1)
 	for start := first; start.Before(end); {

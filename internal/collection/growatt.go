@@ -30,6 +30,10 @@ func DiscoverGrowatt(ctx context.Context, db growattStore, client *growatt.Clien
 		var pe *growatt.Error
 		if errors.As(e, &pe) {
 			state.Failure = &storage.DiscoveryFailure{Class: pe.Class, Code: pe.Code, Page: pe.Page, Diagnostic: pe.Diagnostic}
+			if !pe.DeferredUntil.IsZero() {
+				due := storage.At(pe.DeferredUntil)
+				state.Failure.DeferredUntil = &due
+			}
 		}
 	}
 	rows := []storage.Identity{}

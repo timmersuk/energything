@@ -2,6 +2,8 @@ package web
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 
 	"strings"
 	"time"
@@ -67,6 +69,7 @@ type coverageView struct {
 	MeasurementComplete bool   `json:"measurement_complete"`
 }
 type sourceView struct {
+	Boundary          *boundaryView  `json:"historical_boundary,omitempty"`
 	PlantID           string         `json:"plant_id,omitempty"`
 	MPAN              string         `json:"mpan,omitempty"`
 	Serial            string         `json:"serial,omitempty"`
@@ -86,6 +89,14 @@ type sourceView struct {
 	Jobs              []jobView      `json:"jobs"`
 	Coverage          []coverageView `json:"coverage"`
 }
+
+type boundaryView struct {
+	State      string  `json:"state"`
+	Oldest     *string `json:"oldest"`
+	Observed   string  `json:"observed"`
+	NextDue    string  `json:"next_probe_due"`
+	Provenance string  `json:"provenance"`
+}
 type discoveryView struct {
 	Failure  *storage.DiscoveryFailure `json:"failure,omitempty"`
 	Stream   string                    `json:"stream"`
@@ -102,12 +113,25 @@ type providerView struct {
 	Sources       []sourceView    `json:"sources"`
 }
 type statusView struct {
-	CSRFToken string             `json:"csrf_token"`
-	Schedules []storage.Schedule `json:"schedules,omitempty"`
-	Version   string             `json:"version"`
-	BuildID   string             `json:"build_id"`
-	Timezone  string             `json:"timezone"`
-	Providers []providerView     `json:"providers"`
+	CSRFToken string         `json:"csrf_token"`
+	Schedules []scheduleView `json:"schedules,omitempty"`
+	Version   string         `json:"version"`
+	BuildID   string         `json:"build_id"`
+	Timezone  string         `json:"timezone"`
+	Providers []providerView `json:"providers"`
+}
+
+type scheduleView struct {
+	IdentityID  int64  `json:"identity_id"`
+	Identity    string `json:"identity"`
+	Kind        string `json:"kind"`
+	Policy      string `json:"policy"`
+	State       string `json:"state"`
+	Provenance  string `json:"provenance"`
+	Frontier    string `json:"frontier"`
+	SearchLimit string `json:"search_limit"`
+	NextDue     string `json:"next_due"`
+	CurrentJob  *int64 `json:"current_job"`
 }
 
 func statusData(ctx context.Context, store recordStore, c config.Config, build string) (statusView, error) {
@@ -123,9 +147,19 @@ func statusData(ctx context.Context, store recordStore, c config.Config, build s
 	if scheduled, ok := store.(interface {
 		QuerySchedules(context.Context) ([]storage.Schedule, error)
 	}); ok {
-		out.Schedules, err = scheduled.QuerySchedules(ctx)
+		var schedules []storage.Schedule
+		schedules, err = scheduled.QuerySchedules(ctx)
 		if err != nil {
 			return statusView{}, err
+		}
+		for _, p := range schedules {
+			identity := ""
+			for _, i := range rows {
+				if i.IdentityID == p.IdentityID {
+					identity = i.Metadata.DisplayIdentity(i.Provider, i.Stream, i.IdentityID)
+				}
+			}
+			out.Schedules = append(out.Schedules, scheduleView{p.IdentityID, identity, p.Kind, p.Policy, p.State, p.Provenance, instant(p.Frontier), instant(p.SearchLimit), instant(p.NextDue), p.CurrentJob})
 		}
 	}
 	for _, p := range []struct {
@@ -142,6 +176,17 @@ func statusData(ctx context.Context, store recordStore, c config.Config, build s
 			}
 			v.Discovery = "Stored identities available; selection shown below"
 			s := sourceView{IdentityID: x.IdentityID, Source: x.Provider, Stream: x.Stream, Identity: x.Metadata.DisplayIdentity(x.Provider, x.Stream, x.IdentityID), Selected: x.Selected, RetainedCount: x.IntervalCount + x.SampleCount + x.AggregateCount, UnresolvedCount: x.UnresolvedCount, LastRetrieval: nullableTime(x.LastRetrieval), NewestMeasurement: nullableTime(x.NewestMeasurement), LastAttempt: attempt(x.LastAttempt), LastAccepted: attempt(x.LastAcceptedAttempt), JobCount: x.JobCount, WindowCount: x.WindowCount, Jobs: []jobView{}, Coverage: []coverageView{}}
+			if boundaries, ok := store.(interface {
+				HistoryBoundary(context.Context, int64) (storage.HistoryBoundary, error)
+			}); ok {
+				b, e := boundaries.HistoryBoundary(ctx, x.IdentityID)
+				if e != nil && !errors.Is(e, sql.ErrNoRows) {
+					return statusView{}, e
+				}
+				if e == nil {
+					s.Boundary = &boundaryView{b.State, nullableTime(b.Oldest), instant(b.Observed), instant(b.NextDue), b.Provenance}
+				}
+			}
 			if x.Provider == "octopus" {
 				s.MPAN = x.Metadata.MPAN
 				s.Serial = x.Metadata.Serial
@@ -161,7 +206,11 @@ func statusData(ctx context.Context, store recordStore, c config.Config, build s
 		}
 		for _, d := range discovery {
 			if d.Provider == p.name {
-				v.Streams = append(v.Streams, discoveryView{Failure: d.Failure, Stream: d.Stream, State: d.State, Message: providerDiscoveryMessage(d.Provider, d.Stream, d.State), Occurred: instant(d.Occurred)})
+				message := providerDiscoveryMessage(d.Provider, d.Stream, d.State)
+				if d.Failure != nil && (d.Failure.Class == "authentication" || d.Failure.Class == "configuration") {
+					message += " Automatic discovery is paused until configuration is corrected and the server restarts."
+				}
+				v.Streams = append(v.Streams, discoveryView{Failure: d.Failure, Stream: d.Stream, State: d.State, Message: message, Occurred: instant(d.Occurred)})
 			}
 		}
 		out.Providers = append(out.Providers, v)
@@ -172,15 +221,15 @@ func statusData(ctx context.Context, store recordStore, c config.Config, build s
 func discoveryMessage(stream, state string) string {
 	switch state {
 	case "selection_required":
-		return "Set paired OCTOPUS_" + strings.ToUpper(stream) + "_MPAN and OCTOPUS_" + strings.ToUpper(stream) + "_SERIAL to a matching confirmed meter, then rerun one-shot collection."
+		return "Set paired OCTOPUS_" + strings.ToUpper(stream) + "_MPAN and OCTOPUS_" + strings.ToUpper(stream) + "_SERIAL to a matching confirmed meter, then restart discovery."
 	case "conflict":
 		return "Conflicting discovered meter descriptions; resolve discovery before selecting this stream."
 	case "unavailable":
 		return "No confirmed meter is available for this direction."
 	case "failed":
-		return "Discovery failed; check Octopus credentials and network access, then rerun one-shot collection."
+		return "Discovery failed; inspect its class/code and retry state. Correct credentials or selection and restart when required."
 	case "discovering":
-		return "One-shot account discovery is running."
+		return "Account discovery is running."
 	case "selected":
 		return "A confirmed meter is selected."
 	default:
@@ -191,6 +240,14 @@ func discoveryMessage(stream, state string) string {
 func providerDiscoveryMessage(provider, stream, state string) string {
 	if provider != "growatt" {
 		return discoveryMessage(stream, state)
+	}
+	if stream == "generation" {
+		if state == "selected" {
+			return "A confirmed plant is selected for independent daily generation collection."
+		}
+		if state == "selection_required" {
+			return "Set GROWATT_PLANT_ID to a confirmed plant, or resolve a unique device/plant selection, then restart discovery."
+		}
 	}
 	switch state {
 	case "selection_required":

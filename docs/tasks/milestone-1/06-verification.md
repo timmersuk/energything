@@ -1,6 +1,6 @@
 # Task06 verification — 15 October2026
 
-Status: implementation under verification; **historical source-boundary gate open**.
+Status: implementation verified for review; **historical source-boundary gate open**.
 Not a completed task06/archive claim. Task06a has not been started.
 
 ## Checks actually run
@@ -21,16 +21,43 @@ Not a completed task06/archive claim. Task06a has not been started.
   correction/evidence preservation and cancellation. New clock tests retain all
   autumn candidates and identify spring gaps without fabricated IDs or instants.
 
-Image/runtime/browser and preview verification are still pending in this revision.
+- Final amd64 and emulated arm64 images passed non-root UID, CA/timezone files,
+  real SQLite schema initialization, authenticated status, repair CLI execution,
+  clean SIGTERM and persisted database restart via scripts/task06-runtime.ps1.
+- Actual-image Edge checks passed recent-refresh enqueue, CSRF rejection, durable
+  schedule status, exact retained Octopus/generation browsing during provider
+  failure, mobile status and zero external browser requests. Both provider hosts
+  were mapped to container loopback, so synthetic credentials reached no real cloud.
+  Fixture selection was restored with a helper **inside Linux**, after the injected
+  discovery failure, to model retained selected contexts during an outage. This
+  fixture validates local queue/UI behavior, not successful live cloud collection.
+- Preview cleanly stopped, full original directory backed up, migrated and recreated
+  from the exact saved Compose pair/project/mount. Actual image ID, task build,
+  health and nondecreasing counts for every retained identity passed. Automatic
+  collection intentionally starts with existing selections and the retained quota
+  ledger. The pinned Alpine base is unchanged. Private browser build/status and
+  retained Octopus/generation browsing passed; generated credential-bearing code
+  and output were removed.
+
+Restricted-loopback attempts and an early stale migration fixture failure were
+corrected before the final passing checks. Docker internal-network publishing did
+not expose the synthetic port, so the fixture uses explicit loopback host mappings.
+A host-Windows helper could not safely share live Linux WAL visibility; that failed
+synthetic fixture was replaced with a fresh isolated database and all live helper
+mutations moved inside Linux. Original preview data was never opened by that host
+helper. Use docker exec energything-enqueue for a container server's repair.
+Synthetic screenshots and all private backups/evidence remain ignored under.cache.
 
 ## Contracts and unresolved gates
 
 See [collection](../../collection.md) for exact schedules, retry budgets, independent
-progress and repair syntax. Historical exploration is anchored to a120-calendar-day
+progress and repair syntax. Growatt historical exploration is anchored to a120-calendar-day
 engineering budget, with explicit `search_limit_boundary_unresolved` state. This is
 not a verified supported source lifetime domain or an exhaustive archive. Empty
-windows and aggregate zeros do not terminate search. Octopus omitted-date oldest
-ordering is not yet proof of all-time semantics; Growatt needs a supported finite
+windows and aggregate zeros do not terminate search. Octopus now uses a validated, explicit year0001-to-elapsed-now, one-record
+ascending probe; both selected streams accepted that domain in the bounded private
+read-only check. It retains scope/provenance/observation time, refreshes weekly and
+can extend an existing frontier. Growatt still needs a supported finite
 calendar domain or authoritative retention/earliest metadata. These are concrete
 remaining protocol gates, not operator requests to invent historical dates.
 
@@ -44,3 +71,24 @@ cannot select UTC/BST when shifted boundary hours have zero positive PV.
 The pre-existing untracked generation comparison note and ignored private evidence
 are preserved. No private identifiers, credentials, raw responses or screenshots
 are included in public artifacts.
+
+## Review
+
+Standards: no hard documented-standard violations. One heuristic duplication of
+unit limits was addressed with shared collection.UnitSpec for scheduler/repair.
+Spec: generation/device-selection coupling and permanent discovery retries were
+fixed. Tests now cover ambiguous/unsupported/failing device discovery beside a
+confirmed plant, serial-only selection across multiple plants, permanent pause,
+long discovery deferral and older newly discovered boundary after a limited scan.
+No task06a implementation or changes to the existing autumn automation were made.
+
+Transient telemetry discovery recovery was also reviewed and fixed: independent
+retry due state lets generation continue, then bootstraps telemetry without a
+server restart. Its fake-clock regression and long-deferred-discovery reopen test
+passed. Final focused spec re-review reported no additional actionable findings.
+
+Final private preview metadata also confirmed automatic plans are present, generation
+has independent aggregate plans, both Octopus oldest boundaries were observed by
+the running server, and source attempts remain visible. Public verification output
+contained booleans only. Final preview browser recheck passed after the last image
+replacement. No exhaustive live archive completion is claimed.

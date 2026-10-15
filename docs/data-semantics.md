@@ -184,13 +184,10 @@ not wait. Collection writes deferred next_due (otherwise now+1m on fetch failure
 and pauses authentication/configuration failures; no scheduler executes reattempts.
 Task 06 must not multiply this inner retry budget.
 
-`ENERGYTHING_OCTOPUS_ONCE=true` explicitly enables a single startup discovery and
-one bounded fetch per selected stream. Default false; no handler triggers it.
-Default window: previous calendar midnight to latest elapsed half-hour; optional
-backfill start selects only its first <=14-day unit. Explicit reinvocation permits
-replay/correction. Range-refresh and recurring progression remain task 06.
-Absolute elapsed expected slots preserve London 46/50-slot days and partial days.
-Status distinguishes latest fetched coverage from retained observation count.
+Task06 supersedes the task04 startup one-shot controls with automatic collection.
+ONCE, BACKFILL_START and startup range settings are ignored and removed from the
+supported configuration. Use [the durable enqueue CLI](collection.md#refresh-and-exceptional-repair)
+for explicit repair, and credentials/selections alone for ordinary collection.
 
 ## User-approved Octopus identity visibility
 
