@@ -242,3 +242,7 @@ is unverified; bounded daily units have returned a single page. Calendar zone an
 zero-placeholder meaning remain unverified qualifications, and no oldest-history
 boundary was established. Task06 must investigate boundary policy independently.
 See [05a verification](05a-verification.md) for exact contracts/checks.
+
+Aggregate request selectors are validated against persisted work before quota or
+HTTP; mismatches produce configuration/aggregate_request, including empty-response
+cases. Task06 must preserve this preflight when invoking bounded aggregate work.

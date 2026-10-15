@@ -15,7 +15,7 @@ type aggregateTransport func(*http.Request) (*http.Response, error)
 
 func (f aggregateTransport) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
 func TestAggregateCollectionAtomicDiagnosticAndQuota(t *testing.T) {
-	for _, mode := range []string{"accepted", "invalid", "auth", "cancelled", "wrongplant"} {
+	for _, mode := range []string{"accepted", "invalid", "auth", "cancelled", "wrongplant", "wrongplantempty", "wrongdateempty"} {
 		t.Run(mode, func(t *testing.T) {
 			ctx := context.Background()
 			s, e := storage.Open(ctx, t.TempDir())
@@ -35,6 +35,9 @@ func TestAggregateCollectionAtomicDiagnosticAndQuota(t *testing.T) {
 			calls := 0
 			client := growatt.NewClient("synthetic", aggregateTransport(func(r *http.Request) (*http.Response, error) {
 				calls++
+				if strings.HasSuffix(mode, "empty") {
+					return &http.Response{StatusCode: 200, Header: http.Header{}, Body: io.NopCloser(strings.NewReader(`{"error_code":0,"data":{"count":0,"time_unit":"day","energys":[]}}`))}, nil
+				}
 				value := `"1.234567890123456789"`
 				if mode == "invalid" {
 					value = `null`
@@ -49,8 +52,11 @@ func TestAggregateCollectionAtomicDiagnosticAndQuota(t *testing.T) {
 				return &http.Response{StatusCode: status, Header: http.Header{}, Body: io.NopCloser(strings.NewReader(`{"error_code":0,"data":{"count":1,"time_unit":"day","energys":[{"date":"2026-01-15","energy":` + value + `}]}}`))}, nil
 			}))
 			plant := "SYN-PLANT"
-			if mode == "wrongplant" {
+			if mode == "wrongplant" || mode == "wrongplantempty" {
 				plant = "SYN-OTHER"
+			}
+			if mode == "wrongdateempty" {
+				jobs[0].ProviderDate = "2026-01-16"
 			}
 			e = CollectGrowattAggregateUnit(ctx, s, client, jobs[0], plant)
 			if (e == nil) != (mode == "accepted") {
@@ -83,7 +89,18 @@ func TestAggregateCollectionAtomicDiagnosticAndQuota(t *testing.T) {
 					t.Fatal(a.Records[0])
 				}
 			}
-			if calls != 1 {
+			expectedCalls := 1
+			if strings.HasPrefix(mode, "wrong") {
+				expectedCalls = 0
+				if a.Records[0].ErrorCode != "aggregate_request" || a.Records[0].Outcome != "failed" {
+					t.Fatal(a.Records[0])
+				}
+				status, err := s.QueryStatus(ctx)
+				if err != nil || status[0].Jobs[0].Checkpoint != nil || status[0].WindowCount != 0 {
+					t.Fatal("wrong selectors advanced progress", err)
+				}
+			}
+			if calls != expectedCalls {
 				t.Fatal("inline retry", calls)
 			}
 		})

@@ -119,3 +119,19 @@ Month/year formats and overlap remain unverified and are not ingested. Richer
 battery/grid/load/SOC aggregates are not established. Task06 owns independent
 bootstrap, availability investigation/stopping policy, scheduling and retries;
 task06a owns raw retained evidence inspection. No task was merged or started.
+
+## Pre-push review
+
+The implement skill's code-review Standards and Spec axes reviewed main...HEAD.
+Standards: zero actionable findings. Spec: one P2 selector-binding edge found and
+fixed before push. ValidateAggregateJob now checks plant, identity, kind, calendar
+date and bookkeeping bounds against persisted work before quota reservation/HTTP.
+Mismatched selectors record configuration/aggregate_request with no accepted
+progress, even if the hypothetical provider response is empty. Wrong-plant and
+wrong-date empty-response regression tests assert zero transmissions and no
+checkpoint/window changes. Spec re-review confirmed the fix; zero findings remain.
+
+After the review fix, full tests/vet/native and both Linux builds passed again;
+both architecture SQLite runtime/migration gates passed on rebuilt final images.
+Preview was cleanly backed up/recreated again with the saved Compose pair (no
+additional provider call), retained counts and private browser checks passed.

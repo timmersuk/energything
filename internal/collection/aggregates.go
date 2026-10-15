@@ -9,6 +9,7 @@ import (
 )
 
 type aggregateStore interface {
+	ValidateAggregateJob(context.Context, storage.Job, string) error
 	BeginAttempt(context.Context, storage.AttemptRequest) (int64, error)
 	CommitAcceptedWindow(context.Context, storage.AcceptedWindow) error
 	RecordRejectedOrFailedAttempt(context.Context, storage.FailedAttempt) error
@@ -24,9 +25,18 @@ func CollectGrowattAggregateUnit(ctx context.Context, db aggregateStore, client 
 	if e != nil {
 		return errors.New("storage: aggregate attempt unavailable")
 	}
-	w, fetchErr := client.FetchAggregateDay(ctx, plant, job.ProviderDate, func(ctx context.Context) (time.Time, error) {
-		return db.ReserveAggregateCall(ctx, storage.At(time.Now()))
-	})
+	var w growatt.AggregateWindow
+	var fetchErr error
+	if err := db.ValidateAggregateJob(ctx, job, plant); err != nil {
+		fetchErr = &growatt.Error{Class: "storage", Code: "io"}
+		if errors.Is(err, storage.ErrInvalid) {
+			fetchErr = &growatt.Error{Class: "configuration", Code: "aggregate_request"}
+		}
+	} else {
+		w, fetchErr = client.FetchAggregateDay(ctx, plant, job.ProviderDate, func(ctx context.Context) (time.Time, error) {
+			return db.ReserveAggregateCall(ctx, storage.At(time.Now()))
+		})
+	}
 	retries := []storage.RetryDetail{}
 	for _, r := range w.Retries {
 		retries = append(retries, storage.RetryDetail{Page: r.Page, Retry: r.Attempt, HTTPStatus: r.Status, Code: r.Code, WaitMicroseconds: r.Wait.Microseconds()})

@@ -293,3 +293,7 @@ from/to inclusive YYYY-MM-DD, limit default100/max500, cursor. Ascending date th
 identity; cursor binds all filters/page size. Unknown/duplicate arguments reject.
 Expose full plant ID, exact decimal string, kWh, period, calendar provenance,
 quality, retrieved UTC and retrieval ID. Never combine aggregate and sample feeds.
+
+`ValidateAggregateJob` binds supplied plant/identity/kind/date/bounds to persisted
+work before aggregate quota reservation or transmission, including empty response
+units. A mismatch records `configuration/aggregate_request`, never fetched progress.

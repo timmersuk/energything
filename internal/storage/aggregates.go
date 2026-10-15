@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"sort"
 	"time"
 )
@@ -165,4 +166,20 @@ func (s *Store) QueryAggregates(ctx context.Context, q AggregateQuery) (Aggregat
 		out.NextCursor = encodeCursor(bind, At(date), last.IdentityID)
 	}
 	return out, nil
+}
+
+// ValidateAggregateJob binds every request selector to persisted work, including
+// units whose provider response contains no rows to validate afterward.
+func (s *Store) ValidateAggregateJob(ctx context.Context, job Job, plant string) error {
+	var actual Job
+	var provider, stream, key, metadata string
+	err := s.db.QueryRowContext(ctx, `SELECT j.identity_id,j.kind,j.start,j.end,j.provider_date,i.provider,i.stream,i.stable_key,i.metadata FROM jobs j JOIN identities i ON i.id=j.identity_id WHERE j.id=?`, job.ID).Scan(&actual.IdentityID, &actual.Kind, &actual.Start, &actual.End, &actual.ProviderDate, &provider, &stream, &key, &metadata)
+	if err != nil {
+		return err
+	}
+	var m DiscoveryMetadata
+	if json.Unmarshal([]byte(metadata), &m) != nil || provider != "growatt" || stream != "generation" || plant == "" || plant != key || plant != m.PlantID || m.Serial != "" || actual.Kind != "aggregate" || job.Kind != actual.Kind || job.IdentityID != actual.IdentityID || job.Start != actual.Start || job.End != actual.End || job.ProviderDate != actual.ProviderDate {
+		return ErrInvalid
+	}
+	return nil
 }
