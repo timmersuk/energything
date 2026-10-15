@@ -1,6 +1,6 @@
 {{define "growatt-reading"}}{{if .Decimal}}<span class="reading" title="Exact value: {{.Decimal}}">{{.Decimal}}</span> <small>{{if .Unit}}{{.Unit}}{{else}}unit ?{{end}}</small>{{else}}<span class="muted" title="Not reported">—</span>{{end}}{{end}}
 {{define "growatt.html"}}{{template "head" .}}
-<p><a href="/records/growatt/aggregates">Daily generation aggregates</a></p><h1>Growatt stored samples</h1>
+<h1>Growatt stored samples</h1>
 <p>Power readings are instantaneous; energy values are counters. <strong>unit ?</strong> means the provider unit is not yet verified. Original clocks are preserved; unresolved clocks are not UTC measurement times.</p>
 <form method="get">{{template "filters" .}}<label>View <select name="view"><option value="resolved" {{if eq .View "resolved"}}selected{{end}}>Absolute measurement time</option><option value="quality" {{if eq .View "quality"}}selected{{end}}>Quality / retrieval time</option></select></label><label>Quality (quality view only)<input name="quality" value="{{.Query.Quality}}"></label><label>Provider date (quality view only)<input name="provider_date" value="{{.Query.ProviderDate}}" placeholder="YYYY-MM-DD"></label><button>Apply filters</button></form>
 {{template "range" .}}
