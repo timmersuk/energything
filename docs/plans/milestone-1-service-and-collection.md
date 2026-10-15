@@ -316,3 +316,14 @@ runtime/local storage during deployment, pin driver/toolchain in step 1,
 validate Growatt timestamp/units in step 4 and tune schedules from private source
 behaviour. These checks do not expand scope into gas/pricing, chart parity,
 control investigation or bulk migration of private research.
+
+## Historical baseline amendment (15 October 2026)
+
+The user agreed to retain Growatt's older provider generation aggregates alongside
+detailed locally archived telemetry, to make historical annual-pattern inputs
+available without waiting for a year of new collection. [Task05a](../tasks/milestone-1/05a-growatt-aggregates.md)
+now owns a separate exact period/metric table, bounded aggregate ingestion and
+simple authenticated browsing before task06 schedules it. This is collection of
+provider aggregates, not the deferred calculation of seasonal analytics/charts or
+integration of instantaneous power. Existing detailed/Octopus data remains separate;
+overlapping resolutions are not added together. Implementation has not started.

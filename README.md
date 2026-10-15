@@ -133,3 +133,10 @@ Use a private report and separate verification database as described in
 [operations](docs/operations.md). Authenticated stored browsing includes full
 plant/device identifiers, exact values and qualified telemetry. Task 06 owns
 recurring work and automatic available-history recovery.
+
+## Agreed next slice
+
+On 15 October 2026 the user agreed to a separate aggregate-ingestion task before
+scheduling. [Task05a](docs/tasks/milestone-1/05a-growatt-aggregates.md) defines the
+historical generation baseline, separate storage and read API/table contract.
+This is planned scope; aggregate collection is not implemented yet.

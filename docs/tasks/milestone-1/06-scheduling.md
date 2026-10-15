@@ -1,7 +1,7 @@
 # 06 — Durable scheduling, bounded backfill and recovery
 
-Status: planning draft. Depends on: 04, 05. Unlocks: 06a, 07.
-Read: [execution contract](execution-contract.md) and both provider handoffs.
+Status: planning draft. Depends on: 04, 05, 05a. Unlocks: 06a, 07.
+Read: [execution contract](execution-contract.md) and provider/aggregate handoffs.
 
 ## Objective and boundary
 
@@ -213,3 +213,14 @@ The detailed-history 95-day observation is not a boundary for all Growatt data.
 Account for aggregate versus detailed availability when defining historical scope;
 propose a period/metric/storage contract amendment before aggregate ingestion.
 This research did not expand the production allowlist or implement another collector.
+
+## Agreed aggregate dependency (15 October 2026)
+
+Task [05a](05a-growatt-aggregates.md) owns the separate aggregate protocol/storage/
+read API slice before scheduling. This supersedes the earlier proposal to define
+that contract within task06. After 05a handoff, schedule its bounded aggregate
+operations with independent bootstrap/history progress; do not merge aggregates
+with instantaneous samples, suppress aggregate work because detailed samples exist,
+or double-count overlapping daily/monthly/yearly periods. Verify the aggregate
+historical boundary separately from the detailed approximately 95-day moving edge.
+No task06 implementation is authorized by this planning update.

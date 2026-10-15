@@ -314,3 +314,17 @@ Provider frequency errors defer five minutes; the client alone owns three maximu
 HTTP requests/page. Task 06 owns automatic historical boundary search and progression.
 Task 06a consumes retained Diagnostic fields/evidence references through typed
 storage and must preserve useful full authenticated identity/telemetry context.
+
+## Agreed historical-aggregate amendment (15 October 2026)
+
+The user agreed to [task05a](05a-growatt-aggregates.md) before task06: retain older
+provider-reported Growatt generation aggregates in a separate table/data contract,
+with bounded ingestion and authenticated table/API browsing. Daily generation is
+the initial baseline; month/year resolutions require verified semantics if needed.
+This supplements the locally retained detailed observations without reconstructing
+missing SOC/power readings or adding overlapping totals. Plant generation is not
+Octopus meter energy or a battery/grid/load breakdown. Task05a must finalize its
+protocol, plant/metric/period identity, exact-value/provenance/correction and storage/
+HTTP contracts before coding. Task06 consumes those bounded operations for automatic
+collection and independent available-history recovery. Charts/derived seasonal
+analytics remain later work. Scope agreement does not start task05a implementation.
