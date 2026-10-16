@@ -391,3 +391,11 @@ Explicit `view=quality` continues to filter/order by retrieval time as before;
 `view=resolved` still excludes unresolved instants. No stored timestamp, observation,
 collection policy or quota changes accompany these browsing changes. No GET calls
 a provider or performs recovery.
+
+
+Schema008 canonical-reading correction: sample results now contain one current
+row per device/provider-reported timestamp. Repeated latest/history retrievals
+update that row. Values are overwritten on accepted corrections; there are no
+value-version tables. Internal row identifiers used by page cursors do not define
+reading identity. Existing audit/evidence endpoints remain local and authenticated.
+Provider timestamps remain reported clock text and do not imply resolved UTC.

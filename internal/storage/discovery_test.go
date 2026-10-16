@@ -9,6 +9,7 @@ import (
 func TestDiscoveryAtomicSelectionAndVersionOneUpgrade(t *testing.T) {
 	ctx := context.Background()
 	db, dir, identity, _ := fixture(t, "octopus")
+	restoreSchemaSeven(t, db)
 	// Simulate the real task 03 schema: existing data, only migration 001 installed.
 	if _, err := db.db.Exec(`DROP TABLE history_boundaries;DROP TABLE schedules;DROP TABLE aggregate_versions;DROP TABLE energy_aggregates;DROP TABLE aggregate_calls;DROP TABLE discovery_states;DROP TABLE growatt_discovery;ALTER TABLE attempts DROP COLUMN diagnostic;DELETE FROM schema_migrations WHERE version>=2`); err != nil {
 		t.Fatal(err)

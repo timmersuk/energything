@@ -68,3 +68,13 @@ Task06a now exposes local collection audit and bounded selected telemetry eviden
 Older whole-history passages above are superseded by ENERGYTHING_HISTORY_START,
 default 2022-01-01 inclusive. Audit and generation progress views do not infer zeros,
 outages, provider retention or authoritative instants from unresolved clocks.
+
+
+Schema008 (user correction) replaces Growatt attempt/ordinal identity with the
+natural primary key (source identity, provider date, reported timestamp).
+Refetches upsert; accepted changes overwrite. No sample/interval/aggregate value
+history tables remain. This supersedes all prior separate-occurrence/version
+rules. Reported clock keys do not resolve measurement instants. Conflicting
+same-clock rows within a unit reject; no invented occurrence identifier. Migration
+collapses old copies to latest accepted rows, retaining separate audit/evidence,
+progress, source selection and quota reservations. Take a stopped backup first.

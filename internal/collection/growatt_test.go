@@ -30,7 +30,7 @@ func TestGrowattAcceptedRejectedEmptyReopen(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	body := `{"error_code":0,"data":{"count":2,"datas":[{"time":"2026-03-29 01:30:00","soc":0,"bmsSOC":8,"unknown":99},{"time":"2026-03-29 01:30:00","soc":2}]}}`
+	body := `{"error_code":0,"data":{"count":2,"datas":[{"time":"2026-03-29 01:30:00","soc":0,"bmsSOC":8,"unknown":99},{"time":"2026-03-29 01:31:00","soc":2}]}}`
 	c := growatt.NewClient("synthetic", growattTransport(func(*http.Request) (*http.Response, error) {
 		return &http.Response{StatusCode: 200, Header: http.Header{}, Body: io.NopCloser(strings.NewReader(body))}, nil
 	}))
@@ -40,7 +40,7 @@ func TestGrowattAcceptedRejectedEmptyReopen(t *testing.T) {
 	}
 	status, _ := db.QueryStatus(ctx)
 	checkpoint := *status[0].Jobs[0].Checkpoint
-	body = `{"error_code":0,"data":{"count":2,"datas":[{"soc":10},{"soc":101}]}}`
+	body = `{"error_code":0,"data":{"count":2,"datas":[{"time":"2026-03-29 01:30:00","soc":10},{"time":"2026-03-29 01:31:00","soc":101}]}}`
 	if e = CollectGrowattUnit(ctx, db, c, jobs[0], d, "Europe/London"); e == nil {
 		t.Fatal("invalid day accepted")
 	}

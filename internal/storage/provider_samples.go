@@ -11,8 +11,8 @@ import (
 )
 
 // This is lexical ordering of a reported wall clock, never an absolute instant.
-// Missing/malformed clocks sort last within their reported date. IDs distinguish
-// equal clocks and repeated-hour occurrences without merging them.
+// Canonical source periods are unique. Internal rowids are paging tie-breakers
+// across devices, not reading identities.
 type providerCursor struct {
 	Binding, Date, Clock string
 	ID                   int64
@@ -103,7 +103,7 @@ func (s *Store) queryProviderSamples(ctx context.Context, q SampleQuery) (page S
 	keys := []providerCursor{}
 	for _, date := range days {
 		rowArgs := append(append([]any{}, args...), date)
-		rows, e := tx.QueryContext(ctx, `SELECT id,original_time FROM samples WHERE `+where+` AND provider_date=?`, rowArgs...)
+		rows, e := tx.QueryContext(ctx, `SELECT rowid,original_time FROM samples WHERE `+where+` AND provider_date=?`, rowArgs...)
 		if e != nil {
 			return page, e
 		}
@@ -160,7 +160,7 @@ func (s *Store) queryProviderSamples(ctx context.Context, q SampleQuery) (page S
 			placeholders[i] = "?"
 			ids[i] = key.ID
 		}
-		rows, e := tx.QueryContext(ctx, `SELECT id,identity_id,resolved_key,instant,provider_date,original_time,quality,values_json,retrieved,retrieval_id FROM samples WHERE id IN (`+strings.Join(placeholders, ",")+`)`, ids...)
+		rows, e := tx.QueryContext(ctx, `SELECT rowid,identity_id,instant,provider_date,original_time,quality,values_json,retrieved,retrieval_id FROM samples WHERE rowid IN (`+strings.Join(placeholders, ",")+`)`, ids...)
 		if e != nil {
 			return page, e
 		}
@@ -168,7 +168,7 @@ func (s *Store) queryProviderSamples(ctx context.Context, q SampleQuery) (page S
 		for rows.Next() {
 			var x Sample
 			var original, values string
-			if e = rows.Scan(&x.ID, &x.IdentityID, &x.ResolvedKey, &x.Instant, &x.ProviderDate, &original, &x.Quality, &values, &x.Retrieved, &x.RetrievalID); e != nil {
+			if e = rows.Scan(&x.ID, &x.IdentityID, &x.Instant, &x.ProviderDate, &original, &x.Quality, &values, &x.Retrieved, &x.RetrievalID); e != nil {
 				break
 			}
 			if e = json.Unmarshal([]byte(original), &x.OriginalTime); e != nil {

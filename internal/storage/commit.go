@@ -167,12 +167,12 @@ func validateAccepted(a Audit, provider string, in AcceptedWindow) ([]Interval, 
 		if x.ProviderDate != a.ProviderDate && a.ProviderDate != "" {
 			return nil, ErrInvalid
 		}
-		if x.ResolvedKey != nil {
-			if !validText(*x.ResolvedKey) || keys[*x.ResolvedKey] {
-				return nil, ErrInvalid
-			}
-			keys[*x.ResolvedKey] = true
+		clock, keyErr := samplePeriod(x)
+		if keyErr != nil || keys[clock] {
+			return nil, ErrInvalid
 		}
+		keys[clock] = true
+
 		if x.Instant != nil && (*x.Instant < a.Start || *x.Instant >= a.End) {
 			return nil, ErrInvalid
 		}
@@ -238,9 +238,6 @@ func (s *Store) CommitAcceptedWindow(ctx context.Context, in AcceptedWindow) err
 			if err != nil {
 				return err
 			}
-			if _, err = tx.ExecContext(ctx, `INSERT INTO interval_versions(identity_id,start,end,kwh,retrieval_id) VALUES(?,?,?,?,?)`, a.IdentityID, x.Start, x.End, x.KWh, retrieval); err != nil {
-				return err
-			}
 		}
 		aggregates, err := validateAggregates(a, in)
 		if err != nil {
@@ -252,24 +249,20 @@ func (s *Store) CommitAcceptedWindow(ctx context.Context, in AcceptedWindow) err
 			if _, err = tx.ExecContext(ctx, `INSERT INTO energy_aggregates VALUES(?,?,?,?,?,?,?,?,?,?) ON CONFLICT(identity_id,metric,resolution,period) DO UPDATE SET value=excluded.value,unit=excluded.unit,calendar=excluded.calendar,quality=excluded.quality,retrieved=excluded.retrieved,retrieval_id=excluded.retrieval_id`, args...); err != nil {
 				return err
 			}
-			if _, err = tx.ExecContext(ctx, `INSERT INTO aggregate_versions(identity_id,metric,resolution,period,value,unit,calendar,quality,retrieval_id) VALUES(?,?,?,?,?,?,?,?,?)`, append(args[:8], retrieval)...); err != nil {
-				return err
-			}
 		}
-		for ordinal, x := range in.Samples {
-			original, _ := json.Marshal(x.OriginalTime)
-			values, _ := json.Marshal(x.Values)
-			retrieval := ids[x.Evidence]
-			var id int64
-			err = tx.QueryRowContext(ctx, `INSERT INTO samples(identity_id,resolved_key,attempt_id,ordinal,instant,provider_date,original_time,quality,values_json,retrieved,retrieval_id)
-    VALUES(?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(identity_id,resolved_key) DO UPDATE SET
-    attempt_id=excluded.attempt_id,ordinal=excluded.ordinal,instant=excluded.instant,provider_date=excluded.provider_date,
-    original_time=excluded.original_time,quality=excluded.quality,values_json=excluded.values_json,retrieved=excluded.retrieved,retrieval_id=excluded.retrieval_id RETURNING id`,
-				a.IdentityID, x.ResolvedKey, a.ID, ordinal, x.Instant, x.ProviderDate, string(original), x.Quality, string(values), in.Evidence[x.Evidence].Retrieved, retrieval).Scan(&id)
+		for _, x := range in.Samples {
+			clock, err := samplePeriod(x)
 			if err != nil {
 				return err
 			}
-			_, err = tx.ExecContext(ctx, `INSERT INTO sample_versions(sample_id,retrieval_id,resolved_key,instant,original_time,quality,values_json) VALUES(?,?,?,?,?,?,?)`, id, retrieval, x.ResolvedKey, x.Instant, string(original), x.Quality, string(values))
+			original, _ := json.Marshal(x.OriginalTime)
+			values, _ := json.Marshal(x.Values)
+			retrieval := ids[x.Evidence]
+			_, err = tx.ExecContext(ctx, `INSERT INTO samples(identity_id,provider_date,provider_time,attempt_id,instant,original_time,quality,values_json,retrieved,retrieval_id)
+ VALUES(?,?,?,?,?,?,?,?,?,?) ON CONFLICT(identity_id,provider_date,provider_time) DO UPDATE SET
+ attempt_id=excluded.attempt_id,instant=excluded.instant,original_time=excluded.original_time,
+ quality=excluded.quality,values_json=excluded.values_json,retrieved=excluded.retrieved,retrieval_id=excluded.retrieval_id`,
+				a.IdentityID, x.ProviderDate, clock, a.ID, x.Instant, string(original), x.Quality, string(values), in.Evidence[x.Evidence].Retrieved, retrieval)
 			if err != nil {
 				return err
 			}

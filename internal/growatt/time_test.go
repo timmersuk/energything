@@ -24,7 +24,7 @@ func TestQualifiedClockDoesNotInventIdentityOrDST(t *testing.T) {
 		}
 		s := storage.Sample{Quality: "unresolved_time", OriginalTime: map[string]string{"time": `"` + tc.wall + `"`, "calendar": `{"timeInMillis":0}`}}
 		QualifyClock(&s, "Europe/London")
-		if s.Quality != tc.quality || s.Instant != nil || s.ResolvedKey != nil || s.OriginalTime["calendar"] == "" {
+		if s.Quality != tc.quality || s.Instant != nil || s.OriginalTime["calendar"] == "" {
 			t.Fatal(tc, s)
 		}
 	}

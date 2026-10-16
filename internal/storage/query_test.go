@@ -21,8 +21,8 @@ func TestRealisticIndexedQueries(t *testing.T) {
 		t.Fatal(err)
 	}
 	_, err = s.db.Exec(`WITH RECURSIVE seq(n) AS (VALUES(1) UNION ALL SELECT n+1 FROM seq WHERE n<20000)
- INSERT INTO samples(identity_id,resolved_key,attempt_id,ordinal,instant,provider_date,original_time,quality,values_json,retrieved,retrieval_id)
- SELECT ?,'synthetic/'||n,?,n,?+n*1000000,'2026-10-01','{}','valid','{}',?,1 FROM seq`, identity.ID, a, testStart, testStart+4*halfHour)
+ INSERT INTO samples(identity_id,provider_time,attempt_id,instant,provider_date,original_time,quality,values_json,retrieved,retrieval_id)
+ SELECT ?,strftime('%Y-%m-%d %H:%M:%S',1790812800+n,'unixepoch'),?,?+n*1000000,'2026-10-01','{}','valid','{}',?,1 FROM seq`, identity.ID, a, testStart, testStart+4*halfHour)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -38,9 +38,9 @@ func TestRealisticIndexedQueries(t *testing.T) {
 	}{
 		{`SELECT * FROM intervals WHERE identity_id=? AND start>=? AND start<? ORDER BY start,identity_id LIMIT 100`, "sqlite_autoindex_intervals", []any{identity.ID, testStart, testStart + 20*halfHour}},
 		{`SELECT * FROM intervals WHERE start>=? ORDER BY start,identity_id LIMIT 100`, "intervals_time", []any{testStart}},
-		{`SELECT * FROM samples WHERE identity_id=? AND instant>=? AND instant<? ORDER BY instant,id LIMIT 100`, "samples_source_time", []any{identity.ID, testStart, testStart + halfHour}},
-		{`SELECT * FROM samples WHERE instant>=? ORDER BY instant,id LIMIT 100`, "samples_time", []any{testStart}},
-		{`SELECT * FROM samples WHERE quality=? AND provider_date=? ORDER BY retrieved,id LIMIT 100`, "samples_quality_date", []any{"valid", "2026-10-01"}},
+		{`SELECT * FROM samples WHERE identity_id=? AND instant>=? AND instant<? ORDER BY instant,rowid LIMIT 100`, "samples_source_time", []any{identity.ID, testStart, testStart + halfHour}},
+		{`SELECT * FROM samples WHERE instant>=? ORDER BY instant,rowid LIMIT 100`, "samples_time", []any{testStart}},
+		{`SELECT * FROM samples WHERE quality=? AND provider_date=? ORDER BY retrieved,rowid LIMIT 100`, "samples_quality_date", []any{"valid", "2026-10-01"}},
 		{`SELECT * FROM attempts WHERE identity_id=? AND occurred>=? ORDER BY occurred DESC,id DESC LIMIT 100`, "attempts_source_time", []any{identity.ID, testStart}},
 		{`SELECT * FROM attempts WHERE outcome=? AND occurred>=? ORDER BY occurred DESC,id DESC LIMIT 100`, "attempts_outcome_time", []any{"failed", testStart}},
 	} {
@@ -123,13 +123,13 @@ func TestResolvedSampleCorrectionsAndFinishedBackfill(t *testing.T) {
 	for _, value := range []string{"0", "0", "1"} {
 		err := s.CommitAcceptedWindow(ctx, AcceptedWindow{AttemptID: begin(t, s, j), Finished: testStart + 4*halfHour, TimestampQuality: true,
 			Evidence: []Evidence{{json.RawMessage(`{"soc":"` + value + `"}`), testStart + 4*halfHour, true}},
-			Samples:  []Sample{{ResolvedKey: ptr("synthetic-provider-key"), Instant: ptr(testStart), ProviderDate: j.ProviderDate, OriginalTime: map[string]string{"local": "synthetic"}, Quality: "qualified", Values: map[string]Value{"soc": {ptr(value), ptr("%"), "valid"}}}},
+			Samples:  []Sample{{Instant: ptr(testStart), ProviderDate: j.ProviderDate, OriginalTime: map[string]string{"time": `"2026-10-01 00:00:00"`}, Quality: "qualified", Values: map[string]Value{"soc": {ptr(value), ptr("%"), "valid"}}}},
 			Coverage: Coverage{Expected: 1, Valid: 1, Qualified: 1}})
 		if err != nil {
 			t.Fatal(err)
 		}
 	}
-	if count(t, s, "samples") != 1 || count(t, s, "sample_versions") != 3 || count(t, s, "evidence") != 2 {
+	if count(t, s, "samples") != 1 || count(t, s, "evidence") != 2 {
 		t.Fatal("resolved correction/replay lost provenance")
 	}
 	due, err := s.DueJobs(ctx, testStart+9*halfHour, 100)

@@ -86,7 +86,7 @@ func TestNormalizationExactOptionalAndTime(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	if s.Instant != nil || s.ResolvedKey != nil || s.Quality != "unresolved_time" {
+	if s.Instant != nil || s.Quality != "unresolved_time" {
 		t.Fatal("guessed identity/time")
 	}
 	if *s.Values["soc"].Decimal != "0" || s.Values["bmsSOC"].Unit != nil || *s.Values["ppv"].Decimal != "123.4567890123456789" || s.Values["pdischarge1"].Decimal != nil {
@@ -187,7 +187,7 @@ func TestRetryOwnershipAndCancellation(t *testing.T) {
 }
 func TestEvidencePrivacyAndEmpty(t *testing.T) {
 	c := NewClient("synthetic", roundTrip(func(r *http.Request) (*http.Response, error) {
-		return reply(`{"error_code":0,"data":{"soc":0,"token":"secret","address":7,"unknown":{"voltage":1,"headers":{"token":"secret"}}}}`), nil
+		return reply(`{"error_code":0,"data":{"time":"2026-10-16 12:00:00","soc":0,"token":"secret","address":7,"unknown":{"voltage":1,"headers":{"token":"secret"}}}}`), nil
 	}))
 	w, e := c.FetchLatest(context.Background(), Device{"123", "SYN-A", "5"})
 	if e != nil || strings.Contains(string(w.Evidence[0].Content), "secret") || !strings.Contains(string(w.Evidence[0].Content), "voltage") {

@@ -38,7 +38,7 @@ func TestAggregateReplayCorrectionAtomicReopen(t *testing.T) {
 			t.Fatal(e)
 		}
 	}
-	if count(t, s, "energy_aggregates") != 1 || count(t, s, "aggregate_versions") != 3 || count(t, s, "samples") != 0 || count(t, s, "intervals") != 0 {
+	if count(t, s, "energy_aggregates") != 1 || count(t, s, "samples") != 0 || count(t, s, "intervals") != 0 {
 		t.Fatal("series mixed")
 	}
 	id := begin(t, s, j)
@@ -112,7 +112,7 @@ func TestAggregateFaultPreservesAccepted(t *testing.T) {
 	}
 	s.fault = nil
 	p, e := s.QueryAggregates(ctx, AggregateQuery{})
-	if e != nil || p.Records[0].Value != "1" || count(t, s, "aggregate_versions") != 1 {
+	if e != nil || p.Records[0].Value != "1" {
 		t.Fatal(p, e)
 	}
 }
@@ -152,7 +152,7 @@ func TestAggregateRangeBoundsAndAtomicAcceptance(t *testing.T) {
 	if e = s.CommitAcceptedWindow(ctx, in); !errors.Is(e, ErrInvalid) {
 		t.Fatal("outside row accepted", e)
 	}
-	if count(t, s, "energy_aggregates") != 7 || count(t, s, "aggregate_versions") != 7 {
+	if count(t, s, "energy_aggregates") != 7 {
 		t.Fatal("partial correction")
 	}
 	if e = s.RecordRejectedOrFailedAttempt(ctx, FailedAttempt{AttemptID: in.AttemptID, Finished: in.Finished, NextDue: in.NextDue, Outcome: "rejected", ErrorClass: "validation", ErrorCode: "aggregate_date", Evidence: in.Evidence}); e != nil {

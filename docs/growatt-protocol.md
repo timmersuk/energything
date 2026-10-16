@@ -77,22 +77,19 @@ requested timezone_id is a display request, not independent UTC evidence. utcTim
 and createTime are not documented measurement instants. Their presence does not
 supply precedence over time. No runtime/host timezone or fixed observed offset is used.
 
-Precedence: retain readable provider date when parseable; retain other originals;
-qualify `unresolved_time` with null instant and null resolved key. Missing readable
-time is `missing_time`; malformed text is `unresolved_time`. Calendar disagreement
-is `contradictory_time`, still qualified evidence because semantics are unverified.
-A history readable date outside the requested provider day is a hard rejection.
-Spring gaps and autumn repeated clocks stay unresolved, including equal clock
-strings with differing calendar epochs. Neither page ordinal, content hash nor local
-clock is promoted to a stable provider identity. Storage associates these occurrences
-with attempt/ordinal and evidence. Latest/history cannot yet be reconciled into one
-stable observation; repeated retrievals remain honest separate occurrences.
+Readable provider timestamps must be valid and within the requested day. Storage
+uses the reported date/time with the selected device identity as its natural
+primary key. Latest and history update that same canonical row; repeated fetches
+do not append readings. No absolute measurement instant is inferred. Calendar
+fields remain supporting evidence, not a separate synthetic reading identity.
+Conflicting same-clock rows in one unit reject it rather than inventing a way to
+distinguish them. Missing or malformed readable timestamps reject the unit.
 
 ## Acquisition and task 06 handoff
 
 Sequential page assembly; nondecreasing reported count, full intermediate pages until count,
 exact assembled count, no repeated nonempty page. Identical page replay is a cycle;
-unknown-identity rows are retained as occurrences, never overwritten by time.
+readings require an identified device and a valid source-reported timestamp.
 All rows validate before acceptance. Engineering budgets: 100 rows/page, 100 pages,
 10,000 rows, 4 MiB/page, 30s/request; these are limits, not promised cadence/retention.
 Provider docs permit 100/page, <=250 pages, <=7-day history; this adapter narrows
@@ -102,8 +99,8 @@ assembly target so a new reading arriving during paging does not discard the day
 A decreasing count, early/short intermediate page, overrun or repeated page still
 fails the unit. Completion means traversal reached the latest reported count,
 not an atomic provider snapshot or proof that the calendar day is complete.
-Per-page counts and retrieval times remain in evidence; equal clocks and payloads
-remain separate unresolved occurrences. Discovery and generation aggregates also accept nondecreasing totals, with final assembled-count validation.
+Per-page counts and retrieval times remain in evidence. Repeated retrievals
+update one canonical row per reported timestamp; they do not create value history. Discovery and generation aggregates also accept nondecreasing totals, with final assembled-count validation.
 Empty is observed unavailability, never zero or proof no older data exists.
 
 Client alone owns at most three HTTP requests/page for network/408/429/5xx;

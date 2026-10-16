@@ -13,6 +13,7 @@ func TestMigrationResumesLegacyHistoryWithoutResettingProgress(t *testing.T) {
 		t.Fatal(e)
 	}
 	oldFrontier := At(time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC))
+	restoreSchemaSeven(t, s)
 	// Reconstruct the already deployed schema006 and its stopped120-day plan.
 	if _, e := s.db.Exec(`ALTER TABLE schedules DROP COLUMN search_policy; DELETE FROM schema_migrations WHERE version=7; INSERT INTO schedules(identity_id,kind,policy,frontier,search_limit,interval_us,next_due,state,provenance) VALUES(?,'aggregate','backfill',?,?,3600000000,?,'search_limit_boundary_unresolved','old120-day budget')`, base.IdentityID, oldFrontier, oldFrontier, testStart); e != nil {
 		t.Fatal(e)
@@ -35,7 +36,7 @@ func TestMigrationResumesLegacyHistoryWithoutResettingProgress(t *testing.T) {
 	if p.Frontier != oldFrontier || p.SearchLimit != At(time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)) || p.SearchPolicy != "calendar" || p.State != "active" {
 		t.Fatal("migration lost frontier or remained stopped", p)
 	}
-	if count(t, s, "energy_aggregates") != 1 || count(t, s, "aggregate_versions") != 1 || count(t, s, "aggregate_calls") != 1 {
+	if count(t, s, "energy_aggregates") != 1 || count(t, s, "aggregate_calls") != 1 {
 		t.Fatal("migration changed observations/evidence/quota")
 	}
 	jobs, e := s.EnsureJobs(ctx, []Job{base})
@@ -64,6 +65,7 @@ func TestMigrationKeepsUnfinishedUnitAndRetryPause(t *testing.T) {
 	if e = s.RecordRejectedOrFailedAttempt(ctx, FailedAttempt{AttemptID: begin(t, s, job), Finished: testStart + 4*halfHour, NextDue: testStart + 8*halfHour, Outcome: "failed", ErrorClass: "authentication", ErrorCode: "unauthorized", Paused: true}); e != nil {
 		t.Fatal(e)
 	}
+	restoreSchemaSeven(t, s)
 	if _, e = s.db.Exec(`ALTER TABLE schedules DROP COLUMN search_policy; DELETE FROM schema_migrations WHERE version=7; INSERT INTO schedules(identity_id,kind,policy,frontier,search_limit,interval_us,next_due,state,provenance,current_job) VALUES(?,'aggregate','backfill',?,?,3600000000,?,'paused','old120-day budget',?)`, base.IdentityID, At(frontier), At(start.AddDate(0, 0, -120)), testStart+8*halfHour, job.ID); e != nil {
 		t.Fatal(e)
 	}

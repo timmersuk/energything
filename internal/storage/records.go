@@ -66,7 +66,6 @@ type Value struct {
 }
 type Sample struct {
 	ID, IdentityID int64
-	ResolvedKey    *string
 	Instant        *Instant
 	ProviderDate   string
 	OriginalTime   map[string]string
