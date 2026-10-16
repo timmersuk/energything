@@ -270,7 +270,7 @@ func telemetry(v any) any {
 		for k, v := range x {
 			key := strings.ToLower(strings.NewReplacer("_", "", "-", "", " ", "").Replace(k))
 			safe := true
-			for _, bad := range []string{"token", "password", "secret", "authorization", "apikey", "cookie", "header", "address", "account", "credential", "url"} {
+			for _, bad := range []string{"token", "password", "secret", "authorization", "apikey", "cookie", "header", "address", "account", "credential", "url", "exception", "stacktrace"} {
 				if strings.Contains(key, bad) {
 					safe = false
 				}

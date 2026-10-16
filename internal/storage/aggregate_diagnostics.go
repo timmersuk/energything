@@ -1,6 +1,8 @@
 package storage
 
 func init() {
+	errorCodes["local_budget"] = true
+	diagnosticMessages["rate_limit/local_budget"] = "Local aggregate request budget deferred collection; no provider request made for this page"
 	errorCodes["aggregate_request"] = true
 	diagnosticMessages["configuration/aggregate_request"] = "Requested aggregate plant or calendar day does not match the persisted job"
 	for code, message := range map[string]string{

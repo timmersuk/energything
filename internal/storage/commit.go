@@ -30,7 +30,7 @@ func canonicalEvidence(raw json.RawMessage) (string, string, error) {
 		case map[string]any:
 			for k, v := range x {
 				key := strings.ToLower(strings.NewReplacer("_", "", "-", "", " ", "").Replace(k))
-				for _, bad := range []string{"token", "password", "secret", "authorization", "apikey", "cookie", "header", "address", "account", "credential", "url"} {
+				for _, bad := range []string{"token", "password", "secret", "authorization", "apikey", "cookie", "header", "address", "account", "credential", "url", "exception", "stacktrace"} {
 					if strings.Contains(key, bad) {
 						return false
 					}
@@ -422,6 +422,14 @@ var diagnosticMessages = map[string]string{
 }
 
 func validateDiagnostic(d Diagnostic) error {
+	if !validDate(d.Period) {
+		return ErrInvalid
+	}
+	for _, instant := range []*Instant{d.IntervalStart, d.IntervalEnd} {
+		if instant != nil && !validInstant(*instant) {
+			return ErrInvalid
+		}
+	}
 	if d.Field != "" {
 		valid := false
 		for _, f := range []string{"soc", "bmsSOC", "ppv", "plocalLoadTotal", "pacToUserTotal", "pacToGridTotal", "pcharge1", "pdischarge1", "epvTotal", "epvtoday", "epv1Today", "epv2Today", "etoUserToday", "etoUserTotal", "etoGridToday", "etogridTotal", "echarge1Today", "echarge1Total", "edischarge1Today", "edischarge1Total", "elocalLoadToday", "elocalLoadTotal", "eacToday", "eacTotal"} {

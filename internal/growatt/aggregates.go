@@ -45,7 +45,7 @@ func (c *Client) FetchAggregateRange(ctx context.Context, plant, from, to string
 			return w, problem("storage", "io", page)
 		}
 		if !due.IsZero() {
-			return w, &Error{Class: "rate_limit", Code: "limited", Page: page, DeferredUntil: due}
+			return w, &Error{Class: "rate_limit", Code: "local_budget", Page: page, DeferredUntil: due}
 		}
 		data, e := c.request(ctx, "/v1/plant/energy", "GET", url.Values{"plant_id": {plant}, "start_date": {from}, "end_date": {to}, "time_unit": {"day"}, "page": {strconv.Itoa(page)}, "perpage": {"100"}}, page, &w.Retries)
 		if e != nil {
@@ -66,7 +66,10 @@ func (c *Client) FetchAggregateRange(ctx context.Context, plant, from, to string
 		if expected < 0 {
 			expected = count
 		} else if expected != count {
-			return w, problem("pagination", "count_changed", page)
+			pe := problem("pagination", "count_changed", page)
+			pe.Diagnostic.Expected = &expected
+			pe.Diagnostic.Observed = &count
+			return w, pe
 		}
 		items, ok := data["energys"].([]any)
 		if !ok {
@@ -78,7 +81,11 @@ func (c *Client) FetchAggregateRange(ctx context.Context, plant, from, to string
 		}
 		seenPages[string(b)] = true
 		if len(items) > 100 || assembled+len(items) > expected || (len(items) == 0 && assembled < expected) {
-			return w, problem("pagination", "count_mismatch", page)
+			pe := problem("pagination", "count_mismatch", page)
+			observed := assembled + len(items)
+			pe.Diagnostic.Expected = &expected
+			pe.Diagnostic.Observed = &observed
+			return w, pe
 		}
 		for _, item := range items {
 			row, ok := item.(map[string]any)
@@ -92,13 +99,17 @@ func (c *Client) FetchAggregateRange(ctx context.Context, plant, from, to string
 			}
 			value, ok := row["energy"].(string)
 			if !ok || len(value) > 128 || !aggregateDecimal.MatchString(value) {
-				return w, problem("validation", "aggregate_decimal", page)
+				pe := problem("validation", "aggregate_decimal", page)
+				pe.Diagnostic.Period = period
+				return w, pe
 			}
 			if old, ok := seen[period]; ok {
 				a, _ := new(big.Rat).SetString(old)
 				b, _ := new(big.Rat).SetString(value)
 				if a.Cmp(b) != 0 {
-					return w, problem("validation", "aggregate_conflict", page)
+					pe := problem("validation", "aggregate_conflict", page)
+					pe.Diagnostic.Period = period
+					return w, pe
 				}
 			} else {
 				seen[period] = value

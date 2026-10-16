@@ -5,6 +5,7 @@ import (
 	"github.com/timmersuk/energything/internal/storage"
 	"net/url"
 	"strconv"
+	"time"
 )
 
 type aggregateView struct {
@@ -15,11 +16,32 @@ type aggregateView struct {
 	RetrievedAt string `json:"retrieved_at"`
 }
 type aggregatesView struct {
-	Version           string          `json:"version"`
-	Records           []aggregateView `json:"records"`
-	NextCursor        string          `json:"next_cursor,omitempty"`
-	NextURL           string          `json:"-"`
-	From, To, PlantID string          `json:"-"`
+	Progress          []generationProgress `json:"collection_progress"`
+	Version           string               `json:"version"`
+	Records           []aggregateView      `json:"records"`
+	NextCursor        string               `json:"next_cursor,omitempty"`
+	NextURL           string               `json:"-"`
+	From, To, PlantID string               `json:"-"`
+}
+
+type generationProgress struct {
+	IdentityID  int64           `json:"identity_id"`
+	Identity    string          `json:"identity"`
+	State       string          `json:"state"`
+	Frontier    string          `json:"frontier"`
+	SearchLimit string          `json:"search_limit"`
+	NextDue     string          `json:"next_due"`
+	Provenance  string          `json:"provenance"`
+	Jobs        []generationJob `json:"unfinished_jobs"`
+	LastAttempt *auditRecord    `json:"last_attempt"`
+}
+type generationJob struct {
+	From    string `json:"requested_from"`
+	To      string `json:"requested_to"`
+	NextDue string `json:"next_due"`
+	Paused  bool   `json:"paused"`
+	Running bool   `json:"running"`
+	Retries int    `json:"retry_count"`
 }
 
 func aggregateData(ctx context.Context, s recordStore, v url.Values, path string) (aggregatesView, error) {
@@ -56,6 +78,41 @@ func aggregateData(ctx context.Context, s recordStore, v url.Values, path string
 	if p.NextCursor != "" {
 		v.Set("cursor", p.NextCursor)
 		out.NextURL = path + "?" + v.Encode()
+	}
+	if schedules, ok := s.(interface {
+		QuerySchedules(context.Context) ([]storage.Schedule, error)
+	}); ok {
+		plans, err := schedules.QuerySchedules(ctx)
+		if err != nil {
+			return out, err
+		}
+		states, err := s.QueryStatus(ctx)
+		if err != nil {
+			return out, err
+		}
+		out.Progress = []generationProgress{}
+		for _, plan := range plans {
+			if plan.Kind != "aggregate" || plan.Policy != "backfill" {
+				continue
+			}
+			for _, state := range states {
+				if state.IdentityID != plan.IdentityID || (q.PlantID != "" && state.Metadata.PlantID != q.PlantID) {
+					continue
+				}
+				progress := generationProgress{IdentityID: state.IdentityID, Identity: state.Metadata.DisplayIdentity(state.Provider, state.Stream, state.IdentityID), State: plan.State, Frontier: instant(plan.Frontier), SearchLimit: instant(plan.SearchLimit), NextDue: instant(plan.NextDue), Provenance: plan.Provenance, Jobs: []generationJob{}}
+				if state.LastAttempt != nil {
+					a := auditRow(*state.LastAttempt, time.UTC)
+					progress.LastAttempt = &a
+				}
+				for _, job := range state.Jobs {
+					if job.Checkpoint != nil && *job.Checkpoint >= job.End {
+						continue
+					}
+					progress.Jobs = append(progress.Jobs, generationJob{instant(job.Start), instant(job.End), instant(job.NextDue), job.Paused, job.RunningAttempt != nil, job.RetryCount})
+				}
+				out.Progress = append(out.Progress, progress)
+			}
+		}
 	}
 	return out, nil
 }

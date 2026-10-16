@@ -192,3 +192,14 @@ Earlier passages describing a120-day exploration limit are superseded.
 Superseding unlimited calendar acquisition: `ENERGYTHING_HISTORY_START` is the inclusive earliest date for automatic Octopus and Growatt history, default `2022-01-01` (ISO `YYYY-MM-DD`). Invalid and future dates reject startup. Octopus uses midnight UTC; Growatt uses provider calendar dates with qualified timezone. A verified later provider oldest reading remains the effective boundary.
 
 Restart after changing the setting. Existing plans adopt it without resetting progress or deleting records. Moving it earlier resumes older acquisition; moving it later stops older queued automatic units. An in-flight unit may finish. `configured_boundary_reached` does not claim the provider archive is exhausted. Recent routine refresh and explicit repair remain independent.
+
+## Private audit follow-up
+
+Use authenticated `/audit` to filter repeated failures, compare accepted measurement
+coverage and inspect stored retry/frontier state before taking operational action.
+The daily generation page explains unfinished backwards history and quota deferrals.
+Download only the selected attempt evidence needed for follow-up; it remains private
+telemetry with owner-visible source IDs. Browsing performs no provider request or
+startup recovery. Do not open the live preview database with a host CLI.
+Task06a introduces no schema migration and retains existing records/evidence/private
+runtime files and the aggregate reservation ledger during the standard image update.

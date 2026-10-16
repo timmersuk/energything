@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/timmersuk/energything/internal/storage"
 	"io"
 	"math/rand/v2"
 	"net/http"
@@ -18,6 +19,7 @@ const MaxBody = 4 * 1024 * 1024
 
 // Error contains only enumerated public context; underlying URLs/bodies are discarded.
 type Error struct {
+	Diagnostic    storage.Diagnostic
 	Class, Code   string
 	Page          int
 	DeferredUntil time.Time
@@ -162,7 +164,7 @@ func (c *Client) get(ctx context.Context, raw, path string, q url.Values, page i
 		}
 		*retries = append(*retries, Retry{page, attempt + 1, status, code, delay})
 		if !deferred.IsZero() {
-			return nil, &Error{class, code, page, deferred}
+			return nil, &Error{Class: class, Code: code, Page: page, DeferredUntil: deferred}
 		}
 		if attempt == 2 {
 			return nil, problem(class, code, page)
@@ -199,7 +201,7 @@ func telemetry(v any) any {
 		for k, v := range x {
 			key := strings.ToLower(strings.NewReplacer("_", "", "-", "", " ", "").Replace(k))
 			safe := true
-			for _, bad := range []string{"token", "password", "secret", "authorization", "apikey", "cookie", "header", "address", "account", "credential", "url"} {
+			for _, bad := range []string{"token", "password", "secret", "authorization", "apikey", "cookie", "header", "address", "account", "credential", "url", "exception", "stacktrace"} {
 				if strings.Contains(key, bad) {
 					safe = false
 				}

@@ -98,12 +98,15 @@ type RetryDetail struct {
 	WaitMicroseconds        int64
 }
 type Diagnostic struct {
-	HTTPStatus   int    `json:"http_status,omitempty"`
-	Field        string `json:"field,omitempty"`
-	Value        string `json:"value,omitempty"`
-	Expected     *int   `json:"expected,omitempty"`
-	Observed     *int   `json:"observed,omitempty"`
-	ProviderCode *int   `json:"provider_code,omitempty"`
+	IntervalStart *Instant `json:"interval_start_utc_microseconds,omitempty"`
+	IntervalEnd   *Instant `json:"interval_end_utc_microseconds,omitempty"`
+	Period        string   `json:"provider_period,omitempty"`
+	HTTPStatus    int      `json:"http_status,omitempty"`
+	Field         string   `json:"field,omitempty"`
+	Value         string   `json:"value,omitempty"`
+	Expected      *int     `json:"expected,omitempty"`
+	Observed      *int     `json:"observed,omitempty"`
+	ProviderCode  *int     `json:"provider_code,omitempty"`
 }
 type FailedAttempt struct {
 	Diagnostic                     Diagnostic

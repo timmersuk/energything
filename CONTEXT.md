@@ -63,3 +63,8 @@ unfinished jobs, records/checkpoints/retries/quotas are preserved. Growatt
 source-lifetime metadata remains qualified but does not prevent ongoing older
 collection. Octopus's verified oldest bound remains separate. Several years of
 generation can take weeks under the unchanged ten-per-rolling24h quota.
+
+Task06a now exposes local collection audit and bounded selected telemetry evidence.
+Older whole-history passages above are superseded by ENERGYTHING_HISTORY_START,
+default 2022-01-01 inclusive. Audit and generation progress views do not infer zeros,
+outages, provider retention or authoritative instants from unresolved clocks.

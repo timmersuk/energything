@@ -141,3 +141,10 @@ Task06 adds independent automatic scheduling and recent refresh; its bounded acq
 Superseding the unlimited calendar policy: `ENERGYTHING_HISTORY_START` sets the inclusive earliest date for automatic historical acquisition across Octopus and Growatt. It defaults to `2022-01-01`; use ISO `YYYY-MM-DD`. Invalid or future dates reject startup. Octopus uses midnight UTC; Growatt uses provider calendar dates (timezone remains qualified). A verified provider oldest reading later than this date remains the effective boundary.
 
 Restart after changing the setting. Existing plans adopt the new boundary without resetting their frontier or deleting observations. Moving it earlier resumes acquisition from retained progress; moving it later stops older queued automatic work. An already running bounded unit may finish. Status reports `configured_boundary_reached` when the configured boundary is reached, without claiming the provider archive is exhausted. Recent routine refresh and explicit manual repairs remain independent.
+
+Task06a exposes retained attempts through authenticated `/audit` and
+`/api/v1/audit`, with filtered counts, stable newest-first paging and strictly owned
+bounded selected-evidence inspection/download. The daily generation page shows
+stored backfill/retry state so unfinished gaps are distinguishable from fetched
+empty or rejected windows. See [audit API](docs/http-api.md#collection-audit-task06a).
+The configured automatic history boundary remains 2022-01-01 inclusive by default.

@@ -66,8 +66,8 @@ func TestBrowsingAuthEmptyAndErrors(t *testing.T) {
 		}
 	}
 	for _, path := range []string{"/audit", "/api/v1/audit"} {
-		if request(h, path, "synthetic").Code != 404 {
-			t.Fatal("out of scope route")
+		if request(h, path, "synthetic").Code != 200 {
+			t.Fatal("audit route")
 		}
 	}
 	for _, query := range []string{"from=2026-03-29", "from=2026-03-30&to=2026-03-29", "from=2026-03-29&to=2026-03-30T00:00:00Z", "from=2026-03-29T00:00:00&to=2026-03-30T00:00:00", "limit=0", "limit=501", "limit=no", "cursor=invalid", "limit=2&limit=3", "identity=-1", "identity=999", "direction=wrong", "unknown=secret", "from=9999-12-31&to=9999-12-31", "bad=%zz", "limit=1;secret=bad"} {

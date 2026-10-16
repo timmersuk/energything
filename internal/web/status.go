@@ -69,6 +69,7 @@ type coverageView struct {
 	MeasurementComplete bool   `json:"measurement_complete"`
 }
 type sourceView struct {
+	AuditCounts       *auditCounts   `json:"audit_counts,omitempty"`
 	Boundary          *boundaryView  `json:"historical_boundary,omitempty"`
 	PlantID           string         `json:"plant_id,omitempty"`
 	MPAN              string         `json:"mpan,omitempty"`
@@ -177,6 +178,13 @@ func statusData(ctx context.Context, store recordStore, c config.Config, build s
 			}
 			v.Discovery = "Stored identities available; selection shown below"
 			s := sourceView{IdentityID: x.IdentityID, Source: x.Provider, Stream: x.Stream, Identity: x.Metadata.DisplayIdentity(x.Provider, x.Stream, x.IdentityID), Selected: x.Selected, RetainedCount: x.IntervalCount + x.SampleCount + x.AggregateCount, UnresolvedCount: x.UnresolvedCount, LastRetrieval: nullableTime(x.LastRetrieval), NewestMeasurement: nullableTime(x.NewestMeasurement), LastAttempt: attempt(x.LastAttempt), LastAccepted: attempt(x.LastAcceptedAttempt), JobCount: x.JobCount, WindowCount: x.WindowCount, Jobs: []jobView{}, Coverage: []coverageView{}}
+			if audits, ok := store.(auditStore); ok {
+				page, e := audits.QueryAudit(ctx, storage.AuditQuery{IdentityID: x.IdentityID, Limit: 1})
+				if e != nil {
+					return statusView{}, e
+				}
+				s.AuditCounts = &auditCounts{page.Counts.Total, page.Counts.Failed, page.Counts.Rejected}
+			}
 			if boundaries, ok := store.(interface {
 				HistoryBoundary(context.Context, int64) (storage.HistoryBoundary, error)
 			}); ok {

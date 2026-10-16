@@ -1,6 +1,6 @@
 # 06a — Durable collection audit REST API and web UI
 
-Status: planning draft. Depends on: 02, 03, 06. Unlocks: 07.
+Status: implemented; see [verification](06a-verification.md). Depends on: 02, 03, 06. Unlocks: 07.
 Added by explicit human decision on 14 October 2026. Discord is deferred.
 Read: [execution contract](execution-contract.md).
 
@@ -148,3 +148,9 @@ from the same frontier and current unit, preserving accepted data, versions,
 checkpoints, retries and quota reservations. Unit sizes, routine priority, repair
 binding, clock qualifications and the aggregate ten-per-rolling24h limit remain.
 Earlier passages describing a120-day exploration limit are superseded.
+
+
+The user's task06a correction supersedes unlimited historical passages above:
+ENERGYTHING_HISTORY_START defaults to 2022-01-01 inclusive. This task preserves
+that policy, frontiers, progress and quota reservations.
+

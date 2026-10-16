@@ -176,3 +176,28 @@ history and generation-comparison notes for qualifications and private evidence.
 Superseding unlimited calendar acquisition: `ENERGYTHING_HISTORY_START` is the inclusive earliest date for automatic Octopus and Growatt history, default `2022-01-01` (ISO `YYYY-MM-DD`). Invalid and future dates reject startup. Octopus uses midnight UTC; Growatt uses provider calendar dates with qualified timezone. A verified later provider oldest reading remains the effective boundary.
 
 Restart after changing the setting. Existing plans adopt it without resetting progress or deleting records. Moving it earlier resumes older acquisition; moving it later stops older queued automatic units. An in-flight unit may finish. `configured_boundary_reached` does not claim the provider archive is exhausted. Recent routine refresh and explicit repair remain independent.
+
+## Investigating retained collection attempts
+
+Open Collection audit from navigation or a source's error-class link. Select source,
+stream and an occurrence period; compare full-match failed/rejected counts and
+requested windows across pages. Old failures remain after a later success. Inspect
+the typed reason, page/count/interval context and bounded next retry, then compare
+last accepted attempt, newest **measurement**, coverage and automatic frontier on
+status. A recent successful retrieval of old samples does not establish freshness.
+
+For generation gaps, the daily page shows the retained historical frontier,
+unfinished windows, retry/paused state and last attempt. Collection is progressing
+backwards under the existing aggregate reservation budget; scattered older retained
+rows do not imply the intervening days were fetched. Audit empty means a fetched
+empty response; rejection and failure preserve prior accepted rows and checkpoints.
+Days without a retained accepted attempt may still be not fetched yet. Do not infer
+an outage, zero generation or a retention boundary. The inclusive automatic history
+boundary remains ENERGYTHING_HISTORY_START, default 2022-01-01, with retained
+progress and quota reservations unchanged.
+
+Inspect or download the selected telemetry evidence for the exact attempt privately.
+It retains original clocks and unknown telemetry, including rejected content, and
+excludes secrets/discovery material. Keep downloads private for follow-up. Do not
+erase the database or force a full backfill to diagnose an error. Audit browsing
+neither contacts providers nor performs recovery/migrations, and adds no scheduler.

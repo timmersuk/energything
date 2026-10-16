@@ -325,3 +325,12 @@ from the same frontier and current unit, preserving accepted data, versions,
 checkpoints, retries and quota reservations. Unit sizes, routine priority, repair
 binding, clock qualifications and the aggregate ten-per-rolling24h limit remain.
 Earlier passages describing a120-day exploration limit are superseded.
+
+Task06a adds authenticated read-only audit browsing and selected evidence retrieval.
+Attempts, accepted observations, retrievals and deduplicated evidence remain distinct;
+a retrieval is authorized through its owning attempt and source identity. New typed
+diagnostics may retain normalized interval endpoints and provider calendar period;
+old missing context is not reconstructed. No migration or pruning accompanies these
+read APIs. Local aggregate quota deferrals use class rate_limit/code local_budget;
+provider deferrals retain limited. Both retain failed terminal outcome with an
+explicit deferral label, rather than implying empty or successful collection.

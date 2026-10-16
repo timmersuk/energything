@@ -45,7 +45,7 @@ func NewRouterWithRefresh(c config.Config, buildID string, store recordStore, re
 			writeError(w, 405, "method_not_allowed", "Method not allowed")
 			return
 		}
-		if r.URL.Path == "/static/style.css" || r.URL.Path == "/static/refresh.js" {
+		if r.URL.Path == "/static/style.css" || r.URL.Path == "/static/refresh.js" || r.URL.Path == "/static/audit.js" {
 			data, _ := files.ReadFile(strings.TrimPrefix(r.URL.Path, "/"))
 			w.Header().Set("Content-Type", "text/css; charset=utf-8")
 			if strings.HasSuffix(r.URL.Path, ".js") {
@@ -73,6 +73,16 @@ func NewRouterWithRefresh(c config.Config, buildID string, store recordStore, re
 				view.CSRFToken = token
 				data = view
 			}
+		} else if r.URL.Path == "/audit" || strings.HasPrefix(r.URL.Path, "/audit/") || r.URL.Path == "/api/v1/audit" || strings.HasPrefix(r.URL.Path, "/api/v1/audit/") {
+			if strings.Contains(r.URL.Path, "/evidence/") {
+				err = auditEvidenceResponse(w, r, store, values)
+				if err == nil {
+					return
+				}
+			} else {
+				data, err = auditData(r.Context(), store, values, r.URL.Path, c.Timezone)
+				name = "audit.html"
+			}
 		} else if r.URL.Path == "/records/growatt/aggregates" || r.URL.Path == "/api/v1/growatt/aggregates" {
 			data, err = aggregateData(r.Context(), store, values, r.URL.Path)
 			name = "aggregates.html"
@@ -91,7 +101,9 @@ func NewRouterWithRefresh(c config.Config, buildID string, store recordStore, re
 			}
 		}
 		if err != nil {
-			if errors.Is(err, storage.ErrInvalid) {
+			if errors.Is(err, storage.ErrNotFound) {
+				writeError(w, 404, "not_found", "Not found")
+			} else if errors.Is(err, storage.ErrInvalid) {
 				writeError(w, 400, "invalid_query", "Invalid range, filter, limit or cursor")
 			} else {
 				writeError(w, 503, "storage_unavailable", "Stored data temporarily unavailable")
@@ -124,9 +136,13 @@ func NewRouterWithRefresh(c config.Config, buildID string, store recordStore, re
 			}
 			w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 			_, _ = w.Write([]byte("ok\n"))
-		case "/static/refresh.js", "/api/v1/refresh", "/records/growatt/aggregates", "/api/v1/growatt/aggregates", "/", "/static/style.css", "/records/octopus", "/records/growatt", "/api/v1/status", "/api/v1/octopus/intervals", "/api/v1/growatt/samples":
+		case "/static/audit.js", "/static/refresh.js", "/api/v1/refresh", "/records/growatt/aggregates", "/api/v1/growatt/aggregates", "/", "/static/style.css", "/records/octopus", "/records/growatt", "/api/v1/status", "/api/v1/octopus/intervals", "/api/v1/growatt/samples":
 			protected.ServeHTTP(w, r)
 		default:
+			if r.URL.Path == "/audit" || r.URL.Path == "/api/v1/audit" || strings.HasPrefix(r.URL.Path, "/audit/") || strings.HasPrefix(r.URL.Path, "/api/v1/audit/") {
+				protected.ServeHTTP(w, r)
+				return
+			}
 			writeError(w, 404, "not_found", "Not found")
 		}
 	}), nil

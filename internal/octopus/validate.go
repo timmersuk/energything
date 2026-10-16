@@ -1,6 +1,7 @@
 package octopus
 
 import (
+	"github.com/timmersuk/energything/internal/storage"
 	"math/big"
 	"regexp"
 	"sort"
@@ -62,37 +63,49 @@ func Validate(w *Window, from, to, now time.Time) error {
 		value, ok := exact(string(r.Energy))
 		start, e1 := time.Parse(time.RFC3339, r.Start)
 		end, e2 := time.Parse(time.RFC3339, r.End)
+		invalid := func(code string) *Error {
+			e := problem("validation", code, r.Evidence+1)
+			if e1 == nil && start.UTC().Year() >= 1 && start.UTC().Year() <= 9999 {
+				t := storage.At(start)
+				e.Diagnostic.IntervalStart = &t
+			}
+			if e2 == nil && end.UTC().Year() >= 1 && end.UTC().Year() <= 9999 {
+				t := storage.At(end)
+				e.Diagnostic.IntervalEnd = &t
+			}
+			return e
+		}
 		if !ok {
-			return problem("validation", "invalid_decimal", r.Evidence+1)
+			return invalid("invalid_decimal")
 		}
 		if !timestamp.MatchString(r.Start) || !timestamp.MatchString(r.End) || e1 != nil || e2 != nil {
-			return problem("validation", "invalid_timestamp", r.Evidence+1)
+			return invalid("invalid_timestamp")
 		}
 		if end.Sub(start) != Slot {
-			return problem("validation", "invalid_duration", r.Evidence+1)
+			return invalid("invalid_duration")
 		}
 		if start.Unix()%1800 != 0 || start.Nanosecond() != 0 {
-			return problem("validation", "unaligned_interval", r.Evidence+1)
+			return invalid("unaligned_interval")
 		}
 		if !end.After(from) || !start.Before(to) {
 			if end.Equal(from) || start.Equal(to) {
 				w.Outside++
 				continue
 			}
-			return problem("validation", "outside_window", r.Evidence+1)
+			return invalid("outside_window")
 		}
 		if start.Before(from) || end.After(to) {
-			return problem("validation", "boundary_overlap", r.Evidence+1)
+			return invalid("boundary_overlap")
 		}
 		if end.After(now) {
-			return problem("validation", "future_interval", r.Evidence+1)
+			return invalid("future_interval")
 		}
 		interval := Interval{start.UTC(), end.UTC(), value, r.Evidence}
 		if prior, exists := accepted[start.Unix()]; exists {
 			a, _ := new(big.Rat).SetString(prior.KWh)
 			b, _ := new(big.Rat).SetString(value)
 			if !prior.End.Equal(end) || a.Cmp(b) != 0 {
-				return problem("validation", "conflicting_interval", r.Evidence+1)
+				return invalid("conflicting_interval")
 			}
 			w.Duplicates++
 			continue

@@ -262,3 +262,84 @@ from the same frontier and current unit, preserving accepted data, versions,
 checkpoints, retries and quota reservations. Unit sizes, routine priority, repair
 binding, clock qualifications and the aggregate ten-per-rolling24h limit remain.
 Earlier passages describing a120-day exploration limit are superseded.
+
+## Collection audit (task06a)
+
+`GET /audit`, `/audit/{id}`, `/api/v1/audit`, `/api/v1/audit/{id}` and
+`/api/v1/audit/{id}/evidence/{retrieval_id}` require Basic Auth and use no-store,
+nosniff and the existing CSP. They read the already-open local store only; no
+provider call, enqueue, recovery or migration occurs while browsing. Wrong methods
+return 405, invalid filters 400, absent IDs or mismatched attempt/retrieval 404,
+missing/wrong auth 401. Storage failures return a sanitized 503.
+
+List parameters (HTML and API share the parser): `source` (octopus/growatt),
+`stream` (import/export/device/generation), positive existing local `identity`,
+`outcome` (running/success/empty/rejected/failed/cancelled/interrupted), `error_class`
+(configuration/selection/authentication/rate_limit/network/timeout/pagination/protocol/
+validation/timestamp_quality/storage), `from`, `to`, `limit`, `cursor`.
+Unknown/repeated parameters fail. Empty optional form fields select all; empty
+limit fails. Default limit 100, maximum 500. Unlike record queries, omitted range
+selects all retained audit. Paired calendar dates are inclusive in the configured
+zone; paired offset RFC3339 instants use exclusive `to`, with the same precision
+and date-domain checks as record queries. Ranges apply to **attempt occurrence**,
+never provider sample clocks or requested-window overlap.
+
+Ordering is `(occurred_at DESC, id DESC)` with an opaque cursor bound to every
+filter and limit. Keep filters unchanged for later pages. This is a live keyset
+view; newly finished attempts can appear on a fresh query. Equal times retain the
+stable ID tie-break, including repeated autumn hours.
+
+List/detail envelope: `version`, `timezone`, `range_basis: attempt_occurrence`,
+nullable UTC `from`/`to`, `limit`, `records`, `counts: {total, failed, rejected}`,
+optional `next_cursor`. Counts cover **all filtered matches**, independent of
+page/cursor. Detail uses the same envelope with one record, null range and zero
+list counts/limit; no query parameters are accepted.
+
+Each record has `id`, `job_id`, `identity_id`, `source`, `stream`, full `identity`
+and dedicated `provider_identity` (mpan/serial/plant_id/device_type when retained),
+`kind`, `requested_from`, exclusive `requested_to`, optional `provider_date`,
+`started_at`, `occurred_at`, nullable `finished_at`, `occurred_local` (configured
+zone with numeric offset), `outcome`, `outcome_label`, optional `error_class`,
+`error_code`, `message`, `diagnostic`, nullable `page`, `retry_count`, nullable
+`next_retry_at`, `retries`, `accepted_rows`, `evidence`, `detail_url`.
+UTC instant strings end in Z. Aggregate requested bounds are bookkeeping, not
+measurement instants. `diagnostic` may contain HTTP/provider codes, known field,
+safe decimal value, expected/observed counts, provider period and normalized
+`interval_start_utc_microseconds`/`interval_end_utc_microseconds`. Inline retries
+retain `Page`, `Retry`, `HTTPStatus`, `Code`, `WaitMicroseconds`. Missing historical
+context is left absent; no context is invented for older attempts.
+
+Evidence references contain `retrieval_id`, `evidence_id`, `digest`,
+`retrieved_at`, `complete`, `url`. Each URL checks both attempt and retrieval plus
+identity ownership in a narrow joined query, even when content is deduplicated.
+The response is retained selected telemetry JSON, bounded to 4 MiB before encoding,
+with unknown telemetry and original timestamps preserved. `?download=1` selects
+an attachment filename; no other evidence parameters are accepted. Unsafe older
+content fails closed with 404. No headers, keys, authenticated URLs, account/address
+material or exception/stack dumps are exposed. The UI fetches evidence only on an
+explicit inspect click and inserts pretty JSON as text, never HTML.
+
+`rate_limit` retains terminal `failed` and an explicit deferral label.
+`local_budget` means the local aggregate reservation budget prevented this page's
+request; `limited` means provider rate limiting. Counts therefore include deferred
+failed attempts. Empty is accepted fetched unavailability; rejection/failure does
+not advance completion. Interrupted/cancelled is never success.
+
+Synthetic examples:
+
+```text
+/api/v1/audit?source=octopus&stream=import&from=2026-10-25&to=2026-10-25&limit=2
+/audit?source=growatt&stream=generation&error_class=rate_limit
+/api/v1/audit/123
+/api/v1/audit/123/evidence/456?download=1
+```
+
+Status sources add `audit_counts` across all retained attempts and filtered links,
+so repeated failures remain accessible after recovery. Aggregate responses add
+`collection_progress` for matching plants, independent of row date filters:
+`identity_id`, `identity`, plan `state`, `frontier`, `search_limit`, `next_due`,
+`provenance`, `unfinished_jobs` (requested bounds, due, paused/running/retry count),
+and nullable `last_attempt`. The generation page displays these stored values.
+A frontier describes backwards fetched progress, not physical coverage; legacy
+January rows can coexist with an unfinished gap before August. Inspect individual
+attempt windows to distinguish not fetched yet, fetched empty and rejected data.

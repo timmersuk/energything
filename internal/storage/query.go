@@ -25,11 +25,11 @@ type SampleQuery struct {
 	Quality, ProviderDate string
 }
 type AuditQuery struct {
-	IdentityID                    int64
-	Provider, Outcome, ErrorClass string
-	From, To                      *Instant
-	Limit                         int
-	Cursor                        string
+	IdentityID                            int64
+	Provider, Stream, Outcome, ErrorClass string
+	From, To                              *Instant
+	Limit                                 int
+	Cursor                                string
 }
 type IntervalPage struct {
 	Records    []Interval
@@ -286,6 +286,9 @@ func (s *Store) QueryAudit(ctx context.Context, q AuditQuery) (page AuditPage, e
 	if q.IdentityID < 0 || !rangeValid(q.From, q.To) || (q.Provider != "" && q.Provider != "octopus" && q.Provider != "growatt") {
 		return page, ErrInvalid
 	}
+	if q.Stream != "" && q.Stream != "import" && q.Stream != "export" && q.Stream != "device" && q.Stream != "generation" {
+		return page, ErrInvalid
+	}
 	if q.Outcome != "" && !validOutcome(q.Outcome) {
 		return page, ErrInvalid
 	}
@@ -310,6 +313,10 @@ func (s *Store) QueryAudit(ctx context.Context, q AuditQuery) (page AuditPage, e
 	if q.Provider != "" {
 		where += " AND i.provider=?"
 		args = append(args, q.Provider)
+	}
+	if q.Stream != "" {
+		where += " AND i.stream=?"
+		args = append(args, q.Stream)
 	}
 	if q.Outcome != "" {
 		where += " AND outcome=?"
