@@ -159,7 +159,6 @@ func validateAccepted(a Audit, provider string, in AcceptedWindow) ([]Interval, 
 		}
 		out = append(out, x)
 	}
-	keys := map[string]bool{}
 	for _, x := range in.Samples {
 		if (x.IdentityID != 0 && x.IdentityID != a.IdentityID) || !validDate(x.ProviderDate) || !validText(x.Quality) || x.Evidence < 0 || x.Evidence >= len(in.Evidence) || x.OriginalTime == nil || x.Values == nil {
 			return nil, ErrInvalid
@@ -167,11 +166,9 @@ func validateAccepted(a Audit, provider string, in AcceptedWindow) ([]Interval, 
 		if x.ProviderDate != a.ProviderDate && a.ProviderDate != "" {
 			return nil, ErrInvalid
 		}
-		clock, keyErr := samplePeriod(x)
-		if keyErr != nil || keys[clock] {
+		if _, keyErr := samplePeriod(x); keyErr != nil {
 			return nil, ErrInvalid
 		}
-		keys[clock] = true
 
 		if x.Instant != nil && (*x.Instant < a.Start || *x.Instant >= a.End) {
 			return nil, ErrInvalid
@@ -220,6 +217,19 @@ func (s *Store) CommitAcceptedWindow(ctx context.Context, in AcceptedWindow) err
 		intervals, err := validateAccepted(a, provider, in)
 		if err != nil {
 			return err
+		}
+		rawSampleCount := len(in.Samples)
+		in.Samples, err = canonicalSamples(in.Samples)
+		if err != nil {
+			return err
+		}
+		if len(in.Samples) < rawSampleCount {
+			if in.Coverage.Valid == rawSampleCount {
+				in.Coverage.Valid = len(in.Samples)
+			}
+			if in.Coverage.Qualified == rawSampleCount {
+				in.Coverage.Qualified = len(in.Samples)
+			}
 		}
 		ids, err := storeEvidence(ctx, tx, a, prepared)
 		if err != nil {

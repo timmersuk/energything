@@ -3,9 +3,38 @@ package storage
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"strings"
 	"testing"
 )
+
+func TestCanonicalWindowCollapsesIdenticalAndRejectsConflictingPeriods(t *testing.T) {
+	s, _, _, job := fixture(t, "growatt")
+	ctx := context.Background()
+	sample := Sample{ProviderDate: job.ProviderDate, OriginalTime: map[string]string{"time": `"2026-10-01 12:00:00"`}, Quality: "unresolved", Values: map[string]Value{"soc": {Decimal: ptr("1"), Quality: "valid"}}}
+	in := AcceptedWindow{AttemptID: begin(t, s, job), Finished: testStart + 4*halfHour, Evidence: []Evidence{{Content: json.RawMessage(`{"synthetic":true}`), Retrieved: testStart + 4*halfHour, Complete: true}}, Samples: []Sample{sample, sample}, Coverage: Coverage{Valid: 2, Qualified: 2}}
+	if err := s.CommitAcceptedWindow(ctx, in); err != nil {
+		t.Fatal("identical overlapping rows rejected", err)
+	}
+	if count(t, s, "samples") != 1 {
+		t.Fatal("overlap duplicated canonical rows")
+	}
+	audit, err := s.QueryAudit(ctx, AuditQuery{})
+	if err != nil || audit.Records[0].AcceptedRows != 1 {
+		t.Fatal("audit counted duplicate readings", audit, err)
+	}
+	in.AttemptID = begin(t, s, job)
+	conflict := sample
+	conflict.Values = map[string]Value{"soc": {Decimal: ptr("2"), Quality: "valid"}}
+	in.Samples = []Sample{sample, conflict}
+	if err = s.CommitAcceptedWindow(ctx, in); !errors.Is(err, ErrInvalid) {
+		t.Fatal("conflicting period accepted", err)
+	}
+	p, err := s.QuerySamples(ctx, SampleQuery{QualityView: true})
+	if err != nil || len(p.Records) != 1 || *p.Records[0].Values["soc"].Decimal != "1" {
+		t.Fatal("conflict replaced accepted value", p, err)
+	}
+}
 
 func TestCanonicalReportedPeriodReplayCorrectionReopen(t *testing.T) {
 	ctx := context.Background()
