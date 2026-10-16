@@ -112,3 +112,5 @@ Validation: full Go suite and vet passed; synthetic Edge verification passed for
 ### Growing telemetry day regression
 
 Synthetic regression reproduced history discarded when the provider count increased between pages. Telemetry now follows monotonic increases within existing row/page budgets; decreases, repeated pages, short intermediate pages, overruns and invalid rows still fail. No measurement instants or stable repeated-hour identities are inferred, and no scheduler or quota changes were made. Storage-backed verification confirms accepted rows and per-page evidence survive reopen and remain intact after a later shrinking-count failure. Full Go suite and vet passed.
+
+Retained preview verification: deployed task06a-growing-day with the original data mount, queued one current-day repair through the existing enqueue CLI, and confirmed a successful accepted history attempt. The authenticated samples endpoint now fills its maximum-sized first page with a next cursor. No records, retry ledger or evidence were cleared.
