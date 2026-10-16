@@ -96,6 +96,12 @@ func recordsData(ctx context.Context, store recordStore, q recordQuery, growatt 
 			out.View = "quality"
 			out.RangeBasis = "retrieval"
 		}
+		if q.ProviderView {
+			out.View = "provider"
+			out.RangeBasis = "provider_reported_day"
+			out.From = &q.ProviderFrom
+			out.To = &q.ProviderTo
+		}
 	} else {
 		p, err := store.QueryIntervals(ctx, q.RecordQuery)
 		if err != nil {

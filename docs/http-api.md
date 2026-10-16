@@ -30,7 +30,7 @@ Empty optional form fields are ignored; an explicitly empty `limit` is invalid.
 | `cursor` | Opaque storage keyset cursor, bound to all filters and limit |
 | `identity` | Optional positive local source ID; must exist for this provider. History includes deselected sources. |
 | `direction` | Octopus only: `import` or `export`; empty selects both |
-| `view` | Growatt only: `resolved` (API default) or `quality` (web-page default) |
+| `view` | Growatt only: `resolved` (API default), `quality` (retrieval diagnostics) or `provider` (web-page default; reported reading days) |
 | `quality` | Growatt quality view only: exact stored quality text, at most 256 bytes |
 | `provider_date` | Growatt quality view only: `YYYY-MM-DD`, matches original provider date |
 
@@ -366,3 +366,28 @@ Audit records and status attempt summaries also expose nullable `provider_retry_
 as a UTC RFC3339 string. This is the parsed provider instruction; `next_retry_at`
 is the effective stored job deadline and may be later. Only allowlisted parsed
 fields are retained from rate-limit errors, never raw 429 bodies or headers.
+
+### Reported reading days: the normal Growatt samples page
+
+The HTML page now defaults to `view=provider`. From/To are **inclusive reported
+reading days**, independent of when Energything fetched the response. They accept
+YYYY-MM-DD only in this view. The page says Readings from / Readings through,
+shows newest reported day/clock first, and keeps validation quality under Advanced
+diagnostics. The redundant single provider-date field is removed from the form.
+Time fetched and verified UTC measurement time are explicitly diagnostic modes.
+
+The API default remains resolved. API callers may explicitly select
+`view=provider&from=2026-10-15&to=2026-10-16`. Its envelope uses
+`range_basis: provider_reported_day`; `from` and `to` are inclusive calendar date
+strings in this view. Ordering is reported provider date, syntactically valid
+reported wall-clock text and stable row ID, descending. Equal/repeated clocks
+remain separate occurrences, never inferred absolute instants. Missing/malformed
+clocks sort last within their reported date. Samples without a reported date remain
+accessible in retrieval diagnostics. Provider-view keyset cursors bind the date
+range, source, quality and limit and preserve the view across pages.
+
+Explicit `view=quality` continues to filter/order by retrieval time as before;
+`provider_date` remains an API/backward-compatible exact diagnostic filter. Explicit
+`view=resolved` still excludes unresolved instants. No stored timestamp, observation,
+collection policy or quota changes accompany these browsing changes. No GET calls
+a provider or performs recovery.

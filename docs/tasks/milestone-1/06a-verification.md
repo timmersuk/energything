@@ -85,3 +85,20 @@ Full Go suite and vet passed for retry hints. Additional parser tests passed for
 invalid offsets and rounding beyond the supported timestamp domain. Preview
 updated to task06a-retry-hints on the original mount; authenticated audit/status
 and default-off daily-cap policy verified after recreation.
+
+Reading-date UI follow-up: the screenshot selected a wide retrieval range, whose
+ascending first page showed historical samples. Normal samples browsing now uses
+inclusive Growatt-reported reading days and newest reported clock first, with
+quality/source internals under advanced diagnostics and no duplicate single-date
+input. API default and explicit retrieval/absolute diagnostic modes stay compatible.
+Storage-backed tests cover reading/retrieval dates differing, broad-range first
+page, malformed clock fallback, equal-clock stable paging, cursor/filter binding
+and no invented UTC instant.
+Full Go suite, vet and Edge checks passed for reading-day browsing. The synthetic
+browser verified hidden quality internals, removal of the duplicate date box,
+broad-range newest-first display, reading versus retrieval date separation and
+paging mode retention. Preview task06a-reading-days now shows today's readings
+first for the screenshot's wide range on retained data. The initial implementation
+scanned historical payload pages; using the existing quality/date index and reading
+only relevant day clock keys reduced that local check from about12.7s to1.35s.
+No migration or retained data rewrite was required.

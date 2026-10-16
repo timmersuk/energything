@@ -20,6 +20,8 @@ type RecordQuery struct {
 }
 type SampleQuery struct {
 	RecordQuery
+	ProviderView             bool
+	ProviderFrom, ProviderTo string
 	// QualityView switches ordering/range to retrieval time, allowing null instants.
 	QualityView           bool
 	Quality, ProviderDate string
@@ -157,6 +159,12 @@ func (s *Store) QueryIntervals(ctx context.Context, q RecordQuery) (page Interva
 	return
 }
 func (s *Store) QuerySamples(ctx context.Context, q SampleQuery) (page SamplePage, err error) {
+	if q.ProviderView {
+		return s.queryProviderSamples(ctx, q)
+	}
+	if q.ProviderFrom != "" || q.ProviderTo != "" {
+		return page, ErrInvalid
+	}
 	if q.IdentityID < 0 || q.Direction != "" || !rangeValid(q.From, q.To) || !validDate(q.ProviderDate) || (q.Quality != "" && !validText(q.Quality)) || (!q.QualityView && (q.Quality != "" || q.ProviderDate != "")) {
 		return page, ErrInvalid
 	}

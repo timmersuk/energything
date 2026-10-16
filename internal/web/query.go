@@ -59,6 +59,11 @@ func parseQuery(v url.Values, growatt bool, loc *time.Location, now time.Time) (
 	}
 	switch v.Get("view") {
 	case "", "resolved":
+	case "provider":
+		if !growatt {
+			return q, invalid
+		}
+		q.ProviderView = true
 	case "quality":
 		q.QualityView = true
 	default:
@@ -66,7 +71,7 @@ func parseQuery(v url.Values, growatt bool, loc *time.Location, now time.Time) (
 	}
 	q.Quality = v.Get("quality")
 	q.ProviderDate = v.Get("provider_date")
-	if (q.Quality != "" || q.ProviderDate != "") && !q.QualityView {
+	if (q.Quality != "" || q.ProviderDate != "") && !q.QualityView && !q.ProviderView {
 		return q, invalid
 	}
 	if len(q.Quality) > 256 {
@@ -80,6 +85,25 @@ func parseQuery(v url.Values, growatt bool, loc *time.Location, now time.Time) (
 	from, to := v.Get("from"), v.Get("to")
 	if (from == "") != (to == "") {
 		return q, invalid
+	}
+	if q.ProviderView {
+		if from == "" {
+			from = q.ProviderDate
+			if from == "" {
+				from = now.In(loc).Format("2006-01-02")
+			}
+			to = from
+		}
+		a, e := time.Parse("2006-01-02", from)
+		b, f := time.Parse("2006-01-02", to)
+		if e != nil || f != nil || a.Year() < 1 || b.Year() < 1 || b.Before(a) {
+			return q, invalid
+		}
+		q.ProviderFrom = from
+		q.ProviderTo = to
+		q.FromText = from
+		q.ToText = to
+		return q, nil
 	}
 	// A provider-date quality view needs no retrieval restriction unless requested.
 	if from == "" && q.QualityView && q.ProviderDate != "" {
@@ -134,8 +158,12 @@ func (q recordQuery) nextURL(path, cursor string) string {
 	if q.Direction != "" {
 		v.Set("direction", q.Direction)
 	}
-	if q.QualityView {
+	if q.ProviderView {
+		v.Set("view", "provider")
+	} else if q.QualityView {
 		v.Set("view", "quality")
+	} else if path == "/records/growatt" {
+		v.Set("view", "resolved")
 	}
 	if q.Quality != "" {
 		v.Set("quality", q.Quality)
