@@ -307,7 +307,7 @@ func TestOctopusShowsFullMeterIdentity(t *testing.T) {
 }
 func TestGrowattIdentifiersVisibleWithoutStableKey(t *testing.T) {
 	_, h := browsingFixture(t, true)
-	for _, path := range []string{"/", "/api/v1/status", "/records/growatt?from=2026-03-29&to=2026-03-29", "/api/v1/growatt/samples?from=2026-03-29&to=2026-03-29"} {
+	for _, path := range []string{"/", "/api/v1/status", "/records/growatt?view=resolved&from=2026-03-29&to=2026-03-29", "/api/v1/growatt/samples?from=2026-03-29&to=2026-03-29"} {
 		w := request(h, path, "synthetic")
 		if w.Code != 200 || !strings.Contains(w.Body.String(), "synthetic-plant") || !strings.Contains(w.Body.String(), "synthetic-inverter") || strings.Contains(w.Body.String(), "(masked)") || strings.Contains(w.Body.String(), "synthetic-private-device") {
 			t.Fatal(path, w.Code, w.Body.String())
@@ -323,4 +323,25 @@ func TestGrowattIdentifiersVisibleWithoutStableKey(t *testing.T) {
 
 func (failStore) QueryAggregates(context.Context, storage.AggregateQuery) (storage.AggregatePage, error) {
 	return storage.AggregatePage{}, errors.New("synthetic storage failure")
+}
+
+func TestGrowattPageDefaultsToRetainedQualityView(t *testing.T) {
+	_, h := browsingFixture(t, true)
+	path := "/records/growatt?from=2026-10-26&to=2026-10-26&identity=3"
+	w := request(h, path, "synthetic")
+	if w.Code != 200 || !strings.Contains(w.Body.String(), `value="quality" selected`) || strings.Contains(w.Body.String(), "No stored samples matching these filters") {
+		t.Fatalf("default page hides retained samples: status=%d quality_selected=%v empty=%v", w.Code, strings.Contains(w.Body.String(), `value="quality" selected`), strings.Contains(w.Body.String(), "No stored samples matching these filters"))
+	}
+	explicit := request(h, path+"&view=resolved", "synthetic")
+	if explicit.Code != 200 || !strings.Contains(explicit.Body.String(), `value="resolved" selected`) {
+		t.Fatal("explicit absolute view lost")
+	}
+	api := request(h, "/api/v1/growatt/samples?from=2026-10-26&to=2026-10-26&identity=3", "synthetic")
+	var v struct {
+		View    string            `json:"view"`
+		Records []json.RawMessage `json:"records"`
+	}
+	if api.Code != 200 || json.Unmarshal(api.Body.Bytes(), &v) != nil || v.View != "resolved" || len(v.Records) != 0 {
+		t.Fatal("API default changed", api.Body)
+	}
 }

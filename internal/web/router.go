@@ -88,6 +88,11 @@ func NewRouterWithRefresh(c config.Config, buildID string, store recordStore, re
 			name = "aggregates.html"
 		} else {
 			growatt := strings.Contains(r.URL.Path, "growatt")
+			// The page must show retained qualified samples without assigning an
+			// absolute measurement instant. Keep the v1 API default unchanged.
+			if r.URL.Path == "/records/growatt" && !values.Has("view") {
+				values.Set("view", "quality")
+			}
 			var q recordQuery
 			q, err = parseQuery(values, growatt, c.Timezone, time.Now())
 			if err != nil {

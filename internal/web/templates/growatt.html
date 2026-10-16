@@ -2,6 +2,7 @@
 {{define "growatt.html"}}{{template "head" .}}
 <h1>Growatt stored samples</h1>
 <p>Power readings are instantaneous; energy values are counters. <strong>unit ?</strong> means the provider unit is not yet verified. Original clocks are preserved; unresolved clocks are not UTC measurement times.</p>
+<p>The default quality / retrieval view includes samples whose absolute measurement time remains unresolved. Its date range applies to retrieval time. Select Absolute measurement time to query only samples with an established instant.</p>
 <form method="get">{{template "filters" .}}<label>View <select name="view"><option value="resolved" {{if eq .View "resolved"}}selected{{end}}>Absolute measurement time</option><option value="quality" {{if eq .View "quality"}}selected{{end}}>Quality / retrieval time</option></select></label><label>Quality (quality view only)<input name="quality" value="{{.Query.Quality}}"></label><label>Provider date (quality view only)<input name="provider_date" value="{{.Query.ProviderDate}}" placeholder="YYYY-MM-DD"></label><button>Apply filters</button></form>
 {{template "range" .}}
 {{if eq .View "resolved"}}<p>{{.OmittedUnresolved}} unresolved observations excluded across this identity selection. <a href="/records/growatt?view=quality">Browse quality view</a></p>{{else}}<p>Ordered by retrieval time. The provider clock is shown as reported, without assuming a timezone.</p>{{end}}

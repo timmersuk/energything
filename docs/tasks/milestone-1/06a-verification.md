@@ -52,3 +52,15 @@ audit list/HTML and daily-generation progress HTML passed. Retained row count
 increased during normal collection; fetched-window and schedule counts did not
 fall. Private count-only summaries are ignored under .cache; private identifiers,
 amounts, evidence, credentials and runtime tokens were not published.
+
+Follow-up: the Growatt samples web page defaulted to absolute measurement time,
+which intentionally excluded retained unresolved-clock samples. A storage-backed
+regression reproduced the symptom (`quality_selected=false empty=true`) before
+the fix. The HTML route now defaults an omitted view to quality/retrieval, with
+an explicit range-basis explanation. Explicit absolute view and the v1 API default
+remain unchanged. No generation quota, observations or clock normalization changed.
+Full Go suite and vet passed after the page-default follow-up. Edge browser checks
+confirmed default quality selection, retained sample visibility, quality paging and
+explicit absolute-time selection. Preview rebuilt as task06a-samples-default on its
+original data mount; authenticated default page showed retained samples and health
+passed. The generation cap was not changed.

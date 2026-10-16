@@ -30,7 +30,7 @@ Empty optional form fields are ignored; an explicitly empty `limit` is invalid.
 | `cursor` | Opaque storage keyset cursor, bound to all filters and limit |
 | `identity` | Optional positive local source ID; must exist for this provider. History includes deselected sources. |
 | `direction` | Octopus only: `import` or `export`; empty selects both |
-| `view` | Growatt only: `resolved` (default) or `quality` |
+| `view` | Growatt only: `resolved` (API default) or `quality` (web-page default) |
 | `quality` | Growatt quality view only: exact stored quality text, at most 256 bytes |
 | `provider_date` | Growatt quality view only: `YYYY-MM-DD`, matches original provider date |
 
@@ -343,3 +343,12 @@ and nullable `last_attempt`. The generation page displays these stored values.
 A frontier describes backwards fetched progress, not physical coverage; legacy
 January rows can coexist with an unfinished gap before August. Inspect individual
 attempt windows to distinguish not fetched yet, fetched empty and rejected data.
+
+### Growatt samples page default
+
+`/records/growatt` now defaults an omitted `view` to `quality`, including retained
+samples with unresolved absolute clocks. The default date range still applies to
+retrieval time; use provider_date to inspect a source calendar day independently of
+retrieval time. Explicit `view=resolved` remains available. The v1 samples API
+continues to default to resolved measurement-time queries. Page next links retain
+`view=quality`; no timestamps are inferred or rewritten by this display default.
