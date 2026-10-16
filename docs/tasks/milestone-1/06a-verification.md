@@ -73,3 +73,15 @@ five-minute spacing, restart retention, cap restoration and provider deadlines
 remaining unchanged when only local-budget deferrals are reconsidered.
 Full Go suite and vet passed for the boolean flag. Preview rebuilt with the cap
 disabled by default; retained data mount and five-minute reservation ledger kept.
+
+429 follow-up: added bounded selected-body retry-hint parsing shared by Octopus
+and Growatt, preserving Retry-After seconds/date and taking the latest valid hint.
+Growatt 10012 now respects longer hints while keeping its five-minute fallback.
+Synthetic coverage includes conflicting body/header hints, malformed/oversize/read
+failures, unsafe message/key/header exclusion, no aggregate inline retries,
+collector-to-audit/API/UI persistence and restart durability. No deliberate live
+rate-limit probe was sent, and the daily-cap flag remains false by default.
+Full Go suite and vet passed for retry hints. Additional parser tests passed for
+invalid offsets and rounding beyond the supported timestamp domain. Preview
+updated to task06a-retry-hints on the original mount; authenticated audit/status
+and default-off daily-cap policy verified after recreation.

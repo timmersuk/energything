@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/timmersuk/energything/internal/collection"
 	"github.com/timmersuk/energything/internal/config"
+	"github.com/timmersuk/energything/internal/growatt"
 	"github.com/timmersuk/energything/internal/octopus"
 	"github.com/timmersuk/energything/internal/storage"
 	"github.com/timmersuk/energything/internal/testsupport"
@@ -237,4 +238,51 @@ func TestOctopusCountDiagnosticPersistsThroughAuditAPI(t *testing.T) {
 			}
 		})
 	}
+}
+
+func Test429HintsPersistWithoutResponseSecrets(t *testing.T) {
+	s, h := browsingFixture(t, false)
+	ctx := context.Background()
+	ids, e := s.UpsertIdentities(ctx, []storage.Identity{{Provider: "growatt", Stream: "generation", StableKey: "SYN-HINT", Selected: true, Metadata: storage.DiscoveryMetadata{PlantID: "SYN-HINT"}}})
+	if e != nil {
+		t.Fatal(e)
+	}
+	from := time.Date(2026, 1, 15, 0, 0, 0, 0, time.UTC)
+	jobs, e := s.EnsureJobs(ctx, []storage.Job{{IdentityID: ids[0].ID, Kind: "aggregate", Policy: "backfill", Start: storage.At(from), End: storage.At(from.AddDate(0, 0, 1)), ProviderDate: "2026-01-15", NextDue: storage.At(time.Now())}})
+	if e != nil {
+		t.Fatal(e)
+	}
+	calls := 0
+	client := growatt.NewClient("synthetic", auditTransport(func(*http.Request) (*http.Response, error) {
+		calls++
+		return &http.Response{StatusCode: 429, Header: http.Header{"Retry-After": {"60"}, "Set-Cookie": {"private-secret"}}, Body: io.NopCloser(strings.NewReader(`{"error_code":10012,"retry_after_seconds":900,"token":"private-secret","message":"private-secret"}`))}, nil
+	}))
+	if e = collection.CollectGrowattAggregateUnit(ctx, s, client, jobs[0], "SYN-HINT"); e == nil || calls != 1 {
+		t.Fatal(e, calls)
+	}
+	w := request(h, "/api/v1/audit?error_class=rate_limit", "synthetic")
+	var v auditView
+	if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &v) != nil || len(v.Records) != 1 {
+		t.Fatal(w.Code, w.Body)
+	}
+	a := v.Records[0]
+	if a.Diagnostic.HTTPStatus != 429 || a.Diagnostic.RetryHintSource != "retry_after_body" || a.Diagnostic.RateLimitBody != "recognized" || a.RetryHintAt == nil || a.NextRetry == nil || len(a.Evidence) != 0 || a.Diagnostic.ProviderCode == nil || *a.Diagnostic.ProviderCode != 10012 {
+		t.Fatal(a)
+	}
+	hint, e := time.Parse(time.RFC3339Nano, *a.RetryHintAt)
+	if e != nil {
+		t.Fatal(e)
+	}
+	next, e := time.Parse(time.RFC3339Nano, *a.NextRetry)
+	if e != nil || next.Before(hint) {
+		t.Fatal("provider deadline shortened", e)
+	}
+	if strings.Contains(w.Body.String(), "private-secret") || strings.Contains(w.Body.String(), "Set-Cookie") {
+		t.Fatal("raw response leaked")
+	}
+	html := request(h, a.DetailURL, "synthetic")
+	if html.Code != 200 || !strings.Contains(html.Body.String(), "retry_after_body") || !strings.Contains(html.Body.String(), "Provider retry instruction UTC") {
+		t.Fatal(html.Code, html.Body)
+	}
+
 }

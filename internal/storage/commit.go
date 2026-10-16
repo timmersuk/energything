@@ -422,6 +422,19 @@ var diagnosticMessages = map[string]string{
 }
 
 func validateDiagnostic(d Diagnostic) error {
+	switch d.RetryHintSource {
+	case "", "retry_after_header", "retry_after_body", "retry_at_body", "provider_code_default":
+	default:
+		return ErrInvalid
+	}
+	switch d.RateLimitBody {
+	case "", "absent", "recognized", "unrecognized", "invalid_json", "oversized", "read_error":
+	default:
+		return ErrInvalid
+	}
+	if d.RetryHintAt != nil && !validInstant(*d.RetryHintAt) {
+		return ErrInvalid
+	}
 	if !validDate(d.Period) {
 		return ErrInvalid
 	}

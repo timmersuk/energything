@@ -63,7 +63,7 @@ func discoverOctopus(ctx context.Context, db octopusStore, client *octopus.Clien
 		var pe *octopus.Error
 		if errors.As(err, &pe) {
 			for n := range failed {
-				failed[n].Failure = &storage.DiscoveryFailure{Class: pe.Class, Code: pe.Code, Page: pe.Page}
+				failed[n].Failure = &storage.DiscoveryFailure{Class: pe.Class, Code: pe.Code, Page: pe.Page, Diagnostic: pe.Diagnostic}
 				if !pe.DeferredUntil.IsZero() {
 					due := storage.At(pe.DeferredUntil)
 					failed[n].Failure.DeferredUntil = &due

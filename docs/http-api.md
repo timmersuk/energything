@@ -357,3 +357,12 @@ Aggregate browsing also reports `aggregate_daily_cap_enabled` (boolean). The
 server flag GROWATT_AGGREGATE_DAILY_CAP_ENABLED defaults to false; true restores
 only the local ten-per-rolling-day cap. Five-minute spacing and provider backoff
 remain active in both modes.
+
+Rate-limit diagnostics add `retry_hint_source` (retry_after_header,
+retry_after_body, retry_at_body or provider_code_default),
+`retry_hint_at_utc_microseconds`, and `rate_limit_body_status`
+(absent/recognized/unrecognized/invalid_json/oversized/read_error).
+Audit records and status attempt summaries also expose nullable `provider_retry_at`
+as a UTC RFC3339 string. This is the parsed provider instruction; `next_retry_at`
+is the effective stored job deadline and may be later. Only allowlisted parsed
+fields are retained from rate-limit errors, never raw 429 bodies or headers.

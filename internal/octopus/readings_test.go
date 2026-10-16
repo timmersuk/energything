@@ -400,3 +400,23 @@ func TestReadingStructureAndPaginationReasons(t *testing.T) {
 		}
 	}
 }
+
+func Test429BodyHintsDeferOctopus(t *testing.T) {
+	now := from.Add(48 * time.Hour)
+	calls := 0
+	c := client(func(*http.Request) (*http.Response, error) {
+		calls++
+		res := response(429, `{"retry_after":900,"error_code":123,"token":"private-secret"}`)
+		res.Header.Set("Retry-After", "60")
+		return res, nil
+	})
+	c.now = func() time.Time { return now }
+	w, err := c.Fetch(context.Background(), meter, from, from.Add(Slot))
+	pe, ok := err.(*Error)
+	if !ok || calls != 1 || !pe.DeferredUntil.Equal(now.Add(15*time.Minute)) || pe.Diagnostic.HTTPStatus != 429 || pe.Diagnostic.RetryHintSource != "retry_after_body" || pe.Diagnostic.ProviderCode == nil || *pe.Diagnostic.ProviderCode != 123 || len(w.Retries) != 1 {
+		t.Fatal(pe, calls, w)
+	}
+	if strings.Contains(err.Error(), "private-secret") {
+		t.Fatal("secret exposed")
+	}
+}

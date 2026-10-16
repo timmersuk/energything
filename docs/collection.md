@@ -211,3 +211,29 @@ durable reservations (including failed requests), provider-directed backoff and
 historical progress remain intact. On startup only local-budget deferrals are
 reconsidered under the configured policy; provider deferral deadlines are retained.
 This supersedes earlier statements that the ten-call local cap is unconditional.
+
+### Provider retry hints on rate-limit responses
+
+Both clients already honored Retry-After seconds/HTTP-date. They now also inspect
+up to 64 KiB of a 429 JSON body for `retry_after` (integer seconds or HTTP-date),
+`retry_after_seconds` (integer seconds) and `retry_at` (offset RFC3339 instant), at
+the root or inside `data`/`error`. These are explicitly supported interoperability
+fields, synthetically verified, not a claim that Growatt always supplies them.
+When valid hints conflict the latest deadline wins. Unknown reset-header units and
+free-text error prose are not guessed. Invalid, absent, oversized or unreadable
+bodies preserve any valid header hint; otherwise existing bounded backoff applies.
+The response remains classified as rate-limited, even when its body is malformed.
+
+Growatt JSON error_code 10012 now checks these hints too; its existing five-minute
+fallback remains a minimum. A longer provider hint prevails. Aggregate requests
+still have one transmission/page and durable five-minute spacing, irrespective of
+the default-off optional daily cap. No extra provider request is made to inspect
+an error response. Long deadlines remain durable due times, not sleeps in a lane.
+
+Audit/status retain only selected typed diagnostics: HTTP/provider code, parsed
+provider retry instant, hint source and an enumerated body-inspection result.
+The actual job retry may be later than the provider hint because of spacing or
+scheduler backoff. No raw error body/header dump, cookies, keys, URLs or arbitrary
+provider message is persisted. Unknown old response details cannot be reconstructed.
+See [HTTP Retry-After semantics](https://www.rfc-editor.org/rfc/rfc9110.html#name-retry-after)
+and [429 semantics](https://www.rfc-editor.org/rfc/rfc6585.html#section-4).

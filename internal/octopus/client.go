@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/timmersuk/energything/internal/retryhint"
 	"github.com/timmersuk/energything/internal/storage"
 	"io"
 	"math/rand/v2"
@@ -106,6 +107,7 @@ func (c *Client) get(ctx context.Context, raw, path string, q url.Values, page i
 		code, class := "io", "network"
 		delay := time.Duration(1<<attempt)*time.Second + c.jitter()
 		deferred := time.Time{}
+		diagnostic := storage.Diagnostic{}
 		if requestErr == nil {
 			status = response.StatusCode
 			retryAfter := response.Header.Get("Retry-After")
@@ -130,7 +132,21 @@ func (c *Client) get(ctx context.Context, raw, path string, q url.Values, page i
 				}
 				requestErr = bodyErr // Discard the incomplete body and use this page's budget.
 			} else {
+				if status == 429 {
+					hint := retryhint.Parse(response.Header, response.Body, c.now())
+					diagnostic = hint.Diagnostic(status)
+					deferred = hint.NotBefore
+					if !deferred.IsZero() {
+						delay = deferred.Sub(c.now())
+						if delay < 0 {
+							delay = 0
+						}
+					}
+				}
 				response.Body.Close()
+				if ctx.Err() != nil {
+					return nil, problem("network", "cancelled", page)
+				}
 				switch {
 				case status == 401 || status == 403:
 					return nil, problem("authentication", "unauthorized", page)
@@ -145,9 +161,9 @@ func (c *Client) get(ctx context.Context, raw, path string, q url.Values, page i
 					pe.Diagnostic.HTTPStatus = status
 					return nil, pe
 				}
-				if seconds, err := strconv.ParseUint(retryAfter, 10, 32); err == nil {
+				if seconds, err := strconv.ParseUint(retryAfter, 10, 32); status != 429 && err == nil {
 					delay = time.Duration(seconds) * time.Second
-				} else if date, err := http.ParseTime(retryAfter); err == nil {
+				} else if date, err := http.ParseTime(retryAfter); status != 429 && err == nil {
 					delay = date.Sub(c.now())
 					if delay < 0 {
 						delay = 0
@@ -168,11 +184,11 @@ func (c *Client) get(ctx context.Context, raw, path string, q url.Values, page i
 			}
 		}
 		*retries = append(*retries, Retry{page, attempt + 1, status, code, delay})
-		if !deferred.IsZero() {
-			return nil, &Error{Class: class, Code: code, Page: page, DeferredUntil: deferred}
+		if delay > 30*time.Second {
+			return nil, &Error{Class: class, Code: code, Page: page, DeferredUntil: deferred, Diagnostic: diagnostic}
 		}
 		if attempt == 2 {
-			return nil, problem(class, code, page)
+			return nil, &Error{Class: class, Code: code, Page: page, DeferredUntil: deferred, Diagnostic: diagnostic}
 		}
 		if c.wait(ctx, delay) != nil {
 			return nil, problem("network", "cancelled", page)

@@ -27,6 +27,7 @@ type auditEvidence struct {
 	URL         string `json:"url"`
 }
 type auditRecord struct {
+	RetryHintAt      *string                   `json:"provider_retry_at"`
 	ID               int64                     `json:"id"`
 	JobID            int64                     `json:"job_id"`
 	IdentityID       int64                     `json:"identity_id"`
@@ -63,6 +64,7 @@ func auditRow(a storage.Audit, loc *time.Location) auditRecord {
 		label = "Rate-limit deferral (" + a.Outcome + ")"
 	}
 	r := auditRecord{ID: a.ID, JobID: a.JobID, IdentityID: a.IdentityID, Source: a.Provider, Stream: a.Stream, Identity: a.DisplayIdentity, ProviderIdentity: a.Metadata, Kind: a.Kind, From: instant(a.Start), To: instant(a.End), ProviderDate: a.ProviderDate, Started: instant(a.Started), Occurred: instant(a.Occurred), Finished: nullableTime(a.Finished), LocalOccurred: time.UnixMicro(int64(a.Occurred)).In(loc).Format("2006-01-02 15:04:05.999999 -07:00 MST"), Outcome: a.Outcome, Label: label, ErrorClass: a.ErrorClass, ErrorCode: a.ErrorCode, Message: a.Message, Diagnostic: a.Diagnostic, Page: a.Page, RetryCount: a.RetryCount, NextRetry: nullableTime(a.NextRetry), Retries: a.Retries, AcceptedRows: a.AcceptedRows, Evidence: []auditEvidence{}, DetailURL: fmt.Sprintf("/audit/%d", a.ID)}
+	r.RetryHintAt = nullableTime(a.Diagnostic.RetryHintAt)
 	if r.Retries == nil {
 		r.Retries = []storage.RetryDetail{}
 	}

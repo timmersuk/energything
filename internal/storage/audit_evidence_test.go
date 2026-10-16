@@ -35,3 +35,27 @@ func TestAttemptEvidenceOwnershipAndExclusion(t *testing.T) {
 		}
 	}
 }
+
+func TestRetryHintDiagnosticSurvivesRestart(t *testing.T) {
+	s, dir, _, job := fixture(t, "octopus")
+	ctx := context.Background()
+	id := begin(t, s, job)
+	hint := testStart + 10*halfHour
+	if e := s.RecordRejectedOrFailedAttempt(ctx, FailedAttempt{AttemptID: id, Finished: testStart + 4*halfHour, NextDue: hint, Outcome: "failed", ErrorClass: "rate_limit", ErrorCode: "limited", Diagnostic: Diagnostic{HTTPStatus: 429, RetryHintSource: "retry_after_header", RetryHintAt: &hint, RateLimitBody: "invalid_json"}}); e != nil {
+		t.Fatal(e)
+	}
+	s.Close()
+	var e error
+	s, e = Open(ctx, dir)
+	if e != nil {
+		t.Fatal(e)
+	}
+	defer s.Close()
+	a, e := s.QueryAttempt(ctx, id)
+	if e != nil || a.Diagnostic.RetryHintAt == nil || *a.Diagnostic.RetryHintAt != hint || a.NextRetry == nil || *a.NextRetry != hint || a.Diagnostic.RetryHintSource != "retry_after_header" {
+		t.Fatal(a, e)
+	}
+	if validateDiagnostic(Diagnostic{RetryHintSource: "private-secret"}) == nil || validateDiagnostic(Diagnostic{RateLimitBody: "private-secret"}) == nil {
+		t.Fatal("unchecked text accepted")
+	}
+}

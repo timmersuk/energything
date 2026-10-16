@@ -32,21 +32,22 @@ func nullableTime(t *storage.Instant) *string {
 }
 
 type attemptView struct {
-	Diagnostic storage.Diagnostic `json:"diagnostic"`
-	ErrorCode  string             `json:"error_code,omitempty"`
-	Page       *int               `json:"page,omitempty"`
-	Started    string             `json:"started_at"`
-	Finished   *string            `json:"finished_at"`
-	Outcome    string             `json:"outcome"`
-	ErrorClass string             `json:"error_class,omitempty"`
-	Message    string             `json:"message,omitempty"`
+	RetryHintAt *string            `json:"provider_retry_at"`
+	Diagnostic  storage.Diagnostic `json:"diagnostic"`
+	ErrorCode   string             `json:"error_code,omitempty"`
+	Page        *int               `json:"page,omitempty"`
+	Started     string             `json:"started_at"`
+	Finished    *string            `json:"finished_at"`
+	Outcome     string             `json:"outcome"`
+	ErrorClass  string             `json:"error_class,omitempty"`
+	Message     string             `json:"message,omitempty"`
 }
 
 func attempt(a *storage.Audit) *attemptView {
 	if a == nil {
 		return nil
 	}
-	return &attemptView{Diagnostic: a.Diagnostic, Started: instant(a.Started), Finished: nullableTime(a.Finished), Outcome: a.Outcome, ErrorClass: a.ErrorClass, ErrorCode: a.ErrorCode, Page: a.Page, Message: a.Message}
+	return &attemptView{RetryHintAt: nullableTime(a.Diagnostic.RetryHintAt), Diagnostic: a.Diagnostic, Started: instant(a.Started), Finished: nullableTime(a.Finished), Outcome: a.Outcome, ErrorClass: a.ErrorClass, ErrorCode: a.ErrorCode, Page: a.Page, Message: a.Message}
 }
 
 type jobView struct {
