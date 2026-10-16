@@ -203,3 +203,9 @@ telemetry with owner-visible source IDs. Browsing performs no provider request o
 startup recovery. Do not open the live preview database with a host CLI.
 Task06a introduces no schema migration and retains existing records/evidence/private
 runtime files and the aggregate reservation ledger during the standard image update.
+
+`GROWATT_AGGREGATE_DAILY_CAP_ENABLED` is a boolean, default `false`. It controls
+only the optional local ten-per-rolling-24h aggregate cap. Set it to `true` to
+restore that cap and restart. Five-minute spacing and the existing reservation
+ledger always remain active. Compose passes the flag through; no private runtime
+file edit is required to use the disabled default.

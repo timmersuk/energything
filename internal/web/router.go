@@ -84,7 +84,7 @@ func NewRouterWithRefresh(c config.Config, buildID string, store recordStore, re
 				name = "audit.html"
 			}
 		} else if r.URL.Path == "/records/growatt/aggregates" || r.URL.Path == "/api/v1/growatt/aggregates" {
-			data, err = aggregateData(r.Context(), store, values, r.URL.Path)
+			data, err = aggregateData(r.Context(), store, values, r.URL.Path, c.Growatt.AggregateDailyCapEnabled)
 			name = "aggregates.html"
 		} else {
 			growatt := strings.Contains(r.URL.Path, "growatt")

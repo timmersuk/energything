@@ -64,3 +64,12 @@ confirmed default quality selection, retained sample visibility, quality paging 
 explicit absolute-time selection. Preview rebuilt as task06a-samples-default on its
 original data mount; authenticated default page showed retained samples and health
 passed. The generation cap was not changed.
+
+Quota follow-up: the user explicitly requested a boolean flag with the ten/day
+cap disabled by default. Implemented GROWATT_AGGREGATE_DAILY_CAP_ENABLED=false;
+true restores the existing cap. No numeric-limit setting or bounded-experiment
+runner was retained. Synthetic tests cover eleven reservations with the cap off,
+five-minute spacing, restart retention, cap restoration and provider deadlines
+remaining unchanged when only local-budget deferrals are reconsidered.
+Full Go suite and vet passed for the boolean flag. Preview rebuilt with the cap
+disabled by default; retained data mount and five-minute reservation ledger kept.

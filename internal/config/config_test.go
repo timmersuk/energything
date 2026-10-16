@@ -118,3 +118,24 @@ func TestHistoryStart(t *testing.T) {
 		}
 	}
 }
+
+func TestAggregateDailyCapFlag(t *testing.T) {
+	for _, tc := range []struct {
+		raw   string
+		want  bool
+		valid bool
+	}{{"", false, true}, {"false", false, true}, {"true", true, true}, {"private-secret", false, false}} {
+		values := map[string]string{"ENERGYTHING_USERNAME": "synthetic", "ENERGYTHING_PASSWORD": "synthetic", "GROWATT_API_TOKEN": "synthetic", "GROWATT_AGGREGATE_DAILY_CAP_ENABLED": tc.raw}
+		c, e := Parse(func(k string) string { return values[k] }, time.Now())
+		if e != nil {
+			t.Fatal(e)
+		}
+		if tc.valid {
+			if c.Growatt.State != "valid" || c.Growatt.AggregateDailyCapEnabled != tc.want {
+				t.Fatal(tc, c.Growatt.State)
+			}
+		} else if c.Growatt.State != "error" || strings.Contains(c.Growatt.Message, "private-secret") {
+			t.Fatal(tc, c.Growatt.State)
+		}
+	}
+}

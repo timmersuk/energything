@@ -175,3 +175,42 @@ func TestSevenDateAggregateCollection(t *testing.T) {
 		})
 	}
 }
+
+func TestAggregateSchedulerBudgetOverrideUsesSharedReservations(t *testing.T) {
+	ctx := context.Background()
+	s, e := storage.Open(ctx, t.TempDir())
+	if e != nil {
+		t.Fatal(e)
+	}
+	defer s.Close()
+	ids, e := s.UpsertIdentities(ctx, []storage.Identity{{Provider: "growatt", Stream: "generation", StableKey: "SYN-EXPERIMENT", Selected: true, Metadata: storage.DiscoveryMetadata{PlantID: "SYN-EXPERIMENT"}}})
+	if e != nil {
+		t.Fatal(e)
+	}
+	now := time.Now()
+	for n := 0; n < 10; n++ {
+		due, e := s.ReserveAggregateCall(ctx, storage.At(now.Add(-time.Hour+time.Duration(n)*5*time.Minute)))
+		if e != nil || !due.IsZero() {
+			t.Fatal(n, due, e)
+		}
+	}
+	from := time.Date(2026, 1, 15, 0, 0, 0, 0, time.UTC)
+	jobs, e := s.EnsureJobs(ctx, []storage.Job{{IdentityID: ids[0].ID, Kind: "aggregate", Policy: "backfill", Start: storage.At(from), End: storage.At(from.AddDate(0, 0, 1)), ProviderDate: "2026-01-15", NextDue: storage.At(now)}})
+	if e != nil {
+		t.Fatal(e)
+	}
+	calls := 0
+	client := growatt.NewClient("synthetic", aggregateTransport(func(*http.Request) (*http.Response, error) {
+		calls++
+		return &http.Response{StatusCode: 200, Header: http.Header{}, Body: io.NopCloser(strings.NewReader(`{"error_code":0,"data":{"count":0,"time_unit":"day","energys":[]}}`))}, nil
+	}))
+	if e = CollectGrowattAggregateUnit(ctx, aggregateBudgetStore{s, false}, client, jobs[0], "SYN-EXPERIMENT"); e != nil || calls != 1 {
+		t.Fatal("11th transmission not allowed", e, calls)
+	}
+	if e = CollectGrowattAggregateUnit(ctx, aggregateBudgetStore{s, false}, client, jobs[0], "SYN-EXPERIMENT"); e == nil || calls != 1 {
+		t.Fatal("spacing bypass", e, calls)
+	}
+	if e = CollectGrowattAggregateUnit(ctx, aggregateBudgetStore{s, true}, client, jobs[0], "SYN-EXPERIMENT"); e == nil || calls != 1 {
+		t.Fatal("restored cap bypass", e, calls)
+	}
+}

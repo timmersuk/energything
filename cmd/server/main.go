@@ -36,6 +36,11 @@ func run(ctx context.Context) (err error) {
 		return err
 	}
 	defer func() { err = errors.Join(err, db.Close()) }()
+	if c.Growatt.State == "valid" {
+		if err := db.ReconsiderAggregateDeferrals(ctx, storage.At(time.Now()), c.Growatt.AggregateDailyCapEnabled); err != nil {
+			return errors.New("aggregate budget configuration could not be applied")
+		}
+	}
 	scheduler := collection.NewScheduler(db, c)
 	handler, err := web.NewRouterWithRefresh(c, BuildID, db, scheduler.Refresh)
 	if err != nil {

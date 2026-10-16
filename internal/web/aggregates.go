@@ -16,12 +16,13 @@ type aggregateView struct {
 	RetrievedAt string `json:"retrieved_at"`
 }
 type aggregatesView struct {
-	Progress          []generationProgress `json:"collection_progress"`
-	Version           string               `json:"version"`
-	Records           []aggregateView      `json:"records"`
-	NextCursor        string               `json:"next_cursor,omitempty"`
-	NextURL           string               `json:"-"`
-	From, To, PlantID string               `json:"-"`
+	AggregateDailyCapEnabled bool                 `json:"aggregate_daily_cap_enabled"`
+	Progress                 []generationProgress `json:"collection_progress"`
+	Version                  string               `json:"version"`
+	Records                  []aggregateView      `json:"records"`
+	NextCursor               string               `json:"next_cursor,omitempty"`
+	NextURL                  string               `json:"-"`
+	From, To, PlantID        string               `json:"-"`
 }
 
 type generationProgress struct {
@@ -44,8 +45,8 @@ type generationJob struct {
 	Retries int    `json:"retry_count"`
 }
 
-func aggregateData(ctx context.Context, s recordStore, v url.Values, path string) (aggregatesView, error) {
-	out := aggregatesView{Version: "v1", Records: []aggregateView{}}
+func aggregateData(ctx context.Context, s recordStore, v url.Values, path string, dailyCapEnabled bool) (aggregatesView, error) {
+	out := aggregatesView{AggregateDailyCapEnabled: dailyCapEnabled, Version: "v1", Records: []aggregateView{}}
 	for k, values := range v {
 		if len(values) != 1 {
 			return out, storage.ErrInvalid

@@ -144,7 +144,7 @@ func (s *Scheduler) lane(ctx context.Context, provider string) {
 			if provider == "octopus" {
 				_ = CollectOctopusWindow(ctx, s.DB, s.Octopus, j, octopus.Meter{MPAN: i.Metadata.MPAN, Serial: i.Metadata.Serial, Direction: i.Stream})
 			} else if j.Kind == "aggregate" {
-				_ = CollectGrowattAggregateUnit(ctx, s.DB, s.Growatt, j, i.Metadata.PlantID)
+				_ = CollectGrowattAggregateUnit(ctx, aggregateBudgetStore{s.DB, s.Config.Growatt.AggregateDailyCapEnabled}, s.Growatt, j, i.Metadata.PlantID)
 			} else {
 				_ = CollectGrowattUnit(ctx, s.DB, s.Growatt, j, growatt.Device{PlantID: i.Metadata.PlantID, Serial: i.Metadata.Serial, Family: i.Metadata.DeviceType}, s.Config.Timezone.String())
 			}

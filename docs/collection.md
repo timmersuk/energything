@@ -111,7 +111,7 @@ transmissions/page, with bounded inline delays and cancellable requests. Every
 Growatt discovery/detailed transmission is paced at least ten seconds apart,
 including pages and inline retries. Historical units yield between days.
 Scheduler reattempts create new attempt IDs and defer one minute doubling to one
-hour, plus0–1 second jitter. Provider DeferredUntil is a lower bound; long waits
+hour, plus0ï¿½1 second jitter. Provider DeferredUntil is a lower bound; long waits
 are stored as job due times rather than holding a provider lane. Transient discovery errors retry after at least15 minutes (or a later provider
 deferral), independently of healthy streams; a plant can collect generation while
 device discovery retries. Authentication and
@@ -201,3 +201,13 @@ It retains original clocks and unknown telemetry, including rejected content, an
 excludes secrets/discovery material. Keep downloads private for follow-up. Do not
 erase the database or force a full backfill to diagnose an error. Audit browsing
 neither contacts providers nor performs recovery/migrations, and adds no scheduler.
+
+### Optional aggregate daily cap (16 October 2026)
+
+By explicit user decision, the local ten-per-rolling-24h cap is now **off by
+default**. Set `GROWATT_AGGREGATE_DAILY_CAP_ENABLED=true` to enable it, or `false`
+(the default) to disable it. Restart after changing the flag. Five-minute spacing,
+durable reservations (including failed requests), provider-directed backoff and
+historical progress remain intact. On startup only local-budget deferrals are
+reconsidered under the configured policy; provider deferral deadlines are retained.
+This supersedes earlier statements that the ten-call local cap is unconditional.

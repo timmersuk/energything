@@ -352,3 +352,8 @@ retrieval time; use provider_date to inspect a source calendar day independently
 retrieval time. Explicit `view=resolved` remains available. The v1 samples API
 continues to default to resolved measurement-time queries. Page next links retain
 `view=quality`; no timestamps are inferred or rewritten by this display default.
+
+Aggregate browsing also reports `aggregate_daily_cap_enabled` (boolean). The
+server flag GROWATT_AGGREGATE_DAILY_CAP_ENABLED defaults to false; true restores
+only the local ten-per-rolling-day cap. Five-minute spacing and provider backoff
+remain active in both modes.
