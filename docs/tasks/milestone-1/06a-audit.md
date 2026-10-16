@@ -153,4 +153,3 @@ Earlier passages describing a120-day exploration limit are superseded.
 The user's task06a correction supersedes unlimited historical passages above:
 ENERGYTHING_HISTORY_START defaults to 2022-01-01 inclusive. This task preserves
 that policy, frontiers, progress and quota reservations.
-

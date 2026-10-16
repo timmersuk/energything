@@ -14,4 +14,3 @@
 {{range .Retries}}<p>Page {{.Page}} · retry {{.Retry}} · HTTP {{.HTTPStatus}} · {{.Code}} · wait {{.WaitMicroseconds}} microseconds</p>{{end}}
 {{range .Evidence}}<section><p>Retrieval {{.RetrievalID}} · evidence {{.EvidenceID}} · {{.Retrieved}} UTC · complete {{.Complete}} · digest {{.Digest}}</p><button type="button" data-evidence="{{.URL}}">Inspect selected JSON</button> <a href="{{.URL}}?download=1">Download JSON</a><pre class="evidence" hidden></pre></section>{{else}}<p>No selected evidence retained for this attempt.</p>{{end}}</details></article>{{else}}<p>No retained attempts match these filters.</p>{{end}}
 {{if .NextURL}}<a class="next" href="{{.NextURL}}">Next page</a>{{end}}</main></body></html>
-

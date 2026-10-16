@@ -10,6 +10,3 @@
 {{define "filters"}}<label>From <input name="from" value="{{.Query.FromText}}" placeholder="YYYY-MM-DD or offset instant"></label><label>To <input name="to" value="{{.Query.ToText}}" placeholder="YYYY-MM-DD or offset instant"></label><label>Rows <input name="limit" type="number" min="1" max="500" value="{{.Limit}}"></label><label>Local identity <input name="identity" type="number" min="1" value="{{if .Query.IdentityID}}{{.Query.IdentityID}}{{end}}" placeholder="All"></label>{{end}}
 {{define "range"}}<p>Calendar dates are inclusive in {{.Timezone}}; offset instants use an exclusive end. Current range basis: {{.RangeBasis}}.</p><p>{{if .From}}{{.From}} to {{.To}} (exclusive){{else}}All retrieval times for the provider date{{end}}. At most {{.Limit}} records per page.</p>{{end}}
 {{define "next"}}{{if .NextURL}}<a class="next" href="{{.NextURL}}">Next page</a>{{end}}<p>Empty results mean no stored records matching these filters; they do not mean zero energy.</p></main></body></html>{{end}}
-
-
-

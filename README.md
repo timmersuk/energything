@@ -148,4 +148,3 @@ bounded selected-evidence inspection/download. The daily generation page shows
 stored backfill/retry state so unfinished gaps are distinguishable from fetched
 empty or rejected windows. See [audit API](docs/http-api.md#collection-audit-task06a).
 The configured automatic history boundary remains 2022-01-01 inclusive by default.
-

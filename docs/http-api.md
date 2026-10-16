@@ -343,5 +343,3 @@ and nullable `last_attempt`. The generation page displays these stored values.
 A frontier describes backwards fetched progress, not physical coverage; legacy
 January rows can coexist with an unfinished gap before August. Inspect individual
 attempt windows to distinguish not fetched yet, fetched empty and rejected data.
-
-
