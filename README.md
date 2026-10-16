@@ -38,7 +38,7 @@ GET /static/style.css, /records/octopus, /records/growatt, /api/v1/status,
 /api/v1/octopus/intervals and /api/v1/growatt/samples require Basic Auth.
 See [HTTP API](docs/http-api.md) for bounded queries and exact JSON fields.
 Other paths return 404; wrong methods on implemented routes return 405.
-Authenticated CSRF-protected POST /api/v1/refresh queues recent work; audit browsing belongs to task06a.
+Authenticated CSRF-protected POST /api/v1/refresh queues recent work. Authenticated audit browsing is now available at /audit.
 Use trusted LAN access or an HTTPS reverse proxy for Basic Auth.
 
 Docker:
@@ -148,3 +148,4 @@ bounded selected-evidence inspection/download. The daily generation page shows
 stored backfill/retry state so unfinished gaps are distinguishable from fetched
 empty or rejected windows. See [audit API](docs/http-api.md#collection-audit-task06a).
 The configured automatic history boundary remains 2022-01-01 inclusive by default.
+

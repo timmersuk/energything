@@ -15,7 +15,7 @@ All implemented routes accept GET only (405 with `Allow: GET` otherwise).
 | `/static/style.css` | Embedded stylesheet | Basic Auth |
 
 Missing/wrong credentials return 401 with a Basic challenge and no source data.
-Unknown routes, including audit and refresh routes, return 404. Responses use
+Unknown routes return 404. Audit and refresh additions are documented below. Responses use
 `Cache-Control: no-store`, nosniff and a same-origin content security policy.
 
 ## Record query parameters
@@ -321,7 +321,7 @@ explicit inspect click and inserts pretty JSON as text, never HTML.
 
 `rate_limit` retains terminal `failed` and an explicit deferral label.
 `local_budget` means the local aggregate reservation budget prevented this page's
-request; `limited` means provider rate limiting. Counts therefore include deferred
+request; `limited` means provider rate limiting for new attempts. Older retained `limited` events may lack local/provider origin and are not reinterpreted. Counts therefore include deferred
 failed attempts. Empty is accepted fetched unavailability; rejection/failure does
 not advance completion. Interrupted/cancelled is never success.
 
@@ -343,4 +343,5 @@ and nullable `last_attempt`. The generation page displays these stored values.
 A frontier describes backwards fetched progress, not physical coverage; legacy
 January rows can coexist with an unfinished gap before August. Inspect individual
 attempt windows to distinguish not fetched yet, fetched empty and rejected data.
+
 

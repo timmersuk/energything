@@ -38,3 +38,17 @@ expected unimplemented favicon 404 appeared in console.
 Final full Go suite and vet passed after review fixes. Storage tests also cover
 unsafe/corrupted/oversize historical evidence failing closed and deduplicated content
 not permitting cross-attempt retrieval access.
+
+Follow-up Standards and Spec reviews both confirmed the findings resolved, with
+no remaining blockers. Targeted storage/web/Octopus tests passed again.
+
+Preview update executed with build ID `task06a-audit`, CGO-disabled Linux amd64 and
+arm64 server/enqueue binaries, rebuilt energything:local, and the exact saved
+Compose project/override. Recreated energything-preview on the original
+D:\projects\energything\.cache\preview-data:/data bind mount. No schema upgrade,
+new data directory, provider repair, private configuration edit or ledger reset.
+Health returned ok; authenticated status reported task06a-audit. Authenticated
+audit list/HTML and daily-generation progress HTML passed. Retained row count
+increased during normal collection; fetched-window and schedule counts did not
+fall. Private count-only summaries are ignored under .cache; private identifiers,
+amounts, evidence, credentials and runtime tokens were not published.
