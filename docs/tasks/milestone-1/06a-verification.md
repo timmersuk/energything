@@ -108,3 +108,7 @@ No migration or retained data rewrite was required.
 Removed the timestamp qualification on every row, diagnostic view selector, quality/source controls and raw timestamp evidence from the normal samples page. Retained reported reading-day filtering, newest-first paging, exact reading details and the note: Times shown as reported by Growatt. Diagnostic data remains available through the API and collection audit. This supersedes the earlier advanced-controls UI description.
 
 Validation: full Go suite and vet passed; synthetic Edge verification passed for date filtering, filtered paging, exact details and absence of diagnostic clutter. Rebuilt preview as task06a-simple-samples with its existing data mount preserved and verified the authenticated page.
+
+### Growing telemetry day regression
+
+Synthetic regression reproduced history discarded when the provider count increased between pages. Telemetry now follows monotonic increases within existing row/page budgets; decreases, repeated pages, short intermediate pages, overruns and invalid rows still fail. No measurement instants or stable repeated-hour identities are inferred, and no scheduler or quota changes were made. Storage-backed verification confirms accepted rows and per-page evidence survive reopen and remain intact after a later shrinking-count failure. Full Go suite and vet passed.

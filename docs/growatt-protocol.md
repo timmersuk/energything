@@ -90,14 +90,21 @@ stable observation; repeated retrievals remain honest separate occurrences.
 
 ## Acquisition and task 06 handoff
 
-Sequential page assembly; stable first-page count, nonempty pages until count,
+Sequential page assembly; nondecreasing reported count, full intermediate pages until count,
 exact assembled count, no repeated nonempty page. Identical page replay is a cycle;
 unknown-identity rows are retained as occurrences, never overwritten by time.
 All rows validate before acceptance. Engineering budgets: 100 rows/page, 100 pages,
 10,000 rows, 4 MiB/page, 30s/request; these are limits, not promised cadence/retention.
 Provider docs permit 100/page, <=250 pages, <=7-day history; this adapter narrows
 history to one provider day. Private day count showed minute-scale cadence, so a
-288-row assumption would truncate valid telemetry. Moving counts fail the unit.
+288-row assumption would truncate valid telemetry. A growing telemetry count updates the
+assembly target so a new reading arriving during paging does not discard the day.
+A decreasing count, early/short intermediate page, overrun or repeated page still
+fails the unit. Completion means traversal reached the latest reported count,
+not an atomic provider snapshot or proof that the calendar day is complete.
+Per-page counts and retrieval times remain in evidence; equal clocks and payloads
+remain separate unresolved occurrences. This policy applies only to telemetry;
+discovery and generation aggregates retain their stable-count checks.
 Empty is observed unavailability, never zero or proof no older data exists.
 
 Client alone owns at most three HTTP requests/page for network/408/429/5xx;

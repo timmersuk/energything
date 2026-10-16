@@ -63,12 +63,15 @@ func (c *Client) FetchDay(ctx context.Context, d Device, date, zone string) (Win
 		}
 		if expected < 0 {
 			expected = count
-		} else if expected != count {
+		} else if count < expected {
 			pe := problem("pagination", "count_changed", page)
 			pe.Diagnostic.Expected = &expected
 			pe.Diagnostic.Observed = &count
 			return w, pe
 		}
+		// Telemetry can grow while paging. Follow the latest advertised total,
+		// within the existing row/page budgets; a shrinking total still fails.
+		expected = count
 		items, ok := data["datas"].([]any)
 		if !ok {
 			return w, problem("protocol", "missing_results", page)
@@ -78,7 +81,7 @@ func (c *Client) FetchDay(ctx context.Context, d Device, date, zone string) (Win
 			return w, problem("pagination", "repeated_page", page)
 		}
 		seen[string(canonical)] = true
-		if len(items) > 100 || len(rows)+len(items) > expected || len(items) == 0 && len(rows) < expected {
+		if len(items) > 100 || len(rows)+len(items) > expected || len(rows)+len(items) < expected && len(items) != 100 {
 			pe := problem("pagination", "count_mismatch", page)
 			observed := len(rows) + len(items)
 			pe.Diagnostic.Expected = &expected
