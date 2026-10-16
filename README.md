@@ -4,9 +4,14 @@ Automatic recent collection now starts asynchronously for configured selected
 Octopus and Growatt identities. Durable independent plans retain progress and
 recover interrupted units. Generation remains a separate plant-level daily feed.
 Octopus history uses a verified oldest-first explicit-domain probe. Growatt history
-continues backwards through older calendar years without a lookback cap. Source
+works backwards to ENERGYTHING_HISTORY_START (default 2022-01-01 inclusive). Source
 lifetime and seasonal clock semantics remain qualified. See
 [collection contracts](docs/collection.md) and [task06 verification](docs/tasks/milestone-1/06-verification.md).
+
+Readings retain one current accepted value per source period. Refetches update
+that row and corrections overwrite values; no value-version history is kept.
+Growatt uses its reported device timestamp as the period key. Schema008 upgrades
+require a stopped data-directory backup; see [operations](docs/operations.md).
 
 Requires Go 1.26.4 (module compatibility 1.26.0). Dependencies are pinned in
 go.mod/go.sum: modernc.org/sqlite v1.60.1 and modernc.org/libc v1.77.1.

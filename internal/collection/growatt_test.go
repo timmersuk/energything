@@ -48,6 +48,14 @@ func TestGrowattAcceptedRejectedEmptyReopen(t *testing.T) {
 	if status[0].SampleCount != 2 || *status[0].Jobs[0].Checkpoint != checkpoint || status[0].LastAttempt.Outcome != "rejected" || status[0].LastAttempt.ErrorCode != "soc_range" {
 		t.Fatal(status)
 	}
+	body = `{"error_code":0,"data":{"count":2,"datas":[{"time":"2026-03-29 01:30:00","soc":10},{"time":"2026-03-29 01:30:00","soc":20}]}}`
+	if e = CollectGrowattUnit(ctx, db, c, jobs[0], d, "Europe/London"); e == nil {
+		t.Fatal("conflicting source period accepted")
+	}
+	status, _ = db.QueryStatus(ctx)
+	if status[0].SampleCount != 2 || status[0].LastAttempt.Outcome != "rejected" || status[0].LastAttempt.ErrorCode != "conflict" || status[0].LastAttempt.NextRetry == nil || *status[0].LastAttempt.NextRetry <= *status[0].LastAttempt.Finished {
+		t.Fatal("conflict changed accepted rows or lost backoff", status)
+	}
 	body = `{"error_code":0,"data":{"count":0,"datas":[]}}`
 	if e = CollectGrowattUnit(ctx, db, c, jobs[0], d, "Europe/London"); e != nil {
 		t.Fatal(e)
@@ -63,7 +71,7 @@ func TestGrowattAcceptedRejectedEmptyReopen(t *testing.T) {
 		t.Fatal(status)
 	}
 	audits, e := db.QueryAudit(ctx, storage.AuditQuery{})
-	if e != nil || len(audits.Records) != 3 || len(audits.Records[1].Evidence) != 1 {
+	if e != nil || len(audits.Records) != 4 || len(audits.Records[1].Evidence) != 1 {
 		t.Fatal(audits, e)
 	}
 }

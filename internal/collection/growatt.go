@@ -81,13 +81,15 @@ func CollectGrowattUnit(ctx context.Context, db growattStore, client *growatt.Cl
 			return nil
 		}
 		code, outcome, class := "io", "failed", "storage"
+		nextDue := finished
 		if errors.Is(e, storage.ErrInvalid) {
 			code, outcome, class = "conflict", "rejected", "validation"
+			nextDue = storage.At(retryDue(job, time.Now(), time.Time{}))
 		}
 		if ctx.Err() != nil {
-			code, outcome = "cancelled", "cancelled"
+			code, outcome, class = "cancelled", "cancelled", "storage"
 		}
-		if db.RecordRejectedOrFailedAttempt(auditCtx, storage.FailedAttempt{AttemptID: id, Finished: storage.At(time.Now()), NextDue: finished, Outcome: outcome, ErrorClass: class, ErrorCode: code, Evidence: w.Evidence, Retries: retries}) != nil {
+		if db.RecordRejectedOrFailedAttempt(auditCtx, storage.FailedAttempt{AttemptID: id, Finished: storage.At(time.Now()), NextDue: nextDue, Outcome: outcome, ErrorClass: class, ErrorCode: code, Evidence: w.Evidence, Retries: retries}) != nil {
 			return errors.New("storage: Growatt commit and failure audit unavailable; no completion claimed")
 		}
 		return errors.New("storage: Growatt accepted commit failed; failure recorded")
