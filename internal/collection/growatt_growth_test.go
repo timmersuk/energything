@@ -31,6 +31,7 @@ func TestGrowingGrowattDayPersistsAcrossReopen(t *testing.T) {
 		t.Fatal(err)
 	}
 	shrink := false
+	soc := 50
 	c := growatt.NewClient("synthetic", growattTransport(func(r *http.Request) (*http.Response, error) {
 		r.ParseForm()
 		page := r.Form.Get("page")
@@ -43,7 +44,7 @@ func TestGrowingGrowattDayPersistsAcrossReopen(t *testing.T) {
 		}
 		rows := make([]map[string]any, size)
 		for i := range rows {
-			rows[i] = map[string]any{"time": fmt.Sprintf("2026-10-16 %02d:%02d:00", (offset+i)/60, (offset+i)%60), "soc": 50}
+			rows[i] = map[string]any{"time": fmt.Sprintf("2026-10-16 %02d:%02d:00", (offset+i)/60, (offset+i)%60), "soc": soc}
 		}
 		b, _ := json.Marshal(map[string]any{"error_code": 0, "data": map[string]any{"count": count, "datas": rows}})
 		return &http.Response{StatusCode: 200, Header: http.Header{}, Body: io.NopCloser(strings.NewReader(string(b)))}, nil
@@ -51,6 +52,14 @@ func TestGrowingGrowattDayPersistsAcrossReopen(t *testing.T) {
 	d := growatt.Device{PlantID: "synthetic", Serial: "SYN-GROW", Family: "5"}
 	if err = CollectGrowattUnit(ctx, db, c, jobs[0], d, "Europe/London"); err != nil {
 		t.Fatal("growing day discarded", err)
+	}
+	// Replay and correction must both use the periods in the real provider
+	// response, without caller-supplied synthetic reading keys.
+	for _, value := range []int{50, 51} {
+		soc = value
+		if err = CollectGrowattUnit(ctx, db, c, jobs[0], d, "Europe/London"); err != nil {
+			t.Fatal(err)
+		}
 	}
 	shrink = true
 	if err = CollectGrowattUnit(ctx, db, c, jobs[0], d, "Europe/London"); err == nil {
@@ -74,7 +83,16 @@ func TestGrowingGrowattDayPersistsAcrossReopen(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(audits.Records) != 2 || audits.Records[1].AcceptedRows != 102 || len(audits.Records[1].Evidence) != 2 || !audits.Records[1].Evidence[0].Complete {
+	if len(audits.Records) != 4 || audits.Records[1].AcceptedRows != 102 || len(audits.Records[1].Evidence) != 2 || !audits.Records[1].Evidence[0].Complete {
 		t.Fatal("growth audit/evidence missing", audits)
+	}
+	samples, err := db.QuerySamples(ctx, storage.SampleQuery{QualityView: true, RecordQuery: storage.RecordQuery{Limit: 200}})
+	if err != nil || len(samples.Records) != 102 {
+		t.Fatal("replay multiplied canonical readings", err)
+	}
+	for _, sample := range samples.Records {
+		if sample.Instant != nil || sample.Values["soc"].Decimal == nil || *sample.Values["soc"].Decimal != "51" {
+			t.Fatal("correction not canonical")
+		}
 	}
 }

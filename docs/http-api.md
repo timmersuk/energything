@@ -208,7 +208,7 @@ nonnegative decimal string), unit=kWh, calendar=provider_date_zone_unverified,
 quality (provider_reported or reported_zero_availability_unknown), period_start
 and period_end (null; UTC boundaries unestablished), retrieved_at (UTC RFC3339),
 and retrieval_id. Retrieval links retained selected evidence internally; task06a
-owns authenticated raw-evidence inspection. Records are current accepted versions;
+owns authenticated raw-evidence inspection. Records contain current accepted values;
 superseded values/evidence remain stored. Dates with no rows have unknown availability.
 
 The compact local table offers plant/date filters, stable next-page links and
@@ -372,18 +372,16 @@ fields are retained from rate-limit errors, never raw 429 bodies or headers.
 The HTML page now defaults to `view=provider`. From/To are **inclusive reported
 reading days**, independent of when Energything fetched the response. They accept
 YYYY-MM-DD only in this view. The page says Readings from / Readings through,
-shows newest reported day/clock first, and keeps validation quality under Advanced
-diagnostics. The redundant single provider-date field is removed from the form.
-Time fetched and verified UTC measurement time are explicitly diagnostic modes.
+shows newest reported day/clock first, with no quality/diagnostic controls in the
+normal form. Retrieval and verified UTC query modes remain available to API callers.
 
 The API default remains resolved. API callers may explicitly select
 `view=provider&from=2026-10-15&to=2026-10-16`. Its envelope uses
 `range_basis: provider_reported_day`; `from` and `to` are inclusive calendar date
 strings in this view. Ordering is reported provider date, syntactically valid
-reported wall-clock text and stable row ID, descending. Equal/repeated clocks
-remain separate occurrences, never inferred absolute instants. Missing/malformed
-clocks sort last within their reported date. Samples without a reported date remain
-accessible in retrieval diagnostics. Provider-view keyset cursors bind the date
+reported wall-clock text and internal paging row ID, descending. One canonical
+row is retained per device/reported timestamp; no UTC instant is inferred. Missing
+or malformed provider timestamps reject acquisition rather than inventing keys. Provider-view keyset cursors bind the date
 range, source, quality and limit and preserve the view across pages.
 
 Explicit `view=quality` continues to filter/order by retrieval time as before;

@@ -249,14 +249,15 @@ requested job/day/bounds and evidence references remain separate. Task 06a can q
 this retained context without reconstructing it from raw exception strings.
 
 Growatt `Expected=0` means no established expected cadence, not zero production.
-`Valid` counts accepted occurrences and `Qualified` counts qualified occurrences.
+`Valid` counts canonical readings accepted in the window; `Qualified` counts those
+with qualified measurement times.
 Storage allows these observed counts without manufacturing expected coverage;
 when Expected is explicitly positive the existing arithmetic validation remains.
 MeasurementComplete stays false for this adapter. Empty acceptance preserves older
-rows and records observed unavailability. Unresolved occurrences retain attempt/
-ordinal and null key/instant; latest/history replay cannot claim idempotent sample
-identity until independent provider evidence establishes it. Evidence is digest
-reused but every retrieval and unresolved occurrence remains attributable.
+rows and records observed unavailability. Reported source timestamps identify
+canonical periods without assigning an absolute instant. Latest/history refetches
+upsert those periods. Audit attempts and selected retrieval evidence remain
+attributable separately from the canonical reading.
 
 Review follow-up adds migration 004 for safe discovery failure class/code/page and
 Diagnostic. QueryDiscovery/status expose this stored context even when no identity

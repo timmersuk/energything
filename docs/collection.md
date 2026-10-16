@@ -160,8 +160,8 @@ candidate interpretations under the configured regional zone and fixed UTC+1.
 Round-trip candidate enumeration explicitly identifies spring gaps and both autumn
 occurrences. Neither a library default, Shanghai calendar epoch nor receipt delay
 chooses an occurrence. Candidate interpretation does not invent a stable sample ID
-or rewrite old rows; samples remain occurrence-based and excluded from authoritative
-absolute-time queries while the seasonal/identity gate is unresolved.
+or establish a UTC instant. Canonical samples use the reported source timestamp
+and remain excluded from authoritative absolute-time queries while unresolved.
 
 Current installation BST clocks already have strong independent empirical support;
 exact generation/counter agreement cannot distinguish UTC versus BST when boundary
