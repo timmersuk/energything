@@ -237,3 +237,5 @@ scheduler backoff. No raw error body/header dump, cookies, keys, URLs or arbitra
 provider message is persisted. Unknown old response details cannot be reconstructed.
 See [HTTP Retry-After semantics](https://www.rfc-editor.org/rfc/rfc9110.html#name-retry-after)
 and [429 semantics](https://www.rfc-editor.org/rfc/rfc6585.html#section-4).
+
+Paginated acquisition follows nondecreasing provider totals: telemetry, Growatt discovery/generation and Octopus consumption tolerate new rows arriving during traversal. Shrinking totals, cycles, invalid data and final count mismatches reject the unit. Existing page/row/request budgets, destination checks, conflict validation and quota reservations remain enforced. Accepted traversal is not an atomic provider snapshot. Octopus evidence retains typed per-page counts and assembly position, excluding malformed count payloads.

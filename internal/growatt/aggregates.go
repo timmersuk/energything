@@ -65,12 +65,13 @@ func (c *Client) FetchAggregateRange(ctx context.Context, plant, from, to string
 		}
 		if expected < 0 {
 			expected = count
-		} else if expected != count {
+		} else if count < expected {
 			pe := problem("pagination", "count_changed", page)
 			pe.Diagnostic.Expected = &expected
 			pe.Diagnostic.Observed = &count
 			return w, pe
 		}
+		expected = count
 		items, ok := data["energys"].([]any)
 		if !ok {
 			return w, problem("protocol", "missing_results", page)

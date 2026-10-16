@@ -376,7 +376,7 @@ func TestCountFailuresHaveSpecificReasons(t *testing.T) {
 		if calls == 1 {
 			return response(200, page([]string{row(from, "1")}, nextURL(r), 2)), nil
 		}
-		return response(200, page([]string{row(from.Add(Slot), "1")}, "", 3)), nil
+		return response(200, page([]string{row(from.Add(Slot), "1")}, "", 1)), nil
 	})
 	_, err := c.Fetch(context.Background(), meter, from, from.Add(2*Slot))
 	var e *Error

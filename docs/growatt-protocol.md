@@ -103,8 +103,7 @@ A decreasing count, early/short intermediate page, overrun or repeated page stil
 fails the unit. Completion means traversal reached the latest reported count,
 not an atomic provider snapshot or proof that the calendar day is complete.
 Per-page counts and retrieval times remain in evidence; equal clocks and payloads
-remain separate unresolved occurrences. This policy applies only to telemetry;
-discovery and generation aggregates retain their stable-count checks.
+remain separate unresolved occurrences. Discovery and generation aggregates also accept nondecreasing totals, with final assembled-count validation.
 Empty is observed unavailability, never zero or proof no older data exists.
 
 Client alone owns at most three HTTP requests/page for network/408/429/5xx;
@@ -175,9 +174,9 @@ The allowlist adds only GET plant/energy, paired nonfuture YYYY-MM-DD bounds
 spanning one through seven inclusive dates, time_unit=day, confirmed plant ID,
 page1..100, perpage100. Normal production units include seven dates (end-start
 <=6 calendar days), shortened at range boundaries. Whole-unit validation requires
-stable nonnegative count, day unit, results array, dates within those inclusive bounds, exact nonnegative
+nondecreasing nonnegative count with final assembled-count agreement, day unit, results array, dates within those inclusive bounds, exact nonnegative
 string energy and complete pagination. Equal numeric duplicates collapse; conflicts,
-cycles, count changes, early termination and budgets reject all rows. Selected
+cycles, shrinking counts, early termination and budgets reject all rows. Selected
 page evidence (including unknown row telemetry) is retained on rejection.
 
 Limits: context cancellation; 30s/request; 4MiB/page; 100 pages/10,000 raw rows.

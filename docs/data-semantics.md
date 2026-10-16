@@ -263,7 +263,7 @@ never evidence of operation, coverage or an oldest available date. Absent rows
 remain absent; null/placeholder/invalid energy rejects the whole unit.
 
 The acquisition unit is **one through seven inclusive calendar dates**, perpage=100. A
-complete stable count is required, maximum 100 rows/page, 100 pages/10,000 rows;
+complete traversal matching the latest nondecreasing count is required, maximum 100 rows/page, 100 pages/10,000 rows;
 all rows must fall within the requested inclusive date range. Identical numeric duplicates collapse;
 conflicting duplicates reject. Seven-date inclusivity was privately verified;
 month/year are deferred. Complete pagination is validated

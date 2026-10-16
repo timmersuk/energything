@@ -215,7 +215,7 @@ func TestOctopusCountDiagnosticPersistsThroughAuditAPI(t *testing.T) {
 					next.RawQuery = q.Encode()
 					body = fmt.Sprintf(`{"count":2,"next":%q,"results":[{"consumption":1,"interval_start":"2026-01-01T00:00:00Z","interval_end":"2026-01-01T00:30:00Z"}]}`, next.String())
 					if r.URL.Query().Get("page") == "2" {
-						body = `{"count":3,"next":null,"results":[]}`
+						body = `{"count":1,"next":null,"results":[]}`
 					}
 				}
 				return &http.Response{StatusCode: 200, Header: http.Header{}, Body: io.NopCloser(strings.NewReader(body))}, nil
@@ -231,12 +231,55 @@ func TestOctopusCountDiagnosticPersistsThroughAuditAPI(t *testing.T) {
 			a := v.Records[0]
 			observed := 0
 			if mode == "count_changed" {
-				observed = 3
+				observed = 1
 			}
 			if a.ErrorCode != mode || a.Diagnostic.Expected == nil || *a.Diagnostic.Expected != 2 || a.Diagnostic.Observed == nil || *a.Diagnostic.Observed != observed || len(a.Evidence) == 0 || a.Page == nil {
 				t.Fatal(a)
 			}
 		})
+	}
+}
+
+func TestGrowingOctopusWindowReachesRecordsAndAudit(t *testing.T) {
+	s, h := browsingFixture(t, false)
+	ctx := context.Background()
+	ids, err := s.UpsertIdentities(ctx, []storage.Identity{{Provider: "octopus", Stream: "import", StableKey: "synthetic-growth", Selected: true, Metadata: storage.DiscoveryMetadata{MPAN: "SYN-MPAN", Serial: "SYN-METER"}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	from := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	jobs, err := s.EnsureJobs(ctx, []storage.Job{{IdentityID: ids[0].ID, Kind: "history", Policy: "backfill", Start: storage.At(from), End: storage.At(from.Add(90 * time.Minute)), NextDue: storage.At(time.Now())}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	client := octopus.NewClient("synthetic-key", auditTransport(func(r *http.Request) (*http.Response, error) {
+		interval := func(n int) string {
+			return fmt.Sprintf(`{"consumption":1,"interval_start":%q,"interval_end":%q}`, from.Add(time.Duration(n)*30*time.Minute).Format(time.RFC3339), from.Add(time.Duration(n+1)*30*time.Minute).Format(time.RFC3339))
+		}
+		next := *r.URL
+		q := next.Query()
+		q.Set("page", "2")
+		next.RawQuery = q.Encode()
+		body := fmt.Sprintf(`{"count":2,"next":%q,"results":[%s]}`, next.String(), interval(0))
+		if r.URL.Query().Get("page") == "2" {
+			body = fmt.Sprintf(`{"count":3,"next":null,"results":[%s,%s]}`, interval(1), interval(2))
+		}
+		return &http.Response{StatusCode: 200, Header: http.Header{}, Body: io.NopCloser(strings.NewReader(body))}, nil
+	}))
+	if err = collection.CollectOctopusWindow(ctx, s, client, jobs[0], octopus.Meter{MPAN: "SYN-MPAN", Serial: "SYN-METER", Direction: "import"}); err != nil {
+		t.Fatal(err)
+	}
+	w := request(h, "/api/v1/audit", "synthetic")
+	var audit auditView
+	if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &audit) != nil || len(audit.Records) != 1 || audit.Records[0].Outcome != "success" || audit.Records[0].AcceptedRows != 3 || len(audit.Records[0].Evidence) != 2 {
+		t.Fatal(w.Code, w.Body)
+	}
+	w = request(h, "/api/v1/octopus/intervals?from=2026-01-01&to=2026-01-01", "synthetic")
+	var records struct {
+		Records []json.RawMessage `json:"records"`
+	}
+	if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &records) != nil || len(records.Records) != 3 {
+		t.Fatal(w.Code, w.Body)
 	}
 }
 

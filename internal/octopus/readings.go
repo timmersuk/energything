@@ -89,7 +89,12 @@ func (c *Client) Fetch(ctx context.Context, m Meter, from, to time.Time) (Window
 		if decoder.Decode(&selected) != nil {
 			return out, problem("protocol", "invalid_json", page)
 		}
-		evidence, _ := json.Marshal(map[string]any{"results": telemetry(selected), "page": page})
+		var evidenceCount *int
+		// Retain only a typed count, never an arbitrary malformed error payload.
+		if json.Unmarshal(envelope["count"], &evidenceCount) != nil {
+			evidenceCount = nil
+		}
+		evidence, _ := json.Marshal(map[string]any{"results": telemetry(selected), "page": page, "count": evidenceCount, "assembled_before": len(out.Readings)})
 		out.Evidence = append(out.Evidence, Evidence{evidence, c.now(), false})
 		var rows []Reading
 		if json.Unmarshal(results, &rows) != nil {
@@ -102,7 +107,7 @@ func (c *Client) Fetch(ctx context.Context, m Meter, from, to time.Time) (Window
 			rows[i].Evidence = len(out.Evidence) - 1
 		}
 		out.Readings = append(out.Readings, rows...)
-		// Count is required and must be stable across pages, including duplicates.
+		// Follow a growing count, but reject shrinkage and require the final assembled total.
 		var pageCount *int
 		rawCount, present := envelope["count"]
 		if !present {
@@ -117,12 +122,13 @@ func (c *Client) Fetch(ctx context.Context, m Meter, from, to time.Time) (Window
 		if count < 0 {
 			count = *pageCount
 		}
-		if count != *pageCount {
+		if *pageCount < count {
 			pe := problem("protocol", "count_changed", page)
 			pe.Diagnostic.Expected = &count
 			pe.Diagnostic.Observed = pageCount
 			return out, pe
 		}
+		count = *pageCount
 		raw, ok := envelope["next"]
 		if !ok {
 			return out, problem("protocol", "missing_next", page)
