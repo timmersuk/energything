@@ -102,3 +102,9 @@ first for the screenshot's wide range on retained data. The initial implementati
 scanned historical payload pages; using the existing quality/date index and reading
 only relevant day clock keys reduced that local check from about12.7s to1.35s.
 No migration or retained data rewrite was required.
+
+### Samples page simplification
+
+Removed the timestamp qualification on every row, diagnostic view selector, quality/source controls and raw timestamp evidence from the normal samples page. Retained reported reading-day filtering, newest-first paging, exact reading details and the note: Times shown as reported by Growatt. Diagnostic data remains available through the API and collection audit. This supersedes the earlier advanced-controls UI description.
+
+Validation: full Go suite and vet passed; synthetic Edge verification passed for date filtering, filtered paging, exact details and absence of diagnostic clutter. Rebuilt preview as task06a-simple-samples with its existing data mount preserved and verified the authenticated page.

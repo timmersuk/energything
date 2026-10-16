@@ -184,7 +184,7 @@ func TestStoredValuesPagingAndTimes(t *testing.T) {
 		t.Fatal(w.Code, w.Body)
 	}
 	w = request(h, "/records/growatt?view=quality&provider_date=2026-10-25", "synthetic")
-	if w.Code != 200 || !strings.Contains(w.Body.String(), "Unresolved") || strings.Contains(w.Body.String(), "<script>") || !strings.Contains(w.Body.String(), "&lt;script&gt;") {
+	if w.Code != 200 || strings.Contains(w.Body.String(), "Unresolved UTC") || strings.Contains(w.Body.String(), "<script>") || strings.Contains(w.Body.String(), "Original timestamp evidence") {
 		t.Fatal(w.Code, w.Body)
 	}
 	w = request(h, "/api/v1/growatt/samples?view=quality&provider_date=2026-10-25&limit=2", "synthetic")
@@ -329,11 +329,11 @@ func TestGrowattPageDefaultsToReportedReadingDays(t *testing.T) {
 	_, h := browsingFixture(t, true)
 	path := "/records/growatt?from=2026-10-25&to=2026-10-25&identity=3"
 	w := request(h, path, "synthetic")
-	if w.Code != 200 || !strings.Contains(w.Body.String(), `value="provider" selected`) || strings.Contains(w.Body.String(), "No stored samples matching these filters") {
-		t.Fatalf("default page hides retained samples: status=%d quality_selected=%v empty=%v", w.Code, strings.Contains(w.Body.String(), `value="provider" selected`), strings.Contains(w.Body.String(), "No stored samples matching these filters"))
+	if w.Code != 200 || !strings.Contains(w.Body.String(), `name="view" value="provider"`) || strings.Contains(w.Body.String(), "No stored samples matching these filters") {
+		t.Fatalf("default page hides retained samples: status=%d quality_selected=%v empty=%v", w.Code, strings.Contains(w.Body.String(), `name="view" value="provider"`), strings.Contains(w.Body.String(), "No stored samples matching these filters"))
 	}
 	explicit := request(h, path+"&view=resolved", "synthetic")
-	if explicit.Code != 200 || !strings.Contains(explicit.Body.String(), `value="resolved" selected`) {
+	if explicit.Code != 200 || !strings.Contains(explicit.Body.String(), `Measured from (UTC / offset)`) {
 		t.Fatal("explicit absolute view lost")
 	}
 	api := request(h, "/api/v1/growatt/samples?from=2026-10-26&to=2026-10-26&identity=3", "synthetic")
@@ -351,7 +351,7 @@ func TestGrowattReadingDatesAreNotRetrievalDates(t *testing.T) {
 	// Fixture readings describe March/October 25, but were all retrieved October 26.
 	// The broad range from the user's screenshot must start with the newest reading.
 	w := request(h, "/records/growatt?from=2020-10-10&to=2026-10-27&limit=1", "synthetic")
-	if w.Code != 200 || !strings.Contains(w.Body.String(), `value="provider" selected`) || !strings.Contains(w.Body.String(), "2026-10-25") || strings.Contains(w.Body.String(), "2026-03-29") {
+	if w.Code != 200 || !strings.Contains(w.Body.String(), `name="view" value="provider"`) || !strings.Contains(w.Body.String(), "2026-10-25") || strings.Contains(w.Body.String(), "2026-03-29") {
 		t.Fatalf("reading-date view missing/newest reading hidden: %d", w.Code)
 	}
 	w = request(h, "/records/growatt?from=2026-10-25&to=2026-10-25&limit=1", "synthetic")
