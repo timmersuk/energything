@@ -79,39 +79,25 @@ func aggregateData(ctx context.Context, s recordStore, v url.Values, path string
 		v.Set("cursor", p.NextCursor)
 		out.NextURL = path + "?" + v.Encode()
 	}
-	if schedules, ok := s.(interface {
-		QuerySchedules(context.Context) ([]storage.Schedule, error)
+	if progressStore, ok := s.(interface {
+		QueryGenerationProgress(context.Context, string) ([]storage.GenerationProgress, error)
 	}); ok {
-		plans, err := schedules.QuerySchedules(ctx)
-		if err != nil {
-			return out, err
-		}
-		states, err := s.QueryStatus(ctx)
+		rows, err := progressStore.QueryGenerationProgress(ctx, q.PlantID)
 		if err != nil {
 			return out, err
 		}
 		out.Progress = []generationProgress{}
-		for _, plan := range plans {
-			if plan.Kind != "aggregate" || plan.Policy != "backfill" {
-				continue
+		for _, row := range rows {
+			plan, identity := row.Plan, row.Identity
+			progress := generationProgress{IdentityID: identity.ID, Identity: identity.Metadata.DisplayIdentity(identity.Provider, identity.Stream, identity.ID), State: plan.State, Frontier: instant(plan.Frontier), SearchLimit: instant(plan.SearchLimit), NextDue: instant(plan.NextDue), Provenance: plan.Provenance, Jobs: []generationJob{}}
+			if row.LastAttempt != nil {
+				a := auditRow(*row.LastAttempt, time.UTC)
+				progress.LastAttempt = &a
 			}
-			for _, state := range states {
-				if state.IdentityID != plan.IdentityID || (q.PlantID != "" && state.Metadata.PlantID != q.PlantID) {
-					continue
-				}
-				progress := generationProgress{IdentityID: state.IdentityID, Identity: state.Metadata.DisplayIdentity(state.Provider, state.Stream, state.IdentityID), State: plan.State, Frontier: instant(plan.Frontier), SearchLimit: instant(plan.SearchLimit), NextDue: instant(plan.NextDue), Provenance: plan.Provenance, Jobs: []generationJob{}}
-				if state.LastAttempt != nil {
-					a := auditRow(*state.LastAttempt, time.UTC)
-					progress.LastAttempt = &a
-				}
-				for _, job := range state.Jobs {
-					if job.Checkpoint != nil && *job.Checkpoint >= job.End {
-						continue
-					}
-					progress.Jobs = append(progress.Jobs, generationJob{instant(job.Start), instant(job.End), instant(job.NextDue), job.Paused, job.RunningAttempt != nil, job.RetryCount})
-				}
-				out.Progress = append(out.Progress, progress)
+			if j := row.CurrentJob; j != nil && (j.Checkpoint == nil || *j.Checkpoint < j.End) {
+				progress.Jobs = append(progress.Jobs, generationJob{instant(j.Start), instant(j.End), instant(j.NextDue), j.Paused, j.RunningAttempt != nil, j.RetryCount})
 			}
+			out.Progress = append(out.Progress, progress)
 		}
 	}
 	return out, nil

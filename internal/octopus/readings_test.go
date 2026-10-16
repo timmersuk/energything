@@ -384,3 +384,19 @@ func TestCountFailuresHaveSpecificReasons(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestReadingStructureAndPaginationReasons(t *testing.T) {
+	for _, tc := range []struct{ body, code string }{
+		{`{"count":1,"results":[42],"next":null}`, "reading_structure"},
+		{`{"count":0,"results":[]}`, "missing_next"},
+		{`{"count":0,"results":[],"next":42}`, "invalid_next"},
+		{`{"count":2,"results":[],"next":"https://evil.test/?api_key=PRIVATE"}`, "premature_end"},
+	} {
+		c := client(func(*http.Request) (*http.Response, error) { return response(200, tc.body), nil })
+		_, err := c.Fetch(context.Background(), meter, from, from.Add(Slot))
+		var e *Error
+		if !errors.As(err, &e) || e.Code != tc.code || strings.Contains(err.Error(), "PRIVATE") {
+			t.Fatal(tc.code, err)
+		}
+	}
+}

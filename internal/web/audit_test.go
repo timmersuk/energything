@@ -4,9 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/timmersuk/energything/internal/collection"
 	"github.com/timmersuk/energything/internal/config"
+	"github.com/timmersuk/energything/internal/octopus"
 	"github.com/timmersuk/energything/internal/storage"
 	"github.com/timmersuk/energything/internal/testsupport"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -181,5 +184,57 @@ func TestGenerationUnfinishedProgress(t *testing.T) {
 	html := request(h, "/records/growatt/aggregates?plant_id=SYN-PLANT-A", "synthetic")
 	if html.Code != 200 || !strings.Contains(html.Body.String(), "not fetched yet") || !strings.Contains(html.Body.String(), "2026-08-15") || !strings.Contains(html.Body.String(), "Local aggregate request budget") {
 		t.Fatal(html.Code, html.Body)
+	}
+}
+
+type auditTransport func(*http.Request) (*http.Response, error)
+
+func (f auditTransport) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
+
+func TestOctopusCountDiagnosticPersistsThroughAuditAPI(t *testing.T) {
+	for _, mode := range []string{"count_changed", "count_mismatch"} {
+		t.Run(mode, func(t *testing.T) {
+			s, h := browsingFixture(t, false)
+			ctx := context.Background()
+			ids, e := s.UpsertIdentities(ctx, []storage.Identity{{Provider: "octopus", Stream: "import", StableKey: "synthetic-count", Selected: true, Metadata: storage.DiscoveryMetadata{MPAN: "SYN-MPAN", Serial: "SYN-METER"}}})
+			if e != nil {
+				t.Fatal(e)
+			}
+			from := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+			jobs, e := s.EnsureJobs(ctx, []storage.Job{{IdentityID: ids[0].ID, Kind: "history", Policy: "backfill", Start: storage.At(from), End: storage.At(from.Add(time.Hour)), NextDue: storage.At(time.Now())}})
+			if e != nil {
+				t.Fatal(e)
+			}
+			client := octopus.NewClient("synthetic-key", auditTransport(func(r *http.Request) (*http.Response, error) {
+				body := `{"count":2,"next":null,"results":[]}`
+				if mode == "count_changed" {
+					next := *r.URL
+					q := next.Query()
+					q.Set("page", "2")
+					next.RawQuery = q.Encode()
+					body = fmt.Sprintf(`{"count":2,"next":%q,"results":[{"consumption":1,"interval_start":"2026-01-01T00:00:00Z","interval_end":"2026-01-01T00:30:00Z"}]}`, next.String())
+					if r.URL.Query().Get("page") == "2" {
+						body = `{"count":3,"next":null,"results":[]}`
+					}
+				}
+				return &http.Response{StatusCode: 200, Header: http.Header{}, Body: io.NopCloser(strings.NewReader(body))}, nil
+			}))
+			if e = collection.CollectOctopusWindow(ctx, s, client, jobs[0], octopus.Meter{MPAN: "SYN-MPAN", Serial: "SYN-METER", Direction: "import"}); e == nil {
+				t.Fatal("count error accepted")
+			}
+			w := request(h, "/api/v1/audit", "synthetic")
+			var v auditView
+			if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &v) != nil || len(v.Records) != 1 {
+				t.Fatal(w.Code, w.Body)
+			}
+			a := v.Records[0]
+			observed := 0
+			if mode == "count_changed" {
+				observed = 3
+			}
+			if a.ErrorCode != mode || a.Diagnostic.Expected == nil || *a.Diagnostic.Expected != 2 || a.Diagnostic.Observed == nil || *a.Diagnostic.Observed != observed || len(a.Evidence) == 0 || a.Page == nil {
+				t.Fatal(a)
+			}
+		})
 	}
 }

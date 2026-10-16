@@ -13,6 +13,7 @@ import (
 )
 
 type auditStore interface {
+	Identities(context.Context) ([]storage.Identity, error)
 	QueryAudit(context.Context, storage.AuditQuery) (storage.AuditPage, error)
 	QueryAttempt(context.Context, int64) (storage.Audit, error)
 	QueryAttemptEvidence(context.Context, int64, int64) (json.RawMessage, error)
@@ -148,13 +149,13 @@ func auditData(ctx context.Context, s recordStore, v url.Values, path string, lo
 		return out, err
 	}
 	if q.IdentityID != 0 {
-		identities, err := s.QueryStatus(ctx)
+		identities, err := db.Identities(ctx)
 		if err != nil {
 			return out, err
 		}
 		found := false
 		for _, i := range identities {
-			if i.IdentityID == q.IdentityID && (q.Provider == "" || i.Provider == q.Provider) && (q.Stream == "" || i.Stream == q.Stream) {
+			if i.ID == q.IdentityID && (q.Provider == "" || i.Provider == q.Provider) && (q.Stream == "" || i.Stream == q.Stream) {
 				found = true
 			}
 		}

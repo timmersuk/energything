@@ -338,8 +338,9 @@ Status sources add `audit_counts` across all retained attempts and filtered link
 so repeated failures remain accessible after recovery. Aggregate responses add
 `collection_progress` for matching plants, independent of row date filters:
 `identity_id`, `identity`, plan `state`, `frontier`, `search_limit`, `next_due`,
-`provenance`, `unfinished_jobs` (requested bounds, due, paused/running/retry count),
+`provenance`, `unfinished_jobs` (the exact automatic plan current job when unfinished: requested bounds, due, paused/running/retry count),
 and nullable `last_attempt`. The generation page displays these stored values.
 A frontier describes backwards fetched progress, not physical coverage; legacy
 January rows can coexist with an unfinished gap before August. Inspect individual
 attempt windows to distinguish not fetched yet, fetched empty and rejected data.
+

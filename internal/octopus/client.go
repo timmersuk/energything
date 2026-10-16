@@ -90,7 +90,7 @@ func destination(raw, path string, query url.Values) error {
 }
 func (c *Client) get(ctx context.Context, raw, path string, q url.Values, page int, retries *[]Retry) ([]byte, error) {
 	if destination(raw, path, q) != nil {
-		return nil, problem("pagination", "invalid", page)
+		return nil, problem("pagination", "unsafe_destination", page)
 	}
 	for attempt := 0; attempt < 3; attempt++ {
 		if ctx.Err() != nil {
@@ -113,8 +113,11 @@ func (c *Client) get(ctx context.Context, raw, path string, q url.Values, page i
 				body, bodyErr := io.ReadAll(io.LimitReader(response.Body, MaxBody+1))
 				response.Body.Close()
 				if bodyErr == nil {
-					if len(body) > MaxBody || !json.Valid(body) {
-						return nil, problem("protocol", "invalid", page)
+					if len(body) > MaxBody {
+						return nil, problem("protocol", "body_budget", page)
+					}
+					if !json.Valid(body) {
+						return nil, problem("protocol", "invalid_json", page)
 					}
 					return body, nil
 				}
@@ -138,7 +141,9 @@ func (c *Client) get(ctx context.Context, raw, path string, q url.Values, page i
 				case status >= 500 && status <= 599:
 					code = "unavailable"
 				default:
-					return nil, problem("protocol", "invalid", page)
+					pe := problem("protocol", "http_status", page)
+					pe.Diagnostic.HTTPStatus = status
+					return nil, pe
 				}
 				if seconds, err := strconv.ParseUint(retryAfter, 10, 32); err == nil {
 					delay = time.Duration(seconds) * time.Second

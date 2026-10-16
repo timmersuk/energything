@@ -59,16 +59,16 @@ func (c *Client) Fetch(ctx context.Context, m Meter, from, to time.Time) (Window
 	count := -1
 	for page := 1; next != ""; page++ {
 		if page > MaxPages {
-			return out, problem("pagination", "incomplete", page)
+			return out, problem("pagination", "page_budget", page)
 		}
 		if err := destination(next, path, q); err != nil {
-			return out, problem("pagination", "invalid", page)
+			return out, problem("pagination", "unsafe_destination", page)
 		}
 		u, _ := url.Parse(next)
 		u.RawQuery = u.Query().Encode()
 		canonical := u.String()
 		if seen[canonical] {
-			return out, problem("pagination", "conflict", page)
+			return out, problem("pagination", "repeated_page", page)
 		}
 		seen[canonical] = true
 		b, err := c.get(ctx, next, path, q, page, &out.Retries)
@@ -77,7 +77,7 @@ func (c *Client) Fetch(ctx context.Context, m Meter, from, to time.Time) (Window
 		}
 		var envelope map[string]json.RawMessage
 		if json.Unmarshal(b, &envelope) != nil || envelope == nil {
-			return out, problem("protocol", "invalid", page)
+			return out, problem("protocol", "invalid_json", page)
 		}
 		results, exists := envelope["results"]
 		if !exists || len(results) == 0 || results[0] != '[' {
@@ -87,16 +87,16 @@ func (c *Client) Fetch(ctx context.Context, m Meter, from, to time.Time) (Window
 		decoder := json.NewDecoder(bytes.NewReader(results))
 		decoder.UseNumber()
 		if decoder.Decode(&selected) != nil {
-			return out, problem("protocol", "invalid", page)
+			return out, problem("protocol", "invalid_json", page)
 		}
 		evidence, _ := json.Marshal(map[string]any{"results": telemetry(selected), "page": page})
 		out.Evidence = append(out.Evidence, Evidence{evidence, c.now(), false})
 		var rows []Reading
 		if json.Unmarshal(results, &rows) != nil {
-			return out, problem("validation", "invalid", page)
+			return out, problem("validation", "reading_structure", page)
 		}
 		if len(out.Readings)+len(rows) > MaxRecords {
-			return out, problem("protocol", "incomplete", page)
+			return out, problem("protocol", "count_budget", page)
 		}
 		for i := range rows {
 			rows[i].Evidence = len(out.Evidence) - 1
@@ -118,16 +118,19 @@ func (c *Client) Fetch(ctx context.Context, m Meter, from, to time.Time) (Window
 			count = *pageCount
 		}
 		if count != *pageCount {
-			return out, problem("protocol", "count_changed", page)
+			pe := problem("protocol", "count_changed", page)
+			pe.Diagnostic.Expected = &count
+			pe.Diagnostic.Observed = pageCount
+			return out, pe
 		}
 		raw, ok := envelope["next"]
 		if !ok {
-			return out, problem("protocol", "incomplete", page)
+			return out, problem("protocol", "missing_next", page)
 		}
 		next = ""
 		if string(raw) != "null" {
 			if json.Unmarshal(raw, &next) != nil || next == "" {
-				return out, problem("protocol", "invalid", page)
+				return out, problem("pagination", "invalid_next", page)
 			}
 		}
 		// Compare the result set independent of whitespace, object-key or row order.
@@ -140,15 +143,19 @@ func (c *Client) Fetch(ctx context.Context, m Meter, from, to time.Time) (Window
 		canonicalData, _ := json.Marshal(canonicalRows)
 		digest := sha256.Sum256(canonicalData)
 		if len(rows) > 0 && contents[digest] {
-			return out, problem("pagination", "conflict", page)
+			return out, problem("pagination", "repeated_page", page)
 		}
 		contents[digest] = true
 		if next != "" && len(rows) == 0 {
-			return out, problem("pagination", "incomplete", page)
+			return out, problem("pagination", "premature_end", page)
 		}
 	}
 	if len(out.Readings) != count {
-		return out, problem("protocol", "count_mismatch", len(out.Evidence))
+		pe := problem("protocol", "count_mismatch", len(out.Evidence))
+		observed := len(out.Readings)
+		pe.Diagnostic.Expected = &count
+		pe.Diagnostic.Observed = &observed
+		return out, pe
 	}
 	for i := range out.Evidence {
 		out.Evidence[i].Complete = true
