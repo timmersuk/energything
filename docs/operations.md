@@ -223,3 +223,24 @@ Legacy rows lacking a usable reported timestamp are not invented canonical
 readings; their retrieval evidence remains available. Downgrade requires restoring
 the complete stopped backup and the older binary together. GET handlers never
 migrate or recover storage. Restarting the old binary against schema008 is refused.
+
+## Fresh database initialization and upgrades
+
+The server owns schema creation and updates. It opens DATA_DIR/energything.sqlite
+when starting, before collection. A new database executes the embedded final
+version-8 baseline.sql directly, in one transaction. It does not run development
+migrations 001–008 or create/drop their superseded tables. Their versions are
+recorded as satisfied by the baseline for compatibility with existing databases.
+Only migrations newer than that baseline execute afterwards.
+
+An existing versioned database skips baseline creation and executes only its
+missing migrations. An existing version-8 preview receives no schema changes.
+Schema SQL and version bookkeeping commit together or roll back together; a
+newer-than-supported schema is refused. The queue CLI checks compatibility but
+does not migrate or recover. HTTP browsing never initializes or upgrades storage.
+
+Before updating an existing deployment, stop the service and back up the entire
+data directory as described above. Updates run automatically on the next server
+start with the replacement image. Restoring an older incompatible binary requires
+its matching stopped database backup. Post-release migrations remain necessary
+for real schema changes; pre-release history is not replayed on a first install.

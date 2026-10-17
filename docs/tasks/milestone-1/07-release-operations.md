@@ -50,7 +50,10 @@ No public workflow may access household data or private deployment credentials.
 7. Document OMV host local directory, ownership matching UID 10001, writable SQLite
    companion files, one instance per DB, port choice, restart policy and LAN/HTTPS
    access. Use generic host path placeholders, never discovered private paths.
-8. Document pinned image update: record current version; stop/start replacement
+8. Verify fresh database initialization uses the final schema baseline, without
+   replaying superseded development migrations. Existing databases must retain
+   their upgrade path; test baseline/upgrade schema equivalence and rollback.
+   Document pinned image update: record current version; stop/start replacement
    against the same data mount; inspect liveness, authenticated status, audit and
    resumed collection. Do not promise rollback across irreversible migrations;
    restore a matching prior backup/image when schema incompatibility requires it.
