@@ -33,7 +33,7 @@ nonempty credentials, then run `go run ./cmd/server`. The application reads only
 the process environment; it does not load any .env file. Local defaults are
 :8080, ./energything-data, Europe/London and a 10s shutdown timeout.
 See [.env.example](.env.example) for every supported environment name and
-the [configuration contract](docs/tasks/milestone-1/execution-contract.md#configuration-contract)
+the [configuration reference](docs/configuration.md)
 for their meaning. Provider settings are parsed independently; invalid or partial
 settings produce an authenticated error card without blocking the other source.
 Valid credentials trigger discovery and automatic routine/bootstrap work. Stale
@@ -79,6 +79,12 @@ See [task 03 verification](docs/tasks/milestone-1/03-verification.md) for
 isolated synthetic browser acceptance and remaining gates.
 
 ## Local preview standard
+
+Task07 release/CI verification uses disposable synthetic volumes and does not
+require restarting the retained preview. See [release and OMV operations](docs/operations.md)
+for immutable image tags/digests, UID10001 permissions, pinned updates, stopped
+full-directory backups and isolated restores. Publishing and private host rollout
+require separate authorization. CI never receives household provider credentials.
 
 After task verification, rebuild and recreate the existing local preview on its
 original mount so localhost:8080 serves the current implementation. Follow the

@@ -1,6 +1,7 @@
 # 07 — CI, release image and operational readiness
 
-Status: planning draft. Depends on: 01–06 plus 06a. Unlocks: 08.
+Status: implemented; see [verification](07-verification.md) for actual checks and
+remaining release/host gates. Depends on: 01–06 plus 06a. Unlocks: 08.
 Read: [execution contract](execution-contract.md), [template evidence](template-evidence.md).
 
 ## Objective and boundary
@@ -33,7 +34,9 @@ No public workflow may access household data or private deployment credentials.
    must receive no registry secrets. Use narrow default read permissions and an
    explicit release-only publication condition. Manual dry builds never imply push.
 3. Versioned release/tag builds publish to the configured Docker Hub energything
-   image using repository-scoped credentials. Registry credentials are separate
+   image using GitHub repository Actions secrets, matching logthing. A Docker Hub
+   personal token needs Read & Write permission; it is not restricted to this image
+   by its name. Registry credentials are separate
    from household provider credentials. Define immutable version tags and a build
    ID; docs use pinned version/digest updates rather than depending on latest.
 4. Build both linux/amd64 and linux/arm64. Verify actual target-platform binary COPY,

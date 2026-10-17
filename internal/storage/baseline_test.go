@@ -108,3 +108,28 @@ func TestFreshBaselineFailureIsAtomic(t *testing.T) {
 		t.Fatal("partial initialization committed")
 	}
 }
+
+func TestExistingUpgradeFailureIsAtomic(t *testing.T) {
+	db := schemaTestDB(t)
+	ctx := context.Background()
+	scripts := []string{`CREATE TABLE retained(value TEXT); INSERT INTO retained VALUES ('synthetic');`}
+	if err := migrate(ctx, db, scripts, ""); err != nil {
+		t.Fatal(err)
+	}
+	before := schemaDefinition(t, db)
+	scripts = append(scripts, `UPDATE retained SET value='lost'; CREATE TABLE partial_upgrade(value TEXT); invalid SQL`)
+	if err := migrate(ctx, db, scripts, "invalid baseline must not execute"); err == nil {
+		t.Fatal("broken upgrade accepted")
+	}
+	if !reflect.DeepEqual(before, schemaDefinition(t, db)) {
+		t.Fatal("partial upgrade changed schema")
+	}
+	var value string
+	var version int
+	if err := db.QueryRow(`SELECT value FROM retained`).Scan(&value); err != nil || value != "synthetic" {
+		t.Fatal("failed upgrade changed retained data", value, err)
+	}
+	if err := db.QueryRow(`SELECT max(version) FROM schema_migrations`).Scan(&version); err != nil || version != 1 {
+		t.Fatal("failed upgrade advanced version", version, err)
+	}
+}

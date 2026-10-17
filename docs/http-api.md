@@ -1,5 +1,13 @@
 # Stored browsing HTTP API (v1)
 
+Operational checks: `/healthz` is public process liveness, not provider freshness
+or database readiness. After a pinned image update/isolated restore authenticate
+to status (verify build_id), records and audit/evidence, and compare retained
+progress. See [operations](operations.md) and [configuration](configuration.md).
+HTTP429 body shape has not been established from retained live evidence. Retry
+hint tests verify supported synthetic inputs only; they are not live-provider
+verification.
+
 Task 03 implements local reads only. No request calls a provider or enqueues work.
 All implemented routes accept GET only (405 with `Allow: GET` otherwise).
 
