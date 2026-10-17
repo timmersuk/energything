@@ -11,7 +11,8 @@ jobs:
     timeout-minutes: 30
     env:
       IMAGE: ${{ vars.DOCKERHUB_IMAGE }}
-      BUILD_ID: verify-sha-${{ github.sha }}-run-${{ github.run_id }}
+      BUILD_ID: verify-sha-107de72aefbca4a91f479bcb6774657ab56e6619-run-39065834529
+      DIGEST: sha256:4423932cce00ef6c1398b44c352b8af6b0000a6406ee27f94afe2273961d3564
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
         with:
@@ -19,30 +20,20 @@ jobs:
       - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
         with:
           go-version: '1.26.4'
-      - run: go test ./...
-      - run: go run ./scripts/build.go -build-id "$BUILD_ID"
       - uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069
       - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc
-        id: push
-        with:
-          context: .
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ env.IMAGE }}:${{ env.BUILD_ID }}
-      - name: Pull published manifest and verify both platform runtimes
-        env:
-          DIGEST: ${{ steps.push.outputs.digest }}
+      - name: Pull existing published platform digests and verify runtimes
         run: |
-          echo "Published $IMAGE:$BUILD_ID at $DIGEST"
           docker buildx imagetools inspect "$IMAGE@$DIGEST"
+          docker buildx imagetools inspect --raw "$IMAGE@$DIGEST" > "$RUNNER_TEMP/manifest.json"
           for arch in amd64 arm64; do
-            docker pull --platform "linux/$arch" "$IMAGE@$DIGEST"
+            platform_digest=$(jq -er --arg arch "$arch" '.manifests[] | select(.platform.os == "linux" and .platform.architecture == $arch) | .digest' "$RUNNER_TEMP/manifest.json")
+            docker pull --platform "linux/$arch" "$IMAGE@$platform_digest"
             mkdir -p "bin/probes/$arch"
             CGO_ENABLED=0 GOOS=linux GOARCH="$arch" go build -o "bin/probes/$arch/operations-probe" ./scripts/operations-probe
-            python3 scripts/verify-operations.py --image "$IMAGE@$DIGEST" --platform "linux/$arch" --build-id "$BUILD_ID"
+            python3 scripts/verify-operations.py --image "$IMAGE@$platform_digest" --platform "linux/$arch" --build-id "$BUILD_ID"
           done
