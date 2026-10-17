@@ -12,6 +12,8 @@ Readings retain one current accepted value per source period. Refetches update
 that row and corrections overwrite values; no value-version history is kept.
 Growatt uses its reported device timestamp as the period key. Schema008 upgrades
 require a stopped data-directory backup; see [operations](docs/operations.md).
+A fresh installation creates the final schema directly; it does not replay
+superseded development migrations. Existing databases apply only missing upgrades.
 
 Requires Go 1.26.4 (module compatibility 1.26.0). Dependencies are pinned in
 go.mod/go.sum: modernc.org/sqlite v1.60.1 and modernc.org/libc v1.77.1.

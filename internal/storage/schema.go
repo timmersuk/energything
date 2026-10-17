@@ -7,12 +7,13 @@ import (
 	"fmt"
 )
 
-//go:embed migrations/*.sql
+//go:embed migrations/*.sql baseline.sql
 var migrations embed.FS
 
 const schemaVersion = 8
+const baselineVersion = 8
 
-func migrate(ctx context.Context, db *sql.DB, scripts []string) error {
+func migrate(ctx context.Context, db *sql.DB, scripts []string, baseline string) error {
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("storage migration: acquire database: %w", err)
@@ -30,6 +31,22 @@ func migrate(ctx context.Context, db *sql.DB, scripts []string) error {
 	}
 	if count != version {
 		return fmt.Errorf("storage migration history is not contiguous")
+	}
+	if version == 0 && baseline != "" {
+		if baselineVersion > len(scripts) {
+			return fmt.Errorf("storage baseline is newer than supported migrations")
+		}
+		if _, err = tx.ExecContext(ctx, baseline); err != nil {
+			return fmt.Errorf("storage fresh schema failed; no initialization committed: %w", err)
+		}
+		// Mark the historical versions satisfied by the snapshot, without
+		// executing their obsolete table creation, rebuilds or data updates.
+		for i := 1; i <= baselineVersion; i++ {
+			if _, err = tx.ExecContext(ctx, `INSERT INTO schema_migrations(version) VALUES (?)`, i); err != nil {
+				return err
+			}
+		}
+		version = baselineVersion
 	}
 	for i := version; i < len(scripts); i++ {
 		if _, err = tx.ExecContext(ctx, scripts[i]); err != nil {
@@ -51,9 +68,13 @@ func (s *Store) initialize(ctx context.Context) error {
 		}
 		scripts = append(scripts, string(script))
 	}
-	if err := migrate(ctx, s.db, scripts); err != nil {
+	baseline, err := migrations.ReadFile("baseline.sql")
+	if err != nil {
 		return err
 	}
-	_, err := s.RecoverInterruptedAttempts(ctx, At(s.now()))
+	if err := migrate(ctx, s.db, scripts, string(baseline)); err != nil {
+		return err
+	}
+	_, err = s.RecoverInterruptedAttempts(ctx, At(s.now()))
 	return err
 }
