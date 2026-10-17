@@ -81,3 +81,20 @@ run `python scripts/verify-operations.py --image <image> --platform <platform>
 --build-id task07-operations`. Run context/layer verification with
 `python scripts/verify-image-context.py --image <image> --scanner <gitleaks>`.
 CI contains the exact Linux commands; PowerShell has `scripts/verify-container.ps1`.
+
+## Remote workflow results
+
+Implementation commit `1675267` passed actual GitHub Actions on 17 October2026:
+[PR workflow](https://github.com/timmersuk/energything/actions/runs/39044089613)
+and [ordinary branch push](https://github.com/timmersuk/energything/actions/runs/39044068039).
+Each completed test (full Go suite, vet, release-policy matrix, race and pinned
+source scan), docker(amd64), and docker(arm64) successfully. Both platform jobs
+built images and passed in-image SQLite/collection, lifecycle/restore, context,
+scanner and saved-layer checks. The publish job was **skipped** in both events;
+neither registry login nor image push executed. These are actual remote results,
+not YAML-only inference. Final evidence-only commits may trigger equivalent reruns.
+
+Draft [PR10](https://github.com/timmersuk/energything/pull/10) remains unmerged.
+Release-event eligibility is dry-tested; real release publication, Docker Hub
+environment/immutable-tag configuration and OMV host acceptance remain unverified
+operator gates. No task08 implementation or private rollout is included.
