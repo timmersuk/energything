@@ -1,5 +1,13 @@
 # Logthing template evidence
 
+Rechecked 17 October2026 for task07 against sibling `.github/workflows/ci.yml`,
+Makefile, Dockerfile and Compose. Retained test→docker dependency, platform binary
+layout/build ID, QEMU/Buildx, metadata and Docker Hub convention. Removed frontend
+steps/unrelated binaries. Energything pins action commits and Go1.26.4, has no
+manual push switch or latest/minor aliases, and allows publishing only through
+an explicit published versioned release after synthetic platform gates. Default
+contents:read and separate environment-scoped Docker Hub credentials remain narrow.
+
 Inspected 14 October 2026 in the local sibling logthing workspace. These are
 reference observations; all energything changes remain in this repository.
 

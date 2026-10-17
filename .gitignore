@@ -25,3 +25,7 @@ private/
 evidence/private/
 .cache/
 .playwright-cli/
+backups/
+*.tar
+*.tar.gz
+__pycache__/

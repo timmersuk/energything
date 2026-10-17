@@ -6,3 +6,5 @@
 !bin/linux/arm64/
 !bin/linux/amd64/energything
 !bin/linux/arm64/energything
+!bin/linux/amd64/energything-enqueue
+!bin/linux/arm64/energything-enqueue
