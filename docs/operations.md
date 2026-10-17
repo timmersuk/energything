@@ -44,6 +44,14 @@ exports the actual context, verifies that exact file set and inspects saved imag
 layers with synthetic private-file sentinels. Probe/test binaries never enter the
 release image. Keep runtime files out of allowed binary paths.
 
+For reproducible synthetic checks run the commands in `.github/workflows/ci.yml`.
+On Windows after building an image, `pwsh -File scripts/verify-container.ps1
+-Image energything:local -Platform linux/amd64 -BuildID local` builds the isolated
+probe and runs the same lifecycle check. Repeat with an arm64 image/platform.
+Context inspection additionally requires pinned Gitleaks: `python
+scripts/verify-image-context.py --image <image> --scanner <gitleaks-executable>`.
+The old task01 probe's unimplemented-API and second-server assumptions are removed.
+
 ## Reproducible OMV installation and pinned update
 
 Host acceptance belongs to task08. These commands are generic Linux examples;

@@ -17,6 +17,7 @@ env:
 jobs:
   test:
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
@@ -40,6 +41,7 @@ jobs:
   docker:
     needs: test
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     strategy:
       matrix:
         arch: [amd64, arm64]
@@ -74,7 +76,9 @@ jobs:
             docker run --rm --network none --platform "linux/$ARCH" --entrypoint /probe -v "$PWD/bin/probes/$ARCH/$package.test:/probe:ro" "energything:ci-$ARCH" -test.timeout=10m
           done
           python3 scripts/verify-operations.py --image "energything:ci-$ARCH" --platform "linux/$ARCH" --build-id "sha-${GITHUB_SHA}-run-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
-          python3 scripts/verify-image-context.py --image "energything:ci-$ARCH"
+          # Install scanner for the runner architecture, not the emulated target.
+          env -u GOOS -u GOARCH -u CGO_ENABLED go install github.com/zricethezav/gitleaks/v8@v8.30.1
+          python3 scripts/verify-image-context.py --image "energything:ci-$ARCH" --scanner "$(go env GOPATH)/bin/gitleaks"
 
   publish:
     # Only an explicit, non-draft, non-prerelease published release can reach secrets.
@@ -82,6 +86,7 @@ jobs:
     if: github.event_name == 'release' && !github.event.release.draft && !github.event.release.prerelease
     needs: [test, docker]
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     environment: dockerhub-release
     env:
       RELEASE_TAG: ${{ github.event.release.tag_name }}

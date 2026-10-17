@@ -11,7 +11,7 @@ immutable version/build tags, fixed enqueue context inclusion, Compose stop grac
 complete configuration reference and pinned OMV/update/backup/restore procedures.
 No schema or collection policy change. Existing version8 preview needs no migration.
 
-Verification results are finalized below after runtime checks and independent review.
+Final local runtime checks and independent review are recorded below.
 No image/tag/release was published and no private host rollout was attempted.
 Only disposable synthetic Docker volumes/images are used for task07 checks. The
 existing preview was observed running on its original `/data` mount and is left
@@ -31,3 +31,53 @@ tests use synthetic responses only. No provider probes/rate-limit experiments ru
 Host filesystem/OMV acceptance and real registry credentials/publishing remain
 unverified until separately authorized. Local workflow validation does not prove
 remote GitHub Actions success.
+
+## Final local results
+
+- Full Go tests and vet passed after the migration-test addition. Native Windows
+  race was unavailable; full `CGO_ENABLED=1 go test -race -timeout 5m ./...` passed
+  in `golang:1.26.4-bookworm` using only an archived tracked-source snapshot.
+- `actionlint` v1.7.7 passed `.github/workflows/ci.yml`; Python release-policy
+  matrix passed. Action commits were resolved from upstream v6/v4/v7 tags on
+  implementation day, rather than copied blindly from logthing.
+- Gitleaks v8.30.1 `dir --redact --no-banner` found no leaks in the tracked-source
+  archive. Exported actual Docker context scanning also passed. Gitleaks scans text;
+  binary/context safety additionally relies on explicit file allowlisting and
+  byte-sentinel/layer checks, not secret pattern recognition inside executable code.
+- Both Linux images built with task07-operations build ID. Full cgo-disabled
+  storage and collection test executables passed inside each architecture image
+  (arm64 via Docker Desktop emulation), including synthetic retry/rejection and
+  independent-provider behavior. No provider credentials were supplied.
+- `verify-operations.py` passed both platforms: verifies server/enqueue ELF target
+  architecture, UID10001, populated records/audit/selected-evidence API, build ID,
+  log/API password/provider sentinel exclusion, CA root-pool loading, London summer
+  offset, SQLite integrity/foreign keys, graceful SIGTERM exit0, writable mounted
+  directory and actionable wrong-ownership startup failure. This tests local CA
+  trust loading, not a live-provider HTTPS handshake.
+- Replacement on the same disposable volume and clean-stop whole-directory backup
+  followed by an isolated restore passed on both platforms. Every row/column of
+  every application table was hashed and compared (including samples, intervals,
+  aggregates, audit, evidence/retrievals, jobs/checkpoints, schedules/completions and
+  aggregate reservations). Populated record/audit/evidence API responses also
+  compared identically before/after. No collectors configured, no cloud traffic.
+- Context verification initially caught extra files admitted by directory
+  exceptions. Tightened `.dockerignore` now exports exactly the four release
+  binaries and Dockerfile (BuildKit may consume Dockerfile). Synthetic `.env.*`,
+  SQLite, private, cache and backup sentinels are excluded. Saved-image layer
+  inspection verifies no sentinel/runtime paths. The enqueue binary is included;
+  probe/test binaries are excluded. Existing private files were never edited.
+- Independent code-review Standards: no violations/blockers. Spec: one log
+  redaction test gap (stderr omitted) fixed; follow-up confirmed resolved. Removed
+  old task01 probe assumptions about unimplemented APIs and starting a second
+  server against an active DB. Fixed empty-volume ownership fixture to avoid
+  Docker copy-up resetting an empty volume's mode before the denial check.
+
+Reproduction: build via `go run ./scripts/build.go -build-id task07-operations`,
+build one image per `--platform linux/amd64` / `linux/arm64`, cross-compile storage
+and collection with `CGO_ENABLED=0 go test -c`, mount each test executable as
+`/probe:ro` and run with `--network none --entrypoint /probe -test.timeout=10m`.
+Compile `./scripts/operations-probe` for each target under `bin/probes/<arch>`;
+run `python scripts/verify-operations.py --image <image> --platform <platform>
+--build-id task07-operations`. Run context/layer verification with
+`python scripts/verify-image-context.py --image <image> --scanner <gitleaks>`.
+CI contains the exact Linux commands; PowerShell has `scripts/verify-container.ps1`.

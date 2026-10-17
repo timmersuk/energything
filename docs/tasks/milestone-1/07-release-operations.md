@@ -1,6 +1,7 @@
 # 07 — CI, release image and operational readiness
 
-Status: planning draft. Depends on: 01–06 plus 06a. Unlocks: 08.
+Status: implemented; see [verification](07-verification.md) for actual checks and
+remaining release/host gates. Depends on: 01–06 plus 06a. Unlocks: 08.
 Read: [execution contract](execution-contract.md), [template evidence](template-evidence.md).
 
 ## Objective and boundary

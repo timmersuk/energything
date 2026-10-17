@@ -10,9 +10,11 @@ import uuid
 
 p = argparse.ArgumentParser()
 p.add_argument('--image', required=True)
+p.add_argument('--scanner', required=True, help='Pinned Gitleaks executable')
 a = p.parse_args()
 sentinel = ('TASK07-EXCLUDED-' + uuid.uuid4().hex).encode()
 paths = [pathlib.Path(d) / ('task07-' + uuid.uuid4().hex) for d in ('.cache', 'private', 'backups')]
+paths += [pathlib.Path('.env.task07-' + uuid.uuid4().hex), pathlib.Path('task07-' + uuid.uuid4().hex + '.sqlite')]
 try:
     for path in paths:
         path.parent.mkdir(exist_ok=True)
@@ -27,10 +29,13 @@ try:
                     for arch in ('amd64', 'arm64') for binary in ('energything', 'energything-enqueue')}
         actual = {str(f.relative_to(root)).replace('\\', '/') for f in root.rglob('*') if f.is_file()}
         # BuildKit can consume/remove Dockerfile when it is supplied on stdin.
-        assert actual in (expected, expected - {'Dockerfile'}), 'build context differs from explicit allowlist'
+        assert actual in (expected, expected - {'Dockerfile'}), (
+            'build context differs from allowlist; missing allowed paths: '
+            + repr(sorted(expected - actual)) + '; unexpected file count: ' + str(len(actual - expected)))
         for f in root.rglob('*'):
             if f.is_file():
                 assert sentinel not in f.read_bytes()
+        subprocess.run([a.scanner, 'dir', '--redact', '--no-banner', str(root)], check=True)
     with tempfile.TemporaryFile() as saved:
         subprocess.run(['docker', 'save', a.image], stdout=saved, check=True)
         saved.seek(0)

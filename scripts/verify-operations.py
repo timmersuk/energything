@@ -21,11 +21,12 @@ probe = pathlib.Path(f'bin/probes/{arch}/operations-probe').resolve()
 name = 'energything-ops-' + uuid.uuid4().hex
 volumes = [name + suffix for suffix in ('-data', '-backup', '-restore', '-denied')]
 sentinel = ('PRIVATE' + '-TASK07-' + uuid.uuid4().hex).encode()
+retained_responses = {}
 
 
 def docker(*args, check=True, input=None):
     return subprocess.run(['docker', *map(str, args)], check=check, input=input,
-                          stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                          stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=300)
 
 
 def run(*args, **kw):
@@ -60,6 +61,12 @@ def start(volume):
             elf = archive.extractfile(archive.getmembers()[0]).read(20)
         assert elf[:4] == b'\x7fELF' and int.from_bytes(elf[18:20], 'little') == {'amd64': 62, 'arm64': 183}[arch]
     headers = {'Authorization': 'Basic ' + base64.b64encode(b'synthetic-user:synthetic-password').decode()}
+    def check_retained(path, body):
+        assert sentinel not in body and b'synthetic-password' not in body
+        if path in retained_responses:
+            assert retained_responses[path] == body, 'retained API response changed: ' + path
+        retained_responses[path] = body
+
     for path in ('/', '/api/v1/status', '/api/v1/audit',
                  '/api/v1/octopus/intervals?from=2026-10-25&to=2026-10-25',
                  '/api/v1/growatt/samples?view=provider&from=2026-10-01&to=2026-10-31',
@@ -71,7 +78,19 @@ def start(volume):
                 assert b'credentials are incomplete' in body and b'Unconfigured' in body
             if path == '/api/v1/status':
                 assert json.loads(body)['build_id'] == a.build_id
-    assert sentinel not in docker('logs', name).stdout
+            elif path.startswith('/api/'):
+                check_retained(path, body)
+                payload = json.loads(body)
+                assert payload['records'], 'synthetic records missing: ' + path
+                if path == '/api/v1/audit':
+                    links = [e['url'] for record in payload['records'] for e in record['evidence']]
+                    assert links
+                    with urllib.request.urlopen(urllib.request.Request(base + links[0], headers=headers), timeout=20) as evidence:
+                        selected = evidence.read()
+                        assert json.loads(selected)
+                        check_retained(links[0], selected)
+    logs = docker('logs', name)
+    assert sentinel not in logs.stdout + logs.stderr and b'synthetic-password' not in logs.stdout + logs.stderr
 
 
 def stop():
@@ -104,7 +123,7 @@ try:
     start(volumes[2]); stop()
     assert before == helper(volumes[2], 'snapshot'), 'restored startup changed rows'
     run('--network', 'none', '--user', '0', '-v', volumes[3] + ':/data', '--entrypoint', 'sh',
-        a.image, '-c', 'chown 0:0 /data && chmod 700 /data')
+        a.image, '-c', 'touch /data/.ownership-test && chown 0:0 /data && chmod 700 /data')
     failed = run('--network', 'none', '-v', volumes[3] + ':/data',
                  '-e', 'ENERGYTHING_USERNAME=synthetic-user', '-e', 'ENERGYTHING_PASSWORD=synthetic-password',
                  a.image, check=False)
