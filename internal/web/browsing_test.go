@@ -66,8 +66,8 @@ func TestBrowsingAuthEmptyAndErrors(t *testing.T) {
 		}
 	}
 	for _, path := range []string{"/audit", "/api/v1/audit"} {
-		if request(h, path, "synthetic").Code != 404 {
-			t.Fatal("out of scope route")
+		if request(h, path, "synthetic").Code != 200 {
+			t.Fatal("audit route")
 		}
 	}
 	for _, query := range []string{"from=2026-03-29", "from=2026-03-30&to=2026-03-29", "from=2026-03-29&to=2026-03-30T00:00:00Z", "from=2026-03-29T00:00:00&to=2026-03-30T00:00:00", "limit=0", "limit=501", "limit=no", "cursor=invalid", "limit=2&limit=3", "identity=-1", "identity=999", "direction=wrong", "unknown=secret", "from=9999-12-31&to=9999-12-31", "bad=%zz", "limit=1;secret=bad"} {
@@ -184,7 +184,7 @@ func TestStoredValuesPagingAndTimes(t *testing.T) {
 		t.Fatal(w.Code, w.Body)
 	}
 	w = request(h, "/records/growatt?view=quality&provider_date=2026-10-25", "synthetic")
-	if w.Code != 200 || !strings.Contains(w.Body.String(), "Unresolved") || strings.Contains(w.Body.String(), "<script>") || !strings.Contains(w.Body.String(), "&lt;script&gt;") {
+	if w.Code != 200 || strings.Contains(w.Body.String(), "Unresolved UTC") || strings.Contains(w.Body.String(), "<script>") || strings.Contains(w.Body.String(), "Original timestamp evidence") {
 		t.Fatal(w.Code, w.Body)
 	}
 	w = request(h, "/api/v1/growatt/samples?view=quality&provider_date=2026-10-25&limit=2", "synthetic")
@@ -307,7 +307,7 @@ func TestOctopusShowsFullMeterIdentity(t *testing.T) {
 }
 func TestGrowattIdentifiersVisibleWithoutStableKey(t *testing.T) {
 	_, h := browsingFixture(t, true)
-	for _, path := range []string{"/", "/api/v1/status", "/records/growatt?from=2026-03-29&to=2026-03-29", "/api/v1/growatt/samples?from=2026-03-29&to=2026-03-29"} {
+	for _, path := range []string{"/", "/api/v1/status", "/records/growatt?view=resolved&from=2026-03-29&to=2026-03-29", "/api/v1/growatt/samples?from=2026-03-29&to=2026-03-29"} {
 		w := request(h, path, "synthetic")
 		if w.Code != 200 || !strings.Contains(w.Body.String(), "synthetic-plant") || !strings.Contains(w.Body.String(), "synthetic-inverter") || strings.Contains(w.Body.String(), "(masked)") || strings.Contains(w.Body.String(), "synthetic-private-device") {
 			t.Fatal(path, w.Code, w.Body.String())
@@ -323,4 +323,75 @@ func TestGrowattIdentifiersVisibleWithoutStableKey(t *testing.T) {
 
 func (failStore) QueryAggregates(context.Context, storage.AggregateQuery) (storage.AggregatePage, error) {
 	return storage.AggregatePage{}, errors.New("synthetic storage failure")
+}
+
+func TestGrowattPageDefaultsToReportedReadingDays(t *testing.T) {
+	_, h := browsingFixture(t, true)
+	path := "/records/growatt?from=2026-10-25&to=2026-10-25&identity=3"
+	w := request(h, path, "synthetic")
+	if w.Code != 200 || !strings.Contains(w.Body.String(), `name="view" value="provider"`) || strings.Contains(w.Body.String(), "No stored samples matching these filters") {
+		t.Fatalf("default page hides retained samples: status=%d quality_selected=%v empty=%v", w.Code, strings.Contains(w.Body.String(), `name="view" value="provider"`), strings.Contains(w.Body.String(), "No stored samples matching these filters"))
+	}
+	explicit := request(h, path+"&view=resolved", "synthetic")
+	if explicit.Code != 200 || !strings.Contains(explicit.Body.String(), `Measured from (UTC / offset)`) {
+		t.Fatal("explicit absolute view lost")
+	}
+	api := request(h, "/api/v1/growatt/samples?from=2026-10-26&to=2026-10-26&identity=3", "synthetic")
+	var v struct {
+		View    string            `json:"view"`
+		Records []json.RawMessage `json:"records"`
+	}
+	if api.Code != 200 || json.Unmarshal(api.Body.Bytes(), &v) != nil || v.View != "resolved" || len(v.Records) != 0 {
+		t.Fatal("API default changed", api.Body)
+	}
+}
+
+func TestGrowattReadingDatesAreNotRetrievalDates(t *testing.T) {
+	_, h := browsingFixture(t, true)
+	// Fixture readings describe March/October 25, but were all retrieved October 26.
+	// The broad range from the user's screenshot must start with the newest reading.
+	w := request(h, "/records/growatt?from=2020-10-10&to=2026-10-27&limit=1", "synthetic")
+	if w.Code != 200 || !strings.Contains(w.Body.String(), `name="view" value="provider"`) || !strings.Contains(w.Body.String(), "2026-10-25") || strings.Contains(w.Body.String(), "2026-03-29") {
+		t.Fatalf("reading-date view missing/newest reading hidden: %d", w.Code)
+	}
+	w = request(h, "/records/growatt?from=2026-10-25&to=2026-10-25&limit=1", "synthetic")
+	if w.Code != 200 || strings.Contains(w.Body.String(), "No stored samples matching these filters") {
+		t.Fatal("reading date incorrectly applied to retrieval", w.Code)
+	}
+}
+
+func TestProviderViewParserAndPaging(t *testing.T) {
+	s, h := browsingFixture(t, true)
+	_ = s
+	path := "/api/v1/growatt/samples?view=provider&from=2020-10-10&to=2026-10-27&limit=1"
+	seen := map[int64]bool{}
+	cursor := ""
+	lastDate := "9999-12-31"
+	for n := 0; n < 8; n++ {
+		w := request(h, path+"&cursor="+url.QueryEscape(cursor), "synthetic")
+		var v struct {
+			View    string       `json:"view"`
+			Basis   string       `json:"range_basis"`
+			Records []sampleView `json:"records"`
+			Next    string       `json:"next_cursor"`
+		}
+		if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &v) != nil || len(v.Records) != 1 || v.Basis != "provider_reported_day" || v.View != "provider" {
+			t.Fatal(w.Code, w.Body)
+		}
+		row := v.Records[0]
+		if seen[row.ID] || row.ProviderDate > lastDate {
+			t.Fatal("unstable/date ordering", row.ID)
+		}
+		seen[row.ID] = true
+		lastDate = row.ProviderDate
+		cursor = v.Next
+	}
+	if cursor != "" {
+		t.Fatal("extra page")
+	}
+	for _, query := range []string{"view=provider&from=2026-10-26&to=2026-10-25", "view=provider&from=2026-10-25T00:00:00Z&to=2026-10-26T00:00:00Z", "view=provider&from=0000-01-01&to=2026-10-26", "view=provider&from=2026-10-26"} {
+		if w := request(h, "/records/growatt?"+query, "synthetic"); w.Code != 400 {
+			t.Fatal(query, w.Code)
+		}
+	}
 }

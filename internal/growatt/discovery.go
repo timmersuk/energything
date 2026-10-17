@@ -48,9 +48,10 @@ func (c *Client) list(ctx context.Context, path, key string, form url.Values, re
 		}
 		if expected < 0 {
 			expected = count
-		} else if expected != count {
+		} else if count < expected {
 			return nil, problem("pagination", "count_changed", page)
 		}
+		expected = count
 		rows, ok := data[key].([]any)
 		if !ok {
 			return nil, problem("protocol", "missing_results", page)

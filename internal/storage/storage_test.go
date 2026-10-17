@@ -73,7 +73,7 @@ func TestAcceptedReplayCorrectionReopen(t *testing.T) {
 	first := accepted(t, s, j, "0.100")
 	second := accepted(t, s, j, "0.100")
 	third := accepted(t, s, j, "0.120")
-	if count(t, s, "intervals") != 2 || count(t, s, "evidence") != 2 || count(t, s, "retrievals") != 3 || count(t, s, "interval_versions") != 6 {
+	if count(t, s, "intervals") != 2 || count(t, s, "evidence") != 2 || count(t, s, "retrievals") != 3 {
 		t.Fatal("replay/correction provenance lost")
 	}
 	if err := s.Close(); err != nil {
@@ -131,7 +131,7 @@ func TestRejectedAndTransactionFaults(t *testing.T) {
 		t.Run(boundary, func(t *testing.T) {
 			id := begin(t, s, j)
 			beforeEvidence := count(t, s, "evidence")
-			beforeVersions := count(t, s, "interval_versions")
+			beforeRetrievals := count(t, s, "retrievals")
 			s.fault = func(b string) error {
 				if b == boundary {
 					return errors.New("synthetic transaction failure")
@@ -145,7 +145,7 @@ func TestRejectedAndTransactionFaults(t *testing.T) {
 				t.Fatal("fault ignored")
 			}
 			s.fault = nil
-			if count(t, s, "evidence") != beforeEvidence || count(t, s, "interval_versions") != beforeVersions {
+			if count(t, s, "evidence") != beforeEvidence || count(t, s, "retrievals") != beforeRetrievals {
 				t.Fatal("partial transaction persisted")
 			}
 			var outcome string
@@ -191,8 +191,8 @@ func TestGrowattNullRepeatedTimeAndEmpty(t *testing.T) {
 	s, dir, _, j := fixture(t, "growatt")
 	id := begin(t, s, j)
 	values := map[string]Value{"soc": {nil, ptr("%"), "missing"}, "unknown_power": {nil, nil, "missing"}}
-	samples := []Sample{{OriginalTime: map[string]string{"local": "2026-10-25 01:30"}, Quality: "unresolved", Values: values, ProviderDate: j.ProviderDate},
-		{OriginalTime: map[string]string{"local": "2026-10-25 01:30"}, Quality: "unresolved", Values: map[string]Value{"soc": {ptr("0"), ptr("%"), "valid"}}, ProviderDate: j.ProviderDate}}
+	samples := []Sample{{OriginalTime: map[string]string{"time": `"2026-10-01 01:30:00"`}, Quality: "unresolved", Values: values, ProviderDate: j.ProviderDate},
+		{OriginalTime: map[string]string{"time": `"2026-10-01 01:31:00"`}, Quality: "unresolved", Values: map[string]Value{"soc": {ptr("0"), ptr("%"), "valid"}}, ProviderDate: j.ProviderDate}}
 	in := AcceptedWindow{AttemptID: id, Finished: testStart + 4*halfHour, Evidence: []Evidence{{json.RawMessage(`{"local":"2026-10-25 01:30","telemetry":[null,0]}`), testStart + 4*halfHour, true}}, Samples: samples}
 	if err := s.CommitAcceptedWindow(ctx, in); err != nil {
 		t.Fatal(err)
@@ -201,8 +201,8 @@ func TestGrowattNullRepeatedTimeAndEmpty(t *testing.T) {
 	if err := s.CommitAcceptedWindow(ctx, in); err != nil {
 		t.Fatal(err)
 	}
-	if count(t, s, "samples") != 4 || count(t, s, "evidence") != 1 || count(t, s, "retrievals") != 2 {
-		t.Fatal("unresolved occurrences overwritten")
+	if count(t, s, "samples") != 2 || count(t, s, "evidence") != 1 || count(t, s, "retrievals") != 2 {
+		t.Fatal("repeat retrieval created duplicate canonical readings")
 	}
 	// Empty expired history is fetched, not measured, and never deletes local data.
 	if err := s.CommitAcceptedWindow(ctx, AcceptedWindow{AttemptID: begin(t, s, j), Finished: in.Finished, Evidence: []Evidence{{json.RawMessage(`{"history":[]}`), in.Finished, true}}}); err != nil {
@@ -218,7 +218,7 @@ func TestGrowattNullRepeatedTimeAndEmpty(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(p.Records) != 4 || p.Records[0].Instant != nil || p.Records[0].ResolvedKey != nil || p.Records[0].Values["soc"].Decimal != nil || *p.Records[1].Values["soc"].Decimal != "0" {
+	if len(p.Records) != 2 || p.Records[0].Instant != nil || p.Records[0].Values["soc"].Decimal != nil || *p.Records[1].Values["soc"].Decimal != "0" {
 		t.Fatalf("samples %+v", p)
 	}
 	encoded, _ := json.Marshal(p)
@@ -229,14 +229,14 @@ func TestGrowattNullRepeatedTimeAndEmpty(t *testing.T) {
 		t.Fatal("JSON lost null/zero", string(encoded))
 	}
 	absolute, err := s.QuerySamples(ctx, SampleQuery{})
-	if err != nil || len(absolute.Records) != 0 || absolute.OmittedUnresolved != 4 {
+	if err != nil || len(absolute.Records) != 0 || absolute.OmittedUnresolved != 2 {
 		t.Fatal("absolute query guessed UTC", absolute, err)
 	}
 	status, err := s.QueryStatus(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if status[0].LastAttempt.Outcome != "empty" || status[0].Windows[0].Coverage.MeasurementComplete || status[0].SampleCount != 4 {
+	if status[0].LastAttempt.Outcome != "empty" || status[0].Windows[0].Coverage.MeasurementComplete || status[0].SampleCount != 2 {
 		t.Fatal("empty erased history or measured zero")
 	}
 }
@@ -349,7 +349,7 @@ func TestPaginationFiltersSanitizationAndRangeIDs(t *testing.T) {
 func TestMigrationRollbackNewerAndReopen(t *testing.T) {
 	ctx := context.Background()
 	s, dir, _, _ := fixture(t, "octopus")
-	if err := migrate(ctx, s.db, []string{"unused", "unused", "unused", "unused", "unused", "unused", "unused", `CREATE TABLE synthetic_upgrade(value TEXT); INSERT INTO synthetic_upgrade VALUES ('x'); invalid SQL;`}); err == nil {
+	if err := migrate(ctx, s.db, []string{"unused", "unused", "unused", "unused", "unused", "unused", "unused", "unused", `CREATE TABLE synthetic_upgrade(value TEXT); INSERT INTO synthetic_upgrade VALUES ('x'); invalid SQL;`}); err == nil {
 		t.Fatal("migration error ignored")
 	}
 	var n int
@@ -361,7 +361,7 @@ func TestMigrationRollbackNewerAndReopen(t *testing.T) {
 	if n != schemaVersion {
 		t.Fatal("migration version advanced")
 	}
-	if _, err := s.db.Exec(`INSERT INTO schema_migrations VALUES(8)`); err != nil {
+	if _, err := s.db.Exec(`INSERT INTO schema_migrations VALUES(9)`); err != nil {
 		t.Fatal(err)
 	}
 	s.Close()

@@ -20,16 +20,18 @@ type RecordQuery struct {
 }
 type SampleQuery struct {
 	RecordQuery
+	ProviderView             bool
+	ProviderFrom, ProviderTo string
 	// QualityView switches ordering/range to retrieval time, allowing null instants.
 	QualityView           bool
 	Quality, ProviderDate string
 }
 type AuditQuery struct {
-	IdentityID                    int64
-	Provider, Outcome, ErrorClass string
-	From, To                      *Instant
-	Limit                         int
-	Cursor                        string
+	IdentityID                            int64
+	Provider, Stream, Outcome, ErrorClass string
+	From, To                              *Instant
+	Limit                                 int
+	Cursor                                string
 }
 type IntervalPage struct {
 	Records    []Interval
@@ -157,6 +159,12 @@ func (s *Store) QueryIntervals(ctx context.Context, q RecordQuery) (page Interva
 	return
 }
 func (s *Store) QuerySamples(ctx context.Context, q SampleQuery) (page SamplePage, err error) {
+	if q.ProviderView {
+		return s.queryProviderSamples(ctx, q)
+	}
+	if q.ProviderFrom != "" || q.ProviderTo != "" {
+		return page, ErrInvalid
+	}
 	if q.IdentityID < 0 || q.Direction != "" || !rangeValid(q.From, q.To) || !validDate(q.ProviderDate) || (q.Quality != "" && !validText(q.Quality)) || (!q.QualityView && (q.Quality != "" || q.ProviderDate != "")) {
 		return page, ErrInvalid
 	}
@@ -206,11 +214,11 @@ func (s *Store) QuerySamples(ctx context.Context, q SampleQuery) (page SamplePag
 		}
 	}
 	if c != nil {
-		where += " AND (" + field + ",id)>(?,?)"
+		where += " AND (" + field + ",rowid)>(?,?)"
 		args = append(args, c.Time, c.ID)
 	}
 	args = append(args, q.Limit+1)
-	rows, err := tx.QueryContext(ctx, `SELECT id,identity_id,resolved_key,instant,provider_date,original_time,quality,values_json,retrieved,retrieval_id FROM samples WHERE `+where+` ORDER BY `+field+`,id LIMIT ?`, args...)
+	rows, err := tx.QueryContext(ctx, `SELECT rowid,identity_id,instant,provider_date,original_time,quality,values_json,retrieved,retrieval_id FROM samples WHERE `+where+` ORDER BY `+field+`,rowid LIMIT ?`, args...)
 	if err != nil {
 		return page, err
 	}
@@ -218,7 +226,7 @@ func (s *Store) QuerySamples(ctx context.Context, q SampleQuery) (page SamplePag
 	for rows.Next() {
 		var x Sample
 		var original, values string
-		if err = rows.Scan(&x.ID, &x.IdentityID, &x.ResolvedKey, &x.Instant, &x.ProviderDate, &original, &x.Quality, &values, &x.Retrieved, &x.RetrievalID); err != nil {
+		if err = rows.Scan(&x.ID, &x.IdentityID, &x.Instant, &x.ProviderDate, &original, &x.Quality, &values, &x.Retrieved, &x.RetrievalID); err != nil {
 			break
 		}
 		if err = json.Unmarshal([]byte(original), &x.OriginalTime); err != nil {
@@ -286,6 +294,9 @@ func (s *Store) QueryAudit(ctx context.Context, q AuditQuery) (page AuditPage, e
 	if q.IdentityID < 0 || !rangeValid(q.From, q.To) || (q.Provider != "" && q.Provider != "octopus" && q.Provider != "growatt") {
 		return page, ErrInvalid
 	}
+	if q.Stream != "" && q.Stream != "import" && q.Stream != "export" && q.Stream != "device" && q.Stream != "generation" {
+		return page, ErrInvalid
+	}
 	if q.Outcome != "" && !validOutcome(q.Outcome) {
 		return page, ErrInvalid
 	}
@@ -310,6 +321,10 @@ func (s *Store) QueryAudit(ctx context.Context, q AuditQuery) (page AuditPage, e
 	if q.Provider != "" {
 		where += " AND i.provider=?"
 		args = append(args, q.Provider)
+	}
+	if q.Stream != "" {
+		where += " AND i.stream=?"
+		args = append(args, q.Stream)
 	}
 	if q.Outcome != "" {
 		where += " AND outcome=?"

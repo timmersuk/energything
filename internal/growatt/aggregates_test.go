@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/timmersuk/energything/internal/storage"
 	"net/http"
 	"strings"
 	"testing"
@@ -161,5 +162,46 @@ func TestAggregateSevenDayRange(t *testing.T) {
 		if _, e := c.FetchAggregateRange(context.Background(), "SYN-PLANT", dates[0], dates[1], func(context.Context) (time.Time, error) { permits++; return time.Time{}, nil }); e == nil || permits != 0 {
 			t.Fatal("invalid range reserved/transmitted", e)
 		}
+	}
+}
+
+func TestAggregate429BodyAndHeaderHints(t *testing.T) {
+	now := time.Date(2026, 10, 16, 12, 0, 0, 0, time.UTC)
+	for _, tc := range []struct {
+		name                 string
+		status               int
+		header, body, source string
+		wait                 time.Duration
+	}{
+		{"body longer", 429, "120", `{"error_code":10012,"retry_after_seconds":900,"token":"private-secret","message":"private-secret"}`, "retry_after_body", 15 * time.Minute},
+		{"header longer", 429, "3600", `{"retry_after":600}`, "retry_after_header", time.Hour},
+		{"json rate limit", 200, "3600", `{"error_code":10012,"data":{"retry_after":600}}`, "retry_after_header", time.Hour},
+		{"provider floor", 200, "120", `{"error_code":10012}`, "retry_after_header", 5 * time.Minute},
+		{"malformed", 429, "600", `<html>private-secret</html>`, "retry_after_header", 10 * time.Minute},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			calls := 0
+			c := NewClient("synthetic", roundTrip(func(*http.Request) (*http.Response, error) {
+				calls++
+				res := reply(tc.body)
+				res.StatusCode = tc.status
+				res.Header.Set("Retry-After", tc.header)
+				return res, nil
+			}))
+			c.now = func() time.Time { return now }
+			c.wait = func(context.Context, time.Duration) error { t.Fatal("aggregate retried inline"); return nil }
+			w, err := c.FetchAggregateDay(context.Background(), "SYN-PLANT", "2026-01-15", func(context.Context) (time.Time, error) { return time.Time{}, nil })
+			pe, ok := err.(*Error)
+			if !ok || calls != 1 || !pe.DeferredUntil.Equal(now.Add(tc.wait)) || pe.Diagnostic.RetryHintSource != tc.source || pe.Diagnostic.HTTPStatus != tc.status || len(w.Retries) != 1 {
+				t.Fatal(pe, calls, w)
+			}
+			raw, _ := json.Marshal(pe.Diagnostic)
+			if strings.Contains(string(raw), "private-secret") || strings.Contains(err.Error(), "private-secret") {
+				t.Fatal("response text leaked")
+			}
+			if tc.name == "provider floor" && *pe.Diagnostic.RetryHintAt != storage.At(now.Add(2*time.Minute)) {
+				t.Fatal("provider hint overwritten by local floor")
+			}
+		})
 	}
 }

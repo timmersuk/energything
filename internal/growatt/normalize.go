@@ -143,5 +143,10 @@ func normalize(row map[string]any, date, serial string, evidence int) (storage.S
 		}
 		s.Values[key] = v
 	}
+	// A canonical reading needs the period actually supplied by the provider.
+	// Do not substitute retrieval time or an attempt-generated identity.
+	if _, err := time.Parse("2006-01-02 15:04:05", clock); err != nil || len(clock) != 19 {
+		return s, problem("validation", "invalid_timestamp", evidence+1)
+	}
 	return s, nil
 }

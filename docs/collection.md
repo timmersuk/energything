@@ -111,7 +111,7 @@ transmissions/page, with bounded inline delays and cancellable requests. Every
 Growatt discovery/detailed transmission is paced at least ten seconds apart,
 including pages and inline retries. Historical units yield between days.
 Scheduler reattempts create new attempt IDs and defer one minute doubling to one
-hour, plus0–1 second jitter. Provider DeferredUntil is a lower bound; long waits
+hour, plus0ï¿½1 second jitter. Provider DeferredUntil is a lower bound; long waits
 are stored as job due times rather than holding a provider lane. Transient discovery errors retry after at least15 minutes (or a later provider
 deferral), independently of healthy streams; a plant can collect generation while
 device discovery retries. Authentication and
@@ -160,8 +160,8 @@ candidate interpretations under the configured regional zone and fixed UTC+1.
 Round-trip candidate enumeration explicitly identifies spring gaps and both autumn
 occurrences. Neither a library default, Shanghai calendar epoch nor receipt delay
 chooses an occurrence. Candidate interpretation does not invent a stable sample ID
-or rewrite old rows; samples remain occurrence-based and excluded from authoritative
-absolute-time queries while the seasonal/identity gate is unresolved.
+or establish a UTC instant. Canonical samples use the reported source timestamp
+and remain excluded from authoritative absolute-time queries while unresolved.
 
 Current installation BST clocks already have strong independent empirical support;
 exact generation/counter agreement cannot distinguish UTC versus BST when boundary
@@ -176,3 +176,66 @@ history and generation-comparison notes for qualifications and private evidence.
 Superseding unlimited calendar acquisition: `ENERGYTHING_HISTORY_START` is the inclusive earliest date for automatic Octopus and Growatt history, default `2022-01-01` (ISO `YYYY-MM-DD`). Invalid and future dates reject startup. Octopus uses midnight UTC; Growatt uses provider calendar dates with qualified timezone. A verified later provider oldest reading remains the effective boundary.
 
 Restart after changing the setting. Existing plans adopt it without resetting progress or deleting records. Moving it earlier resumes older acquisition; moving it later stops older queued automatic units. An in-flight unit may finish. `configured_boundary_reached` does not claim the provider archive is exhausted. Recent routine refresh and explicit repair remain independent.
+
+## Investigating retained collection attempts
+
+Open Collection audit from navigation or a source's error-class link. Select source,
+stream and an occurrence period; compare full-match failed/rejected counts and
+requested windows across pages. Old failures remain after a later success. Inspect
+the typed reason, page/count/interval context and bounded next retry, then compare
+last accepted attempt, newest **measurement**, coverage and automatic frontier on
+status. A recent successful retrieval of old samples does not establish freshness.
+
+For generation gaps, the daily page shows the retained historical frontier,
+unfinished windows, retry/paused state and last attempt. Collection is progressing
+backwards under the existing aggregate reservation budget; scattered older retained
+rows do not imply the intervening days were fetched. Audit empty means a fetched
+empty response; rejection and failure preserve prior accepted rows and checkpoints.
+Days without a retained accepted attempt may still be not fetched yet. Do not infer
+an outage, zero generation or a retention boundary. The inclusive automatic history
+boundary remains ENERGYTHING_HISTORY_START, default 2022-01-01, with retained
+progress and quota reservations unchanged.
+
+Inspect or download the selected telemetry evidence for the exact attempt privately.
+It retains original clocks and unknown telemetry, including rejected content, and
+excludes secrets/discovery material. Keep downloads private for follow-up. Do not
+erase the database or force a full backfill to diagnose an error. Audit browsing
+neither contacts providers nor performs recovery/migrations, and adds no scheduler.
+
+### Optional aggregate daily cap (16 October 2026)
+
+By explicit user decision, the local ten-per-rolling-24h cap is now **off by
+default**. Set `GROWATT_AGGREGATE_DAILY_CAP_ENABLED=true` to enable it, or `false`
+(the default) to disable it. Restart after changing the flag. Five-minute spacing,
+durable reservations (including failed requests), provider-directed backoff and
+historical progress remain intact. On startup only local-budget deferrals are
+reconsidered under the configured policy; provider deferral deadlines are retained.
+This supersedes earlier statements that the ten-call local cap is unconditional.
+
+### Provider retry hints on rate-limit responses
+
+Both clients already honored Retry-After seconds/HTTP-date. They now also inspect
+up to 64 KiB of a 429 JSON body for `retry_after` (integer seconds or HTTP-date),
+`retry_after_seconds` (integer seconds) and `retry_at` (offset RFC3339 instant), at
+the root or inside `data`/`error`. These are explicitly supported interoperability
+fields, synthetically verified, not a claim that Growatt always supplies them.
+When valid hints conflict the latest deadline wins. Unknown reset-header units and
+free-text error prose are not guessed. Invalid, absent, oversized or unreadable
+bodies preserve any valid header hint; otherwise existing bounded backoff applies.
+The response remains classified as rate-limited, even when its body is malformed.
+
+Growatt JSON error_code 10012 now checks these hints too; its existing five-minute
+fallback remains a minimum. A longer provider hint prevails. Aggregate requests
+still have one transmission/page and durable five-minute spacing, irrespective of
+the default-off optional daily cap. No extra provider request is made to inspect
+an error response. Long deadlines remain durable due times, not sleeps in a lane.
+
+Audit/status retain only selected typed diagnostics: HTTP/provider code, parsed
+provider retry instant, hint source and an enumerated body-inspection result.
+The actual job retry may be later than the provider hint because of spacing or
+scheduler backoff. No raw error body/header dump, cookies, keys, URLs or arbitrary
+provider message is persisted. Unknown old response details cannot be reconstructed.
+See [HTTP Retry-After semantics](https://www.rfc-editor.org/rfc/rfc9110.html#name-retry-after)
+and [429 semantics](https://www.rfc-editor.org/rfc/rfc6585.html#section-4).
+
+Paginated acquisition follows nondecreasing provider totals: telemetry, Growatt discovery/generation and Octopus consumption tolerate new rows arriving during traversal. Shrinking totals, cycles, invalid data and final count mismatches reject the unit. Existing page/row/request budgets, destination checks, conflict validation and quota reservations remain enforced. Accepted traversal is not an atomic provider snapshot. Octopus evidence retains typed per-page counts and assembly position, excluding malformed count payloads.

@@ -15,7 +15,7 @@ All implemented routes accept GET only (405 with `Allow: GET` otherwise).
 | `/static/style.css` | Embedded stylesheet | Basic Auth |
 
 Missing/wrong credentials return 401 with a Basic challenge and no source data.
-Unknown routes, including audit and refresh routes, return 404. Responses use
+Unknown routes return 404. Audit and refresh additions are documented below. Responses use
 `Cache-Control: no-store`, nosniff and a same-origin content security policy.
 
 ## Record query parameters
@@ -30,7 +30,7 @@ Empty optional form fields are ignored; an explicitly empty `limit` is invalid.
 | `cursor` | Opaque storage keyset cursor, bound to all filters and limit |
 | `identity` | Optional positive local source ID; must exist for this provider. History includes deselected sources. |
 | `direction` | Octopus only: `import` or `export`; empty selects both |
-| `view` | Growatt only: `resolved` (default) or `quality` |
+| `view` | Growatt only: `resolved` (API default), `quality` (retrieval diagnostics) or `provider` (web-page default; reported reading days) |
 | `quality` | Growatt quality view only: exact stored quality text, at most 256 bytes |
 | `provider_date` | Growatt quality view only: `YYYY-MM-DD`, matches original provider date |
 
@@ -208,7 +208,7 @@ nonnegative decimal string), unit=kWh, calendar=provider_date_zone_unverified,
 quality (provider_reported or reported_zero_availability_unknown), period_start
 and period_end (null; UTC boundaries unestablished), retrieved_at (UTC RFC3339),
 and retrieval_id. Retrieval links retained selected evidence internally; task06a
-owns authenticated raw-evidence inspection. Records are current accepted versions;
+owns authenticated raw-evidence inspection. Records contain current accepted values;
 superseded values/evidence remain stored. Dates with no rows have unknown availability.
 
 The compact local table offers plant/date filters, stable next-page links and
@@ -262,3 +262,138 @@ from the same frontier and current unit, preserving accepted data, versions,
 checkpoints, retries and quota reservations. Unit sizes, routine priority, repair
 binding, clock qualifications and the aggregate ten-per-rolling24h limit remain.
 Earlier passages describing a120-day exploration limit are superseded.
+
+## Collection audit (task06a)
+
+`GET /audit`, `/audit/{id}`, `/api/v1/audit`, `/api/v1/audit/{id}` and
+`/api/v1/audit/{id}/evidence/{retrieval_id}` require Basic Auth and use no-store,
+nosniff and the existing CSP. They read the already-open local store only; no
+provider call, enqueue, recovery or migration occurs while browsing. Wrong methods
+return 405, invalid filters 400, absent IDs or mismatched attempt/retrieval 404,
+missing/wrong auth 401. Storage failures return a sanitized 503.
+
+List parameters (HTML and API share the parser): `source` (octopus/growatt),
+`stream` (import/export/device/generation), positive existing local `identity`,
+`outcome` (running/success/empty/rejected/failed/cancelled/interrupted), `error_class`
+(configuration/selection/authentication/rate_limit/network/timeout/pagination/protocol/
+validation/timestamp_quality/storage), `from`, `to`, `limit`, `cursor`.
+Unknown/repeated parameters fail. Empty optional form fields select all; empty
+limit fails. Default limit 100, maximum 500. Unlike record queries, omitted range
+selects all retained audit. Paired calendar dates are inclusive in the configured
+zone; paired offset RFC3339 instants use exclusive `to`, with the same precision
+and date-domain checks as record queries. Ranges apply to **attempt occurrence**,
+never provider sample clocks or requested-window overlap.
+
+Ordering is `(occurred_at DESC, id DESC)` with an opaque cursor bound to every
+filter and limit. Keep filters unchanged for later pages. This is a live keyset
+view; newly finished attempts can appear on a fresh query. Equal times retain the
+stable ID tie-break, including repeated autumn hours.
+
+List/detail envelope: `version`, `timezone`, `range_basis: attempt_occurrence`,
+nullable UTC `from`/`to`, `limit`, `records`, `counts: {total, failed, rejected}`,
+optional `next_cursor`. Counts cover **all filtered matches**, independent of
+page/cursor. Detail uses the same envelope with one record, null range and zero
+list counts/limit; no query parameters are accepted.
+
+Each record has `id`, `job_id`, `identity_id`, `source`, `stream`, full `identity`
+and dedicated `provider_identity` (mpan/serial/plant_id/device_type when retained),
+`kind`, `requested_from`, exclusive `requested_to`, optional `provider_date`,
+`started_at`, `occurred_at`, nullable `finished_at`, `occurred_local` (configured
+zone with numeric offset), `outcome`, `outcome_label`, optional `error_class`,
+`error_code`, `message`, `diagnostic`, nullable `page`, `retry_count`, nullable
+`next_retry_at`, `retries`, `accepted_rows`, `evidence`, `detail_url`.
+UTC instant strings end in Z. Aggregate requested bounds are bookkeeping, not
+measurement instants. `diagnostic` may contain HTTP/provider codes, known field,
+safe decimal value, expected/observed counts, provider period and normalized
+`interval_start_utc_microseconds`/`interval_end_utc_microseconds`. Inline retries
+retain `Page`, `Retry`, `HTTPStatus`, `Code`, `WaitMicroseconds`. Missing historical
+context is left absent; no context is invented for older attempts.
+
+Evidence references contain `retrieval_id`, `evidence_id`, `digest`,
+`retrieved_at`, `complete`, `url`. Each URL checks both attempt and retrieval plus
+identity ownership in a narrow joined query, even when content is deduplicated.
+The response is retained selected telemetry JSON, bounded to 4 MiB before encoding,
+with unknown telemetry and original timestamps preserved. `?download=1` selects
+an attachment filename; no other evidence parameters are accepted. Unsafe older
+content fails closed with 404. No headers, keys, authenticated URLs, account/address
+material or exception/stack dumps are exposed. The UI fetches evidence only on an
+explicit inspect click and inserts pretty JSON as text, never HTML.
+
+`rate_limit` retains terminal `failed` and an explicit deferral label.
+`local_budget` means the local aggregate reservation budget prevented this page's
+request; `limited` means provider rate limiting for new attempts. Older retained `limited` events may lack local/provider origin and are not reinterpreted. Counts therefore include deferred
+failed attempts. Empty is accepted fetched unavailability; rejection/failure does
+not advance completion. Interrupted/cancelled is never success.
+
+Synthetic examples:
+
+```text
+/api/v1/audit?source=octopus&stream=import&from=2026-10-25&to=2026-10-25&limit=2
+/audit?source=growatt&stream=generation&error_class=rate_limit
+/api/v1/audit/123
+/api/v1/audit/123/evidence/456?download=1
+```
+
+Status sources add `audit_counts` across all retained attempts and filtered links,
+so repeated failures remain accessible after recovery. Aggregate responses add
+`collection_progress` for matching plants, independent of row date filters:
+`identity_id`, `identity`, plan `state`, `frontier`, `search_limit`, `next_due`,
+`provenance`, `unfinished_jobs` (the exact automatic plan current job when unfinished: requested bounds, due, paused/running/retry count),
+and nullable `last_attempt`. The generation page displays these stored values.
+A frontier describes backwards fetched progress, not physical coverage; legacy
+January rows can coexist with an unfinished gap before August. Inspect individual
+attempt windows to distinguish not fetched yet, fetched empty and rejected data.
+
+### Growatt samples page default
+
+`/records/growatt` now defaults an omitted `view` to `quality`, including retained
+samples with unresolved absolute clocks. The default date range still applies to
+retrieval time; use provider_date to inspect a source calendar day independently of
+retrieval time. Explicit `view=resolved` remains available. The v1 samples API
+continues to default to resolved measurement-time queries. Page next links retain
+`view=quality`; no timestamps are inferred or rewritten by this display default.
+
+Aggregate browsing also reports `aggregate_daily_cap_enabled` (boolean). The
+server flag GROWATT_AGGREGATE_DAILY_CAP_ENABLED defaults to false; true restores
+only the local ten-per-rolling-day cap. Five-minute spacing and provider backoff
+remain active in both modes.
+
+Rate-limit diagnostics add `retry_hint_source` (retry_after_header,
+retry_after_body, retry_at_body or provider_code_default),
+`retry_hint_at_utc_microseconds`, and `rate_limit_body_status`
+(absent/recognized/unrecognized/invalid_json/oversized/read_error).
+Audit records and status attempt summaries also expose nullable `provider_retry_at`
+as a UTC RFC3339 string. This is the parsed provider instruction; `next_retry_at`
+is the effective stored job deadline and may be later. Only allowlisted parsed
+fields are retained from rate-limit errors, never raw 429 bodies or headers.
+
+### Reported reading days: the normal Growatt samples page
+
+The HTML page now defaults to `view=provider`. From/To are **inclusive reported
+reading days**, independent of when Energything fetched the response. They accept
+YYYY-MM-DD only in this view. The page says Readings from / Readings through,
+shows newest reported day/clock first, with no quality/diagnostic controls in the
+normal form. Retrieval and verified UTC query modes remain available to API callers.
+
+The API default remains resolved. API callers may explicitly select
+`view=provider&from=2026-10-15&to=2026-10-16`. Its envelope uses
+`range_basis: provider_reported_day`; `from` and `to` are inclusive calendar date
+strings in this view. Ordering is reported provider date, syntactically valid
+reported wall-clock text and internal paging row ID, descending. One canonical
+row is retained per device/reported timestamp; no UTC instant is inferred. Missing
+or malformed provider timestamps reject acquisition rather than inventing keys. Provider-view keyset cursors bind the date
+range, source, quality and limit and preserve the view across pages.
+
+Explicit `view=quality` continues to filter/order by retrieval time as before;
+`provider_date` remains an API/backward-compatible exact diagnostic filter. Explicit
+`view=resolved` still excludes unresolved instants. No stored timestamp, observation,
+collection policy or quota changes accompany these browsing changes. No GET calls
+a provider or performs recovery.
+
+
+Schema008 canonical-reading correction: sample results now contain one current
+row per device/provider-reported timestamp. Repeated latest/history retrievals
+update that row. Values are overwritten on accepted corrections; there are no
+value-version tables. Internal row identifiers used by page cursors do not define
+reading identity. Existing audit/evidence endpoints remain local and authenticated.
+Provider timestamps remain reported clock text and do not imply resolved UTC.

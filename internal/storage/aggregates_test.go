@@ -38,7 +38,7 @@ func TestAggregateReplayCorrectionAtomicReopen(t *testing.T) {
 			t.Fatal(e)
 		}
 	}
-	if count(t, s, "energy_aggregates") != 1 || count(t, s, "aggregate_versions") != 3 || count(t, s, "samples") != 0 || count(t, s, "intervals") != 0 {
+	if count(t, s, "energy_aggregates") != 1 || count(t, s, "samples") != 0 || count(t, s, "intervals") != 0 {
 		t.Fatal("series mixed")
 	}
 	id := begin(t, s, j)
@@ -89,7 +89,7 @@ func TestAggregateQuotaDurable(t *testing.T) {
 		t.Fatal(e)
 	}
 	defer s.Close()
-	due, e := s.ReserveAggregateCall(ctx, testStart+Instant(time.Hour/time.Microsecond))
+	due, e := s.ReserveAggregateCallWithDailyCap(ctx, testStart+Instant(time.Hour/time.Microsecond), true)
 	if e != nil || due.UnixMicro() != int64(testStart+Instant(24*time.Hour/time.Microsecond)) {
 		t.Fatal(due, e)
 	}
@@ -112,7 +112,7 @@ func TestAggregateFaultPreservesAccepted(t *testing.T) {
 	}
 	s.fault = nil
 	p, e := s.QueryAggregates(ctx, AggregateQuery{})
-	if e != nil || p.Records[0].Value != "1" || count(t, s, "aggregate_versions") != 1 {
+	if e != nil || p.Records[0].Value != "1" {
 		t.Fatal(p, e)
 	}
 }
@@ -152,7 +152,7 @@ func TestAggregateRangeBoundsAndAtomicAcceptance(t *testing.T) {
 	if e = s.CommitAcceptedWindow(ctx, in); !errors.Is(e, ErrInvalid) {
 		t.Fatal("outside row accepted", e)
 	}
-	if count(t, s, "energy_aggregates") != 7 || count(t, s, "aggregate_versions") != 7 {
+	if count(t, s, "energy_aggregates") != 7 {
 		t.Fatal("partial correction")
 	}
 	if e = s.RecordRejectedOrFailedAttempt(ctx, FailedAttempt{AttemptID: in.AttemptID, Finished: in.Finished, NextDue: in.NextDue, Outcome: "rejected", ErrorClass: "validation", ErrorCode: "aggregate_date", Evidence: in.Evidence}); e != nil {
@@ -173,5 +173,105 @@ func TestAggregateRangeBoundsAndAtomicAcceptance(t *testing.T) {
 	j.End += 48 * halfHour
 	if _, e = s.EnsureJobs(ctx, []Job{j}); !errors.Is(e, ErrInvalid) {
 		t.Fatal("eight days accepted", e)
+	}
+}
+
+func TestAggregateConfigurableCapKeepsSpacingAndLedger(t *testing.T) {
+	s, dir, _ := aggregateFixture(t)
+	ctx := context.Background()
+	step := Instant(5 * time.Minute / time.Microsecond)
+	for n := 0; n < 10; n++ {
+		due, e := s.ReserveAggregateCall(ctx, testStart+Instant(n)*step)
+		if e != nil || !due.IsZero() {
+			t.Fatal(n, due, e)
+		}
+	}
+	eleventh := testStart + 10*step
+	if due, e := s.ReserveAggregateCallWithDailyCap(ctx, eleventh, true); e != nil || due.IsZero() {
+		t.Fatal("default cap lost", due, e)
+	}
+	if due, e := s.ReserveAggregateCallWithDailyCap(ctx, eleventh, false); e != nil || !due.IsZero() {
+		t.Fatal("11th reservation blocked", due, e)
+	}
+	if due, e := s.ReserveAggregateCallWithDailyCap(ctx, eleventh+1, false); e != nil || At(due) != eleventh+step {
+		t.Fatal("spacing lost", due, e)
+	}
+	s.Close()
+	var e error
+	s, e = Open(ctx, dir)
+	if e != nil {
+		t.Fatal(e)
+	}
+	defer s.Close()
+	if due, e := s.ReserveAggregateCallWithDailyCap(ctx, eleventh+1, false); e != nil || At(due) != eleventh+step {
+		t.Fatal("restart lost spacing", due, e)
+	}
+	if due, e := s.ReserveAggregateCallWithDailyCap(ctx, eleventh+step, true); e != nil || At(due) != testStart+step+Instant(24*time.Hour/time.Microsecond) {
+		t.Fatal("restoring cap lost extra reservation", due, e)
+	}
+	if count(t, s, "aggregate_calls") != 11 {
+		t.Fatal("ledger reset")
+	}
+
+}
+
+func TestChangedAggregateBudgetOnlyReconsidersLocalDeferrals(t *testing.T) {
+	s, _, original := aggregateFixture(t)
+	ctx := context.Background()
+	now := testStart + 4*halfHour
+	deadline := now + 48*halfHour
+	for n := 0; n < 10; n++ {
+		if _, e := s.ReserveAggregateCall(ctx, testStart+Instant(n)*Instant(5*time.Minute/time.Microsecond)); e != nil {
+			t.Fatal(e)
+		}
+	}
+	for _, code := range []string{"local_budget", "limited"} {
+		seed := Schedule{IdentityID: original.IdentityID, Kind: "aggregate", Policy: "backfill", Slot: 0, Frontier: original.End, SearchLimit: original.Start, Interval: time.Hour, Provenance: "synthetic quota experiment"}
+		if code == "limited" {
+			seed.Slot = 1
+			seed.Frontier += 48 * halfHour
+			seed.SearchLimit += 48 * halfHour
+		}
+		job, e := s.PrepareSchedule(ctx, seed, now, false, func(p Schedule) Job {
+			return Job{Start: p.SearchLimit, End: p.Frontier, ProviderDate: time.UnixMicro(int64(p.SearchLimit)).UTC().Format("2006-01-02")}
+		})
+		if e != nil || job == nil {
+			t.Fatal(e)
+		}
+		aid, e := s.BeginAttempt(ctx, AttemptRequest{JobID: job.ID, Started: now})
+		if e != nil {
+			t.Fatal(e)
+		}
+		if e = s.RecordRejectedOrFailedAttempt(ctx, FailedAttempt{AttemptID: aid, Finished: now, NextDue: deadline, Outcome: "failed", ErrorClass: "rate_limit", ErrorCode: code}); e != nil {
+			t.Fatal(e)
+		}
+	}
+	if e := s.ReconsiderAggregateDeferrals(ctx, now, false); e != nil {
+		t.Fatal(e)
+	}
+	rows, e := s.QueryStatus(ctx)
+	if e != nil {
+		t.Fatal(e)
+	}
+	for _, j := range rows[0].Jobs {
+		a, e := s.QueryAudit(ctx, AuditQuery{IdentityID: j.IdentityID})
+		if e != nil {
+			t.Fatal(e)
+		}
+		for _, attempt := range a.Records {
+			if attempt.JobID != j.ID {
+				continue
+			}
+			want := deadline
+			if attempt.ErrorCode == "local_budget" {
+				want = now
+			}
+			if j.NextDue != want || j.RetryCount != 1 || j.Checkpoint != nil {
+				t.Fatal("retry/progress changed", j, want)
+			}
+		}
+	}
+	if count(t, s, "aggregate_calls") != 10 {
+		t.Fatal("reservations changed")
 	}
 }

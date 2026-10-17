@@ -55,10 +55,10 @@ func SeedBrowsing(ctx context.Context, s *storage.Store) error {
 		a := from + 5400000000
 		b := a + 3600000000
 		samples := []storage.Sample{
-			{ResolvedKey: pointer(date + "-a"), Instant: &a, ProviderDate: date, OriginalTime: map[string]string{"clock": "01:30 <script>window.fixtureExecuted=true</script>"}, Quality: "qualified", Values: map[string]storage.Value{"soc": {Decimal: nil, Unit: pointer("%"), Quality: "missing"}, "power": {Decimal: pointer("0"), Unit: pointer("W"), Quality: "valid"}}},
-			{ResolvedKey: pointer(date + "-b"), Instant: &b, ProviderDate: date, OriginalTime: map[string]string{"clock": "01:30"}, Quality: "valid", Values: map[string]storage.Value{"soc": {Decimal: pointer("0"), Unit: pointer("%"), Quality: "valid"}, "counter": {Decimal: nil, Unit: nil, Quality: "unresolved"}}},
-			{ProviderDate: date, OriginalTime: map[string]string{"clock": date + " 01:30"}, Quality: "unresolved", Values: map[string]storage.Value{}},
-			{ProviderDate: date, OriginalTime: map[string]string{"clock": date + " 01:30"}, Quality: "unresolved", Values: map[string]storage.Value{}},
+			{Instant: &a, ProviderDate: date, OriginalTime: map[string]string{"time": `"` + date + ` 01:30:00"`, "clock": "01:30 <script>window.fixtureExecuted=true</script>"}, Quality: "qualified", Values: map[string]storage.Value{"soc": {Decimal: nil, Unit: pointer("%"), Quality: "missing"}, "power": {Decimal: pointer("0"), Unit: pointer("W"), Quality: "valid"}}},
+			{Instant: &b, ProviderDate: date, OriginalTime: map[string]string{"time": `"` + date + ` 02:30:00"`, "clock": "01:30"}, Quality: "valid", Values: map[string]storage.Value{"soc": {Decimal: pointer("0"), Unit: pointer("%"), Quality: "valid"}, "counter": {Decimal: nil, Unit: nil, Quality: "unresolved"}}},
+			{ProviderDate: date, OriginalTime: map[string]string{"time": `"` + date + ` 03:30:00"`}, Quality: "unresolved", Values: map[string]storage.Value{}},
+			{ProviderDate: date, OriginalTime: map[string]string{"time": `"` + date + ` 04:30:00"`}, Quality: "unresolved", Values: map[string]storage.Value{}},
 		}
 		if err := accept(storage.Job{IdentityID: ids[2].ID, Kind: "history", Policy: "backfill", ProviderDate: date, Start: from, End: to, NextDue: retrieved}, nil, samples); err != nil {
 			return fmt.Errorf("samples: %w", err)

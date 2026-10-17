@@ -30,7 +30,7 @@ func canonicalEvidence(raw json.RawMessage) (string, string, error) {
 		case map[string]any:
 			for k, v := range x {
 				key := strings.ToLower(strings.NewReplacer("_", "", "-", "", " ", "").Replace(k))
-				for _, bad := range []string{"token", "password", "secret", "authorization", "apikey", "cookie", "header", "address", "account", "credential", "url"} {
+				for _, bad := range []string{"token", "password", "secret", "authorization", "apikey", "cookie", "header", "address", "account", "credential", "url", "exception", "stacktrace"} {
 					if strings.Contains(key, bad) {
 						return false
 					}
@@ -159,7 +159,6 @@ func validateAccepted(a Audit, provider string, in AcceptedWindow) ([]Interval, 
 		}
 		out = append(out, x)
 	}
-	keys := map[string]bool{}
 	for _, x := range in.Samples {
 		if (x.IdentityID != 0 && x.IdentityID != a.IdentityID) || !validDate(x.ProviderDate) || !validText(x.Quality) || x.Evidence < 0 || x.Evidence >= len(in.Evidence) || x.OriginalTime == nil || x.Values == nil {
 			return nil, ErrInvalid
@@ -167,12 +166,10 @@ func validateAccepted(a Audit, provider string, in AcceptedWindow) ([]Interval, 
 		if x.ProviderDate != a.ProviderDate && a.ProviderDate != "" {
 			return nil, ErrInvalid
 		}
-		if x.ResolvedKey != nil {
-			if !validText(*x.ResolvedKey) || keys[*x.ResolvedKey] {
-				return nil, ErrInvalid
-			}
-			keys[*x.ResolvedKey] = true
+		if _, keyErr := samplePeriod(x); keyErr != nil {
+			return nil, ErrInvalid
 		}
+
 		if x.Instant != nil && (*x.Instant < a.Start || *x.Instant >= a.End) {
 			return nil, ErrInvalid
 		}
@@ -221,6 +218,19 @@ func (s *Store) CommitAcceptedWindow(ctx context.Context, in AcceptedWindow) err
 		if err != nil {
 			return err
 		}
+		rawSampleCount := len(in.Samples)
+		in.Samples, err = canonicalSamples(in.Samples)
+		if err != nil {
+			return err
+		}
+		if len(in.Samples) < rawSampleCount {
+			if in.Coverage.Valid == rawSampleCount {
+				in.Coverage.Valid = len(in.Samples)
+			}
+			if in.Coverage.Qualified == rawSampleCount {
+				in.Coverage.Qualified = len(in.Samples)
+			}
+		}
 		ids, err := storeEvidence(ctx, tx, a, prepared)
 		if err != nil {
 			return err
@@ -238,9 +248,6 @@ func (s *Store) CommitAcceptedWindow(ctx context.Context, in AcceptedWindow) err
 			if err != nil {
 				return err
 			}
-			if _, err = tx.ExecContext(ctx, `INSERT INTO interval_versions(identity_id,start,end,kwh,retrieval_id) VALUES(?,?,?,?,?)`, a.IdentityID, x.Start, x.End, x.KWh, retrieval); err != nil {
-				return err
-			}
 		}
 		aggregates, err := validateAggregates(a, in)
 		if err != nil {
@@ -252,24 +259,20 @@ func (s *Store) CommitAcceptedWindow(ctx context.Context, in AcceptedWindow) err
 			if _, err = tx.ExecContext(ctx, `INSERT INTO energy_aggregates VALUES(?,?,?,?,?,?,?,?,?,?) ON CONFLICT(identity_id,metric,resolution,period) DO UPDATE SET value=excluded.value,unit=excluded.unit,calendar=excluded.calendar,quality=excluded.quality,retrieved=excluded.retrieved,retrieval_id=excluded.retrieval_id`, args...); err != nil {
 				return err
 			}
-			if _, err = tx.ExecContext(ctx, `INSERT INTO aggregate_versions(identity_id,metric,resolution,period,value,unit,calendar,quality,retrieval_id) VALUES(?,?,?,?,?,?,?,?,?)`, append(args[:8], retrieval)...); err != nil {
-				return err
-			}
 		}
-		for ordinal, x := range in.Samples {
-			original, _ := json.Marshal(x.OriginalTime)
-			values, _ := json.Marshal(x.Values)
-			retrieval := ids[x.Evidence]
-			var id int64
-			err = tx.QueryRowContext(ctx, `INSERT INTO samples(identity_id,resolved_key,attempt_id,ordinal,instant,provider_date,original_time,quality,values_json,retrieved,retrieval_id)
-    VALUES(?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(identity_id,resolved_key) DO UPDATE SET
-    attempt_id=excluded.attempt_id,ordinal=excluded.ordinal,instant=excluded.instant,provider_date=excluded.provider_date,
-    original_time=excluded.original_time,quality=excluded.quality,values_json=excluded.values_json,retrieved=excluded.retrieved,retrieval_id=excluded.retrieval_id RETURNING id`,
-				a.IdentityID, x.ResolvedKey, a.ID, ordinal, x.Instant, x.ProviderDate, string(original), x.Quality, string(values), in.Evidence[x.Evidence].Retrieved, retrieval).Scan(&id)
+		for _, x := range in.Samples {
+			clock, err := samplePeriod(x)
 			if err != nil {
 				return err
 			}
-			_, err = tx.ExecContext(ctx, `INSERT INTO sample_versions(sample_id,retrieval_id,resolved_key,instant,original_time,quality,values_json) VALUES(?,?,?,?,?,?,?)`, id, retrieval, x.ResolvedKey, x.Instant, string(original), x.Quality, string(values))
+			original, _ := json.Marshal(x.OriginalTime)
+			values, _ := json.Marshal(x.Values)
+			retrieval := ids[x.Evidence]
+			_, err = tx.ExecContext(ctx, `INSERT INTO samples(identity_id,provider_date,provider_time,attempt_id,instant,original_time,quality,values_json,retrieved,retrieval_id)
+ VALUES(?,?,?,?,?,?,?,?,?,?) ON CONFLICT(identity_id,provider_date,provider_time) DO UPDATE SET
+ attempt_id=excluded.attempt_id,instant=excluded.instant,original_time=excluded.original_time,
+ quality=excluded.quality,values_json=excluded.values_json,retrieved=excluded.retrieved,retrieval_id=excluded.retrieval_id`,
+				a.IdentityID, x.ProviderDate, clock, a.ID, x.Instant, string(original), x.Quality, string(values), in.Evidence[x.Evidence].Retrieved, retrieval)
 			if err != nil {
 				return err
 			}
@@ -422,6 +425,27 @@ var diagnosticMessages = map[string]string{
 }
 
 func validateDiagnostic(d Diagnostic) error {
+	switch d.RetryHintSource {
+	case "", "retry_after_header", "retry_after_body", "retry_at_body", "provider_code_default":
+	default:
+		return ErrInvalid
+	}
+	switch d.RateLimitBody {
+	case "", "absent", "recognized", "unrecognized", "invalid_json", "oversized", "read_error":
+	default:
+		return ErrInvalid
+	}
+	if d.RetryHintAt != nil && !validInstant(*d.RetryHintAt) {
+		return ErrInvalid
+	}
+	if !validDate(d.Period) {
+		return ErrInvalid
+	}
+	for _, instant := range []*Instant{d.IntervalStart, d.IntervalEnd} {
+		if instant != nil && !validInstant(*instant) {
+			return ErrInvalid
+		}
+	}
 	if d.Field != "" {
 		valid := false
 		for _, f := range []string{"soc", "bmsSOC", "ppv", "plocalLoadTotal", "pacToUserTotal", "pacToGridTotal", "pcharge1", "pdischarge1", "epvTotal", "epvtoday", "epv1Today", "epv2Today", "etoUserToday", "etoUserTotal", "etoGridToday", "etogridTotal", "echarge1Today", "echarge1Total", "edischarge1Today", "edischarge1Total", "elocalLoadToday", "elocalLoadTotal", "eacToday", "eacTotal"} {

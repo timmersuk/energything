@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/timmersuk/energything/internal/retryhint"
+	"github.com/timmersuk/energything/internal/storage"
 	"io"
 	"math/rand/v2"
 	"net/http"
@@ -18,6 +20,7 @@ const MaxBody = 4 * 1024 * 1024
 
 // Error contains only enumerated public context; underlying URLs/bodies are discarded.
 type Error struct {
+	Diagnostic    storage.Diagnostic
 	Class, Code   string
 	Page          int
 	DeferredUntil time.Time
@@ -88,7 +91,7 @@ func destination(raw, path string, query url.Values) error {
 }
 func (c *Client) get(ctx context.Context, raw, path string, q url.Values, page int, retries *[]Retry) ([]byte, error) {
 	if destination(raw, path, q) != nil {
-		return nil, problem("pagination", "invalid", page)
+		return nil, problem("pagination", "unsafe_destination", page)
 	}
 	for attempt := 0; attempt < 3; attempt++ {
 		if ctx.Err() != nil {
@@ -104,6 +107,7 @@ func (c *Client) get(ctx context.Context, raw, path string, q url.Values, page i
 		code, class := "io", "network"
 		delay := time.Duration(1<<attempt)*time.Second + c.jitter()
 		deferred := time.Time{}
+		diagnostic := storage.Diagnostic{}
 		if requestErr == nil {
 			status = response.StatusCode
 			retryAfter := response.Header.Get("Retry-After")
@@ -111,8 +115,11 @@ func (c *Client) get(ctx context.Context, raw, path string, q url.Values, page i
 				body, bodyErr := io.ReadAll(io.LimitReader(response.Body, MaxBody+1))
 				response.Body.Close()
 				if bodyErr == nil {
-					if len(body) > MaxBody || !json.Valid(body) {
-						return nil, problem("protocol", "invalid", page)
+					if len(body) > MaxBody {
+						return nil, problem("protocol", "body_budget", page)
+					}
+					if !json.Valid(body) {
+						return nil, problem("protocol", "invalid_json", page)
 					}
 					return body, nil
 				}
@@ -125,7 +132,21 @@ func (c *Client) get(ctx context.Context, raw, path string, q url.Values, page i
 				}
 				requestErr = bodyErr // Discard the incomplete body and use this page's budget.
 			} else {
+				if status == 429 {
+					hint := retryhint.Parse(response.Header, response.Body, c.now())
+					diagnostic = hint.Diagnostic(status)
+					deferred = hint.NotBefore
+					if !deferred.IsZero() {
+						delay = deferred.Sub(c.now())
+						if delay < 0 {
+							delay = 0
+						}
+					}
+				}
 				response.Body.Close()
+				if ctx.Err() != nil {
+					return nil, problem("network", "cancelled", page)
+				}
 				switch {
 				case status == 401 || status == 403:
 					return nil, problem("authentication", "unauthorized", page)
@@ -136,11 +157,13 @@ func (c *Client) get(ctx context.Context, raw, path string, q url.Values, page i
 				case status >= 500 && status <= 599:
 					code = "unavailable"
 				default:
-					return nil, problem("protocol", "invalid", page)
+					pe := problem("protocol", "http_status", page)
+					pe.Diagnostic.HTTPStatus = status
+					return nil, pe
 				}
-				if seconds, err := strconv.ParseUint(retryAfter, 10, 32); err == nil {
+				if seconds, err := strconv.ParseUint(retryAfter, 10, 32); status != 429 && err == nil {
 					delay = time.Duration(seconds) * time.Second
-				} else if date, err := http.ParseTime(retryAfter); err == nil {
+				} else if date, err := http.ParseTime(retryAfter); status != 429 && err == nil {
 					delay = date.Sub(c.now())
 					if delay < 0 {
 						delay = 0
@@ -161,11 +184,11 @@ func (c *Client) get(ctx context.Context, raw, path string, q url.Values, page i
 			}
 		}
 		*retries = append(*retries, Retry{page, attempt + 1, status, code, delay})
-		if !deferred.IsZero() {
-			return nil, &Error{class, code, page, deferred}
+		if delay > 30*time.Second {
+			return nil, &Error{Class: class, Code: code, Page: page, DeferredUntil: deferred, Diagnostic: diagnostic}
 		}
 		if attempt == 2 {
-			return nil, problem(class, code, page)
+			return nil, &Error{Class: class, Code: code, Page: page, DeferredUntil: deferred, Diagnostic: diagnostic}
 		}
 		if c.wait(ctx, delay) != nil {
 			return nil, problem("network", "cancelled", page)
@@ -199,7 +222,7 @@ func telemetry(v any) any {
 		for k, v := range x {
 			key := strings.ToLower(strings.NewReplacer("_", "", "-", "", " ", "").Replace(k))
 			safe := true
-			for _, bad := range []string{"token", "password", "secret", "authorization", "apikey", "cookie", "header", "address", "account", "credential", "url"} {
+			for _, bad := range []string{"token", "password", "secret", "authorization", "apikey", "cookie", "header", "address", "account", "credential", "url", "exception", "stacktrace"} {
 				if strings.Contains(key, bad) {
 					safe = false
 				}

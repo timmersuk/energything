@@ -32,21 +32,22 @@ func nullableTime(t *storage.Instant) *string {
 }
 
 type attemptView struct {
-	Diagnostic storage.Diagnostic `json:"diagnostic"`
-	ErrorCode  string             `json:"error_code,omitempty"`
-	Page       *int               `json:"page,omitempty"`
-	Started    string             `json:"started_at"`
-	Finished   *string            `json:"finished_at"`
-	Outcome    string             `json:"outcome"`
-	ErrorClass string             `json:"error_class,omitempty"`
-	Message    string             `json:"message,omitempty"`
+	RetryHintAt *string            `json:"provider_retry_at"`
+	Diagnostic  storage.Diagnostic `json:"diagnostic"`
+	ErrorCode   string             `json:"error_code,omitempty"`
+	Page        *int               `json:"page,omitempty"`
+	Started     string             `json:"started_at"`
+	Finished    *string            `json:"finished_at"`
+	Outcome     string             `json:"outcome"`
+	ErrorClass  string             `json:"error_class,omitempty"`
+	Message     string             `json:"message,omitempty"`
 }
 
 func attempt(a *storage.Audit) *attemptView {
 	if a == nil {
 		return nil
 	}
-	return &attemptView{Diagnostic: a.Diagnostic, Started: instant(a.Started), Finished: nullableTime(a.Finished), Outcome: a.Outcome, ErrorClass: a.ErrorClass, ErrorCode: a.ErrorCode, Page: a.Page, Message: a.Message}
+	return &attemptView{RetryHintAt: nullableTime(a.Diagnostic.RetryHintAt), Diagnostic: a.Diagnostic, Started: instant(a.Started), Finished: nullableTime(a.Finished), Outcome: a.Outcome, ErrorClass: a.ErrorClass, ErrorCode: a.ErrorCode, Page: a.Page, Message: a.Message}
 }
 
 type jobView struct {
@@ -69,6 +70,7 @@ type coverageView struct {
 	MeasurementComplete bool   `json:"measurement_complete"`
 }
 type sourceView struct {
+	AuditCounts       *auditCounts   `json:"audit_counts,omitempty"`
 	Boundary          *boundaryView  `json:"historical_boundary,omitempty"`
 	PlantID           string         `json:"plant_id,omitempty"`
 	MPAN              string         `json:"mpan,omitempty"`
@@ -177,6 +179,13 @@ func statusData(ctx context.Context, store recordStore, c config.Config, build s
 			}
 			v.Discovery = "Stored identities available; selection shown below"
 			s := sourceView{IdentityID: x.IdentityID, Source: x.Provider, Stream: x.Stream, Identity: x.Metadata.DisplayIdentity(x.Provider, x.Stream, x.IdentityID), Selected: x.Selected, RetainedCount: x.IntervalCount + x.SampleCount + x.AggregateCount, UnresolvedCount: x.UnresolvedCount, LastRetrieval: nullableTime(x.LastRetrieval), NewestMeasurement: nullableTime(x.NewestMeasurement), LastAttempt: attempt(x.LastAttempt), LastAccepted: attempt(x.LastAcceptedAttempt), JobCount: x.JobCount, WindowCount: x.WindowCount, Jobs: []jobView{}, Coverage: []coverageView{}}
+			if audits, ok := store.(auditStore); ok {
+				page, e := audits.QueryAudit(ctx, storage.AuditQuery{IdentityID: x.IdentityID, Limit: 1})
+				if e != nil {
+					return statusView{}, e
+				}
+				s.AuditCounts = &auditCounts{page.Counts.Total, page.Counts.Failed, page.Counts.Rejected}
+			}
 			if boundaries, ok := store.(interface {
 				HistoryBoundary(context.Context, int64) (storage.HistoryBoundary, error)
 			}); ok {

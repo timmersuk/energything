@@ -145,7 +145,7 @@ cannot be combined with range arguments. No scan/chunk loop or scheduler is adde
 Example: `go run ./cmd/growatt-aggregate -data-dir <stopped-or-private-directory>
 -discovery <private-report.json> -from 2026-01-12 -to 2026-01-18`.
 
-Each returned date retains its own logical record and correction history. One
+Each returned date has one canonical record; a correction overwrites its value. One
 quota reservation covers the single HTTP page, rather than seven separate daily
 calls. All rows/pages validate and commit atomically; missing dates remain absent.
 Existing one-day jobs and stored rows remain valid; no schema upgrade is required.
@@ -192,3 +192,34 @@ Earlier passages describing a120-day exploration limit are superseded.
 Superseding unlimited calendar acquisition: `ENERGYTHING_HISTORY_START` is the inclusive earliest date for automatic Octopus and Growatt history, default `2022-01-01` (ISO `YYYY-MM-DD`). Invalid and future dates reject startup. Octopus uses midnight UTC; Growatt uses provider calendar dates with qualified timezone. A verified later provider oldest reading remains the effective boundary.
 
 Restart after changing the setting. Existing plans adopt it without resetting progress or deleting records. Moving it earlier resumes older acquisition; moving it later stops older queued automatic units. An in-flight unit may finish. `configured_boundary_reached` does not claim the provider archive is exhausted. Recent routine refresh and explicit repair remain independent.
+
+## Private audit follow-up
+
+Use authenticated `/audit` to filter repeated failures, compare accepted measurement
+coverage and inspect stored retry/frontier state before taking operational action.
+The daily generation page explains unfinished backwards history and quota deferrals.
+Download only the selected attempt evidence needed for follow-up; it remains private
+telemetry with owner-visible source IDs. Browsing performs no provider request or
+startup recovery. Do not open the live preview database with a host CLI.
+Task06a introduces no schema migration and retains existing records/evidence/private
+runtime files and the aggregate reservation ledger during the standard image update.
+
+`GROWATT_AGGREGATE_DAILY_CAP_ENABLED` is a boolean, default `false`. It controls
+only the optional local ten-per-rolling-24h aggregate cap. Set it to `true` to
+restore that cap and restart. Five-minute spacing and the existing reservation
+ledger always remain active. Compose passes the flag through; no private runtime
+file edit is required to use the disabled default.
+
+
+## Schema008 canonical readings
+
+Stop the server and take a complete private copy of DATA_DIR, including SQLite
+WAL/SHM companions, before upgrading. Startup migration008 replaces attempt-based
+samples with a composite primary key from source identity/date/reported time,
+keeping the latest accepted retrieval for repeated periods. It removes sample,
+interval and aggregate value-version tables. Existing audit/evidence, credentials,
+source selection, schedules, accepted checkpoints and quota reservations remain.
+Legacy rows lacking a usable reported timestamp are not invented canonical
+readings; their retrieval evidence remains available. Downgrade requires restoring
+the complete stopped backup and the older binary together. GET handlers never
+migrate or recover storage. Restarting the old binary against schema008 is refused.

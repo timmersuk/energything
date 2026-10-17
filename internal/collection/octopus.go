@@ -63,7 +63,7 @@ func discoverOctopus(ctx context.Context, db octopusStore, client *octopus.Clien
 		var pe *octopus.Error
 		if errors.As(err, &pe) {
 			for n := range failed {
-				failed[n].Failure = &storage.DiscoveryFailure{Class: pe.Class, Code: pe.Code, Page: pe.Page}
+				failed[n].Failure = &storage.DiscoveryFailure{Class: pe.Class, Code: pe.Code, Page: pe.Page, Diagnostic: pe.Diagnostic}
 				if !pe.DeferredUntil.IsZero() {
 					due := storage.At(pe.DeferredUntil)
 					failed[n].Failure.DeferredUntil = &due
@@ -142,7 +142,7 @@ func CollectOctopusWindow(ctx context.Context, db octopusStore, client *octopus.
 		due = retryDue(job, time.Now(), providerErr.DeferredUntil)
 	}
 	page := providerErr.Page
-	err = db.RecordRejectedOrFailedAttempt(auditCtx, storage.FailedAttempt{AttemptID: id, Finished: finished, NextDue: storage.At(due), Outcome: outcome, ErrorClass: providerErr.Class, ErrorCode: providerErr.Code, Page: &page, Paused: providerErr.Class == "authentication" || providerErr.Class == "configuration", Evidence: evidence, Retries: retries})
+	err = db.RecordRejectedOrFailedAttempt(auditCtx, storage.FailedAttempt{AttemptID: id, Finished: finished, NextDue: storage.At(due), Outcome: outcome, ErrorClass: providerErr.Class, ErrorCode: providerErr.Code, Diagnostic: providerErr.Diagnostic, Page: &page, Paused: providerErr.Class == "authentication" || providerErr.Class == "configuration", Evidence: evidence, Retries: retries})
 	if err != nil {
 		return errors.New("storage: failed attempt audit unavailable; no completion claimed")
 	}

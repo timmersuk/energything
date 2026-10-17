@@ -70,41 +70,23 @@ func validateAggregates(a Audit, in AcceptedWindow) ([]Aggregate, error) {
 	return out, nil
 }
 
-// ReserveAggregateCall conservatively enforces 5m spacing and ten reservations
-// per rolling 24h across restarts. Failed transmissions still consume a reservation.
+// ReserveAggregateCall enforces durable five-minute spacing by default.
+// Failed transmissions still consume a reservation.
 // Other software's calls cannot be observed by this local ledger.
 func (s *Store) ReserveAggregateCall(ctx context.Context, now Instant) (due time.Time, err error) {
+	return s.ReserveAggregateCallWithDailyCap(ctx, now, false)
+}
+
+// ReserveAggregateCallWithDailyCap always preserves durable five-minute spacing.
+// dailyCapEnabled controls only the optional ten-per-rolling-day cap.
+func (s *Store) ReserveAggregateCallWithDailyCap(ctx context.Context, now Instant, dailyCapEnabled bool) (due time.Time, err error) {
 	if !validInstant(now) {
 		return due, ErrInvalid
 	}
 	err = s.write(ctx, func(tx *sql.Tx) error {
-		rows, e := tx.QueryContext(ctx, `SELECT reserved FROM aggregate_calls WHERE reserved>? ORDER BY reserved`, now-Instant(24*time.Hour/time.Microsecond))
+		next, e := aggregateNextDue(ctx, tx, now, dailyCapEnabled)
 		if e != nil {
 			return e
-		}
-		var calls []Instant
-		for rows.Next() {
-			var x Instant
-			if e = rows.Scan(&x); e != nil {
-				rows.Close()
-				return e
-			}
-			calls = append(calls, x)
-		}
-		e = rows.Err()
-		rows.Close()
-		if e != nil {
-			return e
-		}
-		var next Instant
-		if len(calls) > 0 {
-			next = calls[len(calls)-1] + Instant(5*time.Minute/time.Microsecond)
-		}
-		if len(calls) >= 10 {
-			quota := calls[len(calls)-10] + Instant(24*time.Hour/time.Microsecond)
-			if quota > next {
-				next = quota
-			}
 		}
 		if next > now {
 			due = time.UnixMicro(int64(next))
@@ -114,6 +96,38 @@ func (s *Store) ReserveAggregateCall(ctx context.Context, now Instant) (due time
 		return e
 	})
 	return
+}
+
+func aggregateNextDue(ctx context.Context, tx *sql.Tx, now Instant, dailyCapEnabled bool) (Instant, error) {
+	rows, e := tx.QueryContext(ctx, `SELECT reserved FROM aggregate_calls WHERE reserved>? ORDER BY reserved`, now-Instant(24*time.Hour/time.Microsecond))
+	if e != nil {
+		return 0, e
+	}
+	var calls []Instant
+	for rows.Next() {
+		var x Instant
+		if e = rows.Scan(&x); e != nil {
+			rows.Close()
+			return 0, e
+		}
+		calls = append(calls, x)
+	}
+	e = rows.Err()
+	rows.Close()
+	if e != nil {
+		return 0, e
+	}
+	var next Instant
+	if len(calls) > 0 {
+		next = calls[len(calls)-1] + Instant(5*time.Minute/time.Microsecond)
+	}
+	if dailyCapEnabled && len(calls) >= 10 {
+		quota := calls[len(calls)-10] + Instant(24*time.Hour/time.Microsecond)
+		if quota > next {
+			next = quota
+		}
+	}
+	return next, nil
 }
 
 type AggregateQuery struct {
@@ -201,4 +215,23 @@ func (s *Store) ValidateAggregateJob(ctx context.Context, job Job, plant string)
 		return ErrInvalid
 	}
 	return nil
+}
+
+// ReconsiderAggregateDeferrals applies a changed local budget at startup without
+// resetting progress, retry counts, reservations or provider-directed deadlines.
+func (s *Store) ReconsiderAggregateDeferrals(ctx context.Context, now Instant, dailyCapEnabled bool) error {
+	if !validInstant(now) {
+		return ErrInvalid
+	}
+	return s.write(ctx, func(tx *sql.Tx) error {
+		next, e := aggregateNextDue(ctx, tx, now, dailyCapEnabled)
+		if e != nil {
+			return e
+		}
+		if next < now {
+			next = now
+		}
+		_, e = tx.ExecContext(ctx, `UPDATE jobs SET next_due=? WHERE kind='aggregate' AND running_attempt IS NULL AND paused=0 AND next_due>? AND identity_id IN(SELECT id FROM identities WHERE provider='growatt' AND selected=1) AND id IN(SELECT current_job FROM schedules WHERE current_job IS NOT NULL) AND (SELECT error_code FROM attempts WHERE job_id=jobs.id ORDER BY id DESC LIMIT 1)='local_budget'`, next, next)
+		return e
+	})
 }

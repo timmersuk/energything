@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"github.com/timmersuk/energything/internal/retryhint"
 	"github.com/timmersuk/energything/internal/storage"
 	"io"
 	"math/rand/v2"
@@ -169,6 +170,8 @@ func (c *Client) request(ctx context.Context, path, method string, form url.Valu
 		}
 		resp, e := c.http.Do(req)
 		status := 0
+		diagnostic := storage.Diagnostic{}
+		providerHint := time.Time{}
 		class, code := "network", "io"
 		delay := time.Duration(1<<(attempt-1))*time.Second + c.jitter()
 		if e == nil {
@@ -203,7 +206,20 @@ func (c *Client) request(ctx context.Context, path, method string, form url.Valu
 					case 10011:
 						return nil, problem("authentication", "unauthorized", page)
 					case 10012:
-						return nil, &Error{Class: "rate_limit", Code: "limited", Page: page, DeferredUntil: c.now().Add(5 * time.Minute)}
+						now := c.now()
+						hint := retryhint.Parse(resp.Header, bytes.NewReader(b), now)
+						due := now.Add(5 * time.Minute)
+						if hint.NotBefore.After(due) {
+							due = hint.NotBefore
+						}
+						if hint.NotBefore.IsZero() {
+							hint.Source = "provider_code_default"
+							hint.NotBefore = due
+						}
+						diagnostic := hint.Diagnostic(status)
+						diagnostic.ProviderCode = &n
+						*retries = append(*retries, Retry{page, attempt, status, "limited", due.Sub(now)})
+						return nil, &Error{Class: "rate_limit", Code: "limited", Page: page, DeferredUntil: due, Diagnostic: diagnostic}
 					default:
 						pe := problem("protocol", "provider_error", page)
 						pe.Diagnostic.ProviderCode = &n
@@ -217,7 +233,21 @@ func (c *Client) request(ctx context.Context, path, method string, form url.Valu
 				return data, nil
 			}
 			retryAfter := resp.Header.Get("Retry-After")
+			if status == 429 {
+				hint := retryhint.Parse(resp.Header, resp.Body, c.now())
+				diagnostic = hint.Diagnostic(status)
+				providerHint = hint.NotBefore
+				if !providerHint.IsZero() {
+					delay = providerHint.Sub(c.now())
+					if delay < 0 {
+						delay = 0
+					}
+				}
+			}
 			resp.Body.Close()
+			if ctx.Err() != nil {
+				return nil, problem("network", "cancelled", page)
+			}
 			switch {
 			case status == 401 || status == 403:
 				return nil, problem("authentication", "unauthorized", page)
@@ -232,9 +262,9 @@ func (c *Client) request(ctx context.Context, path, method string, form url.Valu
 				pe.Diagnostic.HTTPStatus = status
 				return nil, pe
 			}
-			if sec, e := strconv.ParseUint(retryAfter, 10, 32); e == nil {
+			if sec, e := strconv.ParseUint(retryAfter, 10, 32); status != 429 && e == nil {
 				delay = time.Duration(sec) * time.Second
-			} else if date, e := http.ParseTime(retryAfter); e == nil {
+			} else if date, e := http.ParseTime(retryAfter); status != 429 && e == nil {
 				delay = date.Sub(c.now())
 				if delay < 0 {
 					delay = 0
@@ -250,10 +280,10 @@ func (c *Client) request(ctx context.Context, path, method string, form url.Valu
 		}
 		*retries = append(*retries, Retry{page, attempt, status, code, delay})
 		if delay > 30*time.Second {
-			return nil, &Error{Class: class, Code: code, Page: page, DeferredUntil: c.now().Add(delay)}
+			return nil, &Error{Class: class, Code: code, Page: page, DeferredUntil: c.now().Add(delay), Diagnostic: diagnostic}
 		}
 		if attempt == maxAttempts {
-			return nil, problem(class, code, page)
+			return nil, &Error{Class: class, Code: code, Page: page, DeferredUntil: providerHint, Diagnostic: diagnostic}
 		}
 		if c.wait(ctx, delay) != nil {
 			return nil, problem("network", "cancelled", page)
@@ -270,7 +300,7 @@ func telemetry(v any) any {
 		for k, v := range x {
 			key := strings.ToLower(strings.NewReplacer("_", "", "-", "", " ", "").Replace(k))
 			safe := true
-			for _, bad := range []string{"token", "password", "secret", "authorization", "apikey", "cookie", "header", "address", "account", "credential", "url"} {
+			for _, bad := range []string{"token", "password", "secret", "authorization", "apikey", "cookie", "header", "address", "account", "credential", "url", "exception", "stacktrace"} {
 				if strings.Contains(key, bad) {
 					safe = false
 				}

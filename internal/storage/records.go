@@ -66,7 +66,6 @@ type Value struct {
 }
 type Sample struct {
 	ID, IdentityID int64
-	ResolvedKey    *string
 	Instant        *Instant
 	ProviderDate   string
 	OriginalTime   map[string]string
@@ -98,12 +97,18 @@ type RetryDetail struct {
 	WaitMicroseconds        int64
 }
 type Diagnostic struct {
-	HTTPStatus   int    `json:"http_status,omitempty"`
-	Field        string `json:"field,omitempty"`
-	Value        string `json:"value,omitempty"`
-	Expected     *int   `json:"expected,omitempty"`
-	Observed     *int   `json:"observed,omitempty"`
-	ProviderCode *int   `json:"provider_code,omitempty"`
+	RetryHintSource string   `json:"retry_hint_source,omitempty"`
+	RetryHintAt     *Instant `json:"retry_hint_at_utc_microseconds,omitempty"`
+	RateLimitBody   string   `json:"rate_limit_body_status,omitempty"`
+	IntervalStart   *Instant `json:"interval_start_utc_microseconds,omitempty"`
+	IntervalEnd     *Instant `json:"interval_end_utc_microseconds,omitempty"`
+	Period          string   `json:"provider_period,omitempty"`
+	HTTPStatus      int      `json:"http_status,omitempty"`
+	Field           string   `json:"field,omitempty"`
+	Value           string   `json:"value,omitempty"`
+	Expected        *int     `json:"expected,omitempty"`
+	Observed        *int     `json:"observed,omitempty"`
+	ProviderCode    *int     `json:"provider_code,omitempty"`
 }
 type FailedAttempt struct {
 	Diagnostic                     Diagnostic

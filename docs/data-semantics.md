@@ -1,3 +1,14 @@
+# Current canonical-reading policy (schema008)
+
+Schema008 supersedes earlier attempt/ordinal and append-only value-history rules
+in this document. There is one canonical row per source period. Corrections
+replace values and refetches do not multiply rows. The three value-version tables
+are removed. Migration collapses old repeated reported timestamps to the latest
+accepted retrieval; unkeyable legacy payloads remain only in collection evidence.
+No UTC instant is inferred from the provider's readable clock. A same-clock
+ambiguity cannot produce invented occurrence IDs: conflicting rows within one
+unit are rejected with retained evidence.
+
 # Durable storage contract (task 02)
 
 All absolute instants are signed integer UTC Unix microseconds. Go callers use
@@ -11,16 +22,16 @@ Synthetic examples established before the migration:
 - Import identity `synthetic-mpan/synthetic-meter/import`, slot 00:00–00:30,
   `0.100`: replay keeps one current interval and one evidence blob, with separate
   retrieval/attempt links. A later accepted `0.120` replaces the current value;
-  the earlier observation version and evidence remain.
+  no separate value-version history is retained; collection audit/evidence remains.
 - Two slots submitted with one invalid decimal or conflicting duplicate: the
   entire commit fails validation. The caller records a rejected attempt with
   suspect sanitized evidence; current observations and checkpoint do not change.
 - Fully fetched empty Growatt history: terminal `empty`, fetched window recorded,
   zero measurement coverage, earlier local samples remain. Empty never means zero.
-- Two `2026-10-25 01:30` samples without established key/time: each is retained
-  under attempt plus observation ordinal, with null normalized time and key.
-  A replay deduplicates evidence bytes but retains separate unresolved occurrences.
-  Task 05 establishes resolution and reconciliation; task 02 guesses neither.
+- A Growatt device reading is keyed by its provider-reported date and timestamp.
+  Refetching that period updates the canonical row. Retrieval time, page position,
+  content hashes and attempt IDs never define a reading's identity. The timestamp
+  remains provider clock text; this key does not resolve a UTC instant.
 - Missing SOC is JSON null; explicit SOC `0` is a decimal string with its unit.
   An unestablished unit also remains JSON null.
   Unknown selected fields and original timestamp fields survive in telemetry
@@ -48,9 +59,13 @@ Attempts have immutable source/job/window context, start/occurrence/finish,
 terminal outcome, structured sanitized error and bounded retry/page details.
 Evidence blobs are SHA-256 deduplicated canonical selected JSON. Each retrieval
 links blob, source, attempt, retrieval time and completeness independently.
-Current observations point to a retrieval; append-only versions retain all prior
-values and retrievals. Unresolved Growatt rows use attempt/ordinal, never clock
-text. Resolved keys are supplied only by the future protocol gate.
+Current observations point to their latest accepted retrieval. Growatt samples have
+PRIMARY KEY(identity_id, provider_date, provider_time), using the timestamp in the
+source response. Octopus intervals and daily generation retain their existing
+period keys. Accepted corrections overwrite current values. No value-version
+tables exist. Audit attempts and their selected evidence remain separate from
+canonical readings. Missing/malformed provider sample timestamps are rejected;
+conflicting rows for the same reported period within a response reject that unit.
 
 Window completions record latest accepted attempt, fetched state, expected/valid/
 missing/quality slot counts and measurement-complete flag separately. Missing
@@ -73,7 +88,7 @@ method takes context. Transactions are rolled back on cancellation or error.
   future configuration/discovery gate resolves an error; no checkpoint changes.
 - `BeginAttempt(ctx, AttemptRequest) (int64, error)` atomically claims a job.
 - `CommitAcceptedWindow(ctx, AcceptedWindow) error` validates the whole unit then
-  atomically writes observations, versions, evidence/retrievals, window completion,
+  atomically writes observations, evidence/retrievals, window completion,
   checkpoint, terminal success/empty and next due. No absence deletes history.
 - `RecordRejectedOrFailedAttempt(ctx, FailedAttempt) error` writes terminal audit,
   suspect/incomplete evidence and retry/pause state only; no accepted progress.
@@ -234,14 +249,15 @@ requested job/day/bounds and evidence references remain separate. Task 06a can q
 this retained context without reconstructing it from raw exception strings.
 
 Growatt `Expected=0` means no established expected cadence, not zero production.
-`Valid` counts accepted occurrences and `Qualified` counts qualified occurrences.
+`Valid` counts canonical readings accepted in the window; `Qualified` counts those
+with qualified measurement times.
 Storage allows these observed counts without manufacturing expected coverage;
 when Expected is explicitly positive the existing arithmetic validation remains.
 MeasurementComplete stays false for this adapter. Empty acceptance preserves older
-rows and records observed unavailability. Unresolved occurrences retain attempt/
-ordinal and null key/instant; latest/history replay cannot claim idempotent sample
-identity until independent provider evidence establishes it. Evidence is digest
-reused but every retrieval and unresolved occurrence remains attributable.
+rows and records observed unavailability. Reported source timestamps identify
+canonical periods without assigning an absolute instant. Latest/history refetches
+upsert those periods. Audit attempts and selected retrieval evidence remain
+attributable separately from the canonical reading.
 
 Review follow-up adds migration 004 for safe discovery failure class/code/page and
 Diagnostic. QueryDiscovery/status expose this stored context even when no identity
@@ -263,7 +279,7 @@ never evidence of operation, coverage or an oldest available date. Absent rows
 remain absent; null/placeholder/invalid energy rejects the whole unit.
 
 The acquisition unit is **one through seven inclusive calendar dates**, perpage=100. A
-complete stable count is required, maximum 100 rows/page, 100 pages/10,000 rows;
+complete traversal matching the latest nondecreasing count is required, maximum 100 rows/page, 100 pages/10,000 rows;
 all rows must fall within the requested inclusive date range. Identical numeric duplicates collapse;
 conflicting duplicates reject. Seven-date inclusivity was privately verified;
 month/year are deferred. Complete pagination is validated
@@ -276,12 +292,12 @@ unit per invocation; operator must account for calls by other clients.
 Storage identity is provider growatt, stream generation, stable plant ID alone,
 metadata PlantID only. Job kind `aggregate`, existing backfill policy and UTC date
 bookkeeping bounds (not measurement instants). Separate energy_aggregates current
-rows and append-only aggregate_versions key identity/metric/resolution/date.
+rows key identity/metric/resolution/date; there is no aggregate value-history table.
 Exact nonnegative decimal TEXT, kWh, day, provider date, calendar provenance,
 quality, retrieval/evidence and attempt associations are retained. Corrections
-update current and preserve versions. Replays preserve one current record and
+overwrite the current value. Replays preserve one current record and
 record distinct retrievals. Acceptance atomically writes aggregate rows, evidence,
-versions, fetched completion, checkpoint and terminal audit; failure changes only
+fetched completion, checkpoint and terminal audit; failure changes only
 audit/retry state. Fetched completion never asserts measurement completeness.
 
 Query: GET /api/v1/growatt/aggregates and /records/growatt/aggregates, authenticated,
@@ -325,3 +341,12 @@ from the same frontier and current unit, preserving accepted data, versions,
 checkpoints, retries and quota reservations. Unit sizes, routine priority, repair
 binding, clock qualifications and the aggregate ten-per-rolling24h limit remain.
 Earlier passages describing a120-day exploration limit are superseded.
+
+Task06a adds authenticated read-only audit browsing and selected evidence retrieval.
+Attempts, accepted observations, retrievals and deduplicated evidence remain distinct;
+a retrieval is authorized through its owning attempt and source identity. New typed
+diagnostics may retain normalized interval endpoints and provider calendar period;
+old missing context is not reconstructed. No migration or pruning accompanies these
+read APIs. Local aggregate quota deferrals use class rate_limit/code local_budget;
+provider deferrals retain limited. Both retain failed terminal outcome with an
+explicit deferral label, rather than implying empty or successful collection.

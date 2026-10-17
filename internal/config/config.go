@@ -11,6 +11,7 @@ import (
 )
 
 type Provider struct {
+	AggregateDailyCapEnabled                                            bool
 	State, Message                                                      string
 	APIKey, Account, ImportMPAN, ImportSerial, ExportMPAN, ExportSerial string
 	Token, PlantID, DeviceSerial                                        string
@@ -81,6 +82,12 @@ func Parse(get func(string) string, now time.Time) (Config, error) {
 		} else {
 			p.LatestInterval = duration("GROWATT_LATEST_INTERVAL", "5m")
 			p.HistoryInterval = duration("GROWATT_HISTORY_INTERVAL", "1h")
+			enabled, e := strconv.ParseBool(value("GROWATT_AGGREGATE_DAILY_CAP_ENABLED", "false"))
+			if e != nil {
+				fail("GROWATT_AGGREGATE_DAILY_CAP_ENABLED must be a boolean.")
+			} else {
+				p.AggregateDailyCapEnabled = enabled
+			}
 		}
 		if !configured && !partial {
 			for _, suffix := range []string{"IMPORT_MPAN", "IMPORT_SERIAL", "EXPORT_MPAN", "EXPORT_SERIAL", "PLANT_ID", "DEVICE_SERIAL"} {

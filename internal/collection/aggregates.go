@@ -16,6 +16,17 @@ type aggregateStore interface {
 	ReserveAggregateCall(context.Context, storage.Instant) (time.Time, error)
 }
 
+// The scheduler supplies its configured cap; standalone collectors retain the
+// default reservation method. Both policies use the same durable ledger.
+type aggregateBudgetStore struct {
+	*storage.Store
+	dailyCapEnabled bool
+}
+
+func (s aggregateBudgetStore) ReserveAggregateCall(ctx context.Context, now storage.Instant) (time.Time, error) {
+	return s.Store.ReserveAggregateCallWithDailyCap(ctx, now, s.dailyCapEnabled)
+}
+
 // CollectGrowattAggregateUnit accepts one through seven dates of daily plant
 // generation as one atomic unit. No scheduler.
 func CollectGrowattAggregateUnit(ctx context.Context, db aggregateStore, client *growatt.Client, job storage.Job, plant string) error {
