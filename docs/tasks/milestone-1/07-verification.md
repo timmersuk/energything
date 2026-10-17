@@ -12,7 +12,8 @@ complete configuration reference and pinned OMV/update/backup/restore procedures
 No schema or collection policy change. Existing version8 preview needs no migration.
 
 Final local runtime checks and independent review are recorded below.
-No image/tag/release was published and no private host rollout was attempted.
+Initial task07 verification published no image/tag/release and attempted no
+private host rollout. A later user-authorized real image push is recorded below.
 Only disposable synthetic Docker volumes/images are used for task07 checks. The
 existing preview was observed running on its original `/data` mount and is left
 untouched. No second process opened its database. No private runtime file changed.
@@ -28,8 +29,8 @@ data/schema/version after partial DDL/data changes followed by an error.
 
 Actual HTTP429 shape remains unestablished from retained live evidence. Retry-hint
 tests use synthetic responses only. No provider probes/rate-limit experiments run.
-Host filesystem/OMV acceptance and real registry credentials/publishing remain
-unverified until separately authorized. Local workflow validation does not prove
+Host filesystem/OMV acceptance remains unverified. Registry authentication and a
+real image push were subsequently authorized and verified below. Local workflow validation does not prove
 remote GitHub Actions success.
 
 ## Final local results
@@ -112,3 +113,35 @@ gates are unchanged. No release, image publication or preview update was perform
 Validation: actionlint v1.7.7, the Python release-policy event matrix and
 `git diff --check` passed. This correction changes workflow credential lookup and
 documentation only; application/container runtime code is unchanged.
+
+## Authorized real Docker Hub push
+
+The user explicitly authorized a real push after the initial no-publish task.
+GitHub repository secrets successfully authenticated using the same pinned
+docker/login-action as the release job. The same pinned build-push action built
+and pushed linux/amd64 and linux/arm64 together to `timmersuk/energything`.
+
+- Tag: `verify-sha-107de72aefbca4a91f479bcb6774657ab56e6619-run-39065834529`
+- Index digest: `sha256:4423932cce00ef6c1398b44c352b8af6b0000a6406ee27f94afe2273961d3564`
+- amd64 manifest: `sha256:5d588f29bc50f1b7a9bc617fc2357717068445b7017d34d5ece991dfa7ecd083`
+- arm64 manifest: `sha256:71539b2d06e98fac46e052b62da7ee062dcc283de42c4ffb5cc105dbdd27951d`
+
+[Push run](https://github.com/timmersuk/energything/actions/runs/39065834529)
+passed tests, authentication and the actual multi-platform push. Its subsequent
+amd64 pull/runtime check passed; pulling arm64 under the same index reference then
+failed with the runner's classic image-store `cannot overwrite digest` limitation.
+This was a post-push verification failure, not a failed registry push.
+
+[Follow-up verification](https://github.com/timmersuk/energything/actions/runs/39066011317)
+passed by pulling each published platform manifest digest independently, with no
+additional image push. Both registry-pulled images passed the complete synthetic
+operations probe: correct binary architecture/build ID, UID10001, CA/timezone,
+SQLite, authenticated records/audit/evidence and redaction, graceful termination,
+replacement, stopped full-directory backup/restore and wrong-ownership rejection.
+
+The temporary branch-only verification workflow was removed after success. The
+normal release workflow, repository secrets and existing image tags are unchanged.
+The unique verification image remains as evidence. No Git tag/GitHub release,
+merge, preview update or private host deployment was performed. Versioned release
+event gating remains synthetically tested; actual registry auth/push/pull and both
+published architecture runtimes are now verified, rather than inferred.
