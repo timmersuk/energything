@@ -6,7 +6,8 @@ layout/build ID, QEMU/Buildx, metadata and Docker Hub convention. Removed fronte
 steps/unrelated binaries. Energything pins action commits and Go1.26.4, has no
 manual push switch or latest/minor aliases, and allows publishing only through
 an explicit published versioned release after synthetic platform gates. Default
-contents:read and separate environment-scoped Docker Hub credentials remain narrow.
+contents:read and GitHub repository Actions secrets follow logthing's setup.
+There is no GitHub environment prerequisite or environment approval gate.
 
 Inspected 14 October 2026 in the local sibling logthing workspace. These are
 reference observations; all energything changes remain in this repository.

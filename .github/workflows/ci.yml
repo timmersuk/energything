@@ -87,7 +87,6 @@ jobs:
     needs: [test, docker]
     runs-on: ubuntu-24.04
     timeout-minutes: 30
-    environment: dockerhub-release
     env:
       RELEASE_TAG: ${{ github.event.release.tag_name }}
       DOCKERHUB_IMAGE: ${{ vars.DOCKERHUB_IMAGE }}

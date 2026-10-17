@@ -96,5 +96,19 @@ not YAML-only inference. Final evidence-only commits may trigger equivalent reru
 
 Draft [PR10](https://github.com/timmersuk/energything/pull/10) remains unmerged.
 Release-event eligibility is dry-tested; real release publication, Docker Hub
-environment/immutable-tag configuration and OMV host acceptance remain unverified
+immutable-tag configuration and OMV host acceptance remain unverified
 operator gates. No task08 implementation or private rollout is included.
+
+## Logthing registry setup alignment
+
+Removed the additional `dockerhub-release` environment gate. Publishing reads
+DOCKERHUB_USERNAME/DOCKERHUB_TOKEN from GitHub repository Actions secrets, as
+logthing does; DOCKERHUB_IMAGE is the repository variable `timmersuk/energything`.
+Verified those names and the image variable through GitHub without reading secret
+values. No environment or environment approval is required. Corrected token docs:
+a personal Docker Hub Read & Write token is not limited to one image by its name.
+Release-only eligibility, version/build tags, pinned actions and both platform
+gates are unchanged. No release, image publication or preview update was performed.
+Validation: actionlint v1.7.7, the Python release-policy event matrix and
+`git diff --check` passed. This correction changes workflow credential lookup and
+documentation only; application/container runtime code is unchanged.

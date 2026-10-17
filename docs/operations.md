@@ -18,10 +18,13 @@ workflow_dispatch builds never log in or push. No task07 verification creates a
 tag/release. Release creation remains a separately authorized operator action.
 
 Before enabling releases, configure repository variable DOCKERHUB_IMAGE as
-`<dockerhub-namespace>/energything`. Create environment `dockerhub-release` with
-required reviewers and release-tag deployment restrictions. Store DOCKERHUB_USERNAME
-and DOCKERHUB_TOKEN there, with a repository-scoped Docker Hub write token for this
-image only. Do not put provider credentials in GitHub. Workflow permissions are
+`timmersuk/energything`. As in logthing, store DOCKERHUB_USERNAME and
+DOCKERHUB_TOKEN as GitHub repository Actions secrets. Use Docker ID `timmersuk`
+and a Docker Hub personal access token with Read & Write permission; Delete is
+not needed. A separately named token can be revoked independently, but its name
+does not restrict it to this image: a personal token can access other repositories
+the account manages. No GitHub environment or environment approval is required.
+Do not put provider credentials in GitHub. Workflow permissions are
 contents:read; no package write or PR write token is required. Configure Docker Hub
 immutable tags for `v*` (including build tags). Never delete/reassign a released
 version to bypass immutability. A rerun of an existing version should fail rather
