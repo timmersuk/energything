@@ -1,4 +1,165 @@
-# Baseline operations
+# Release and operations
+
+Current task07 procedures below supersede historical task handoffs later in this
+file. See [all configuration](configuration.md) and [verification](tasks/milestone-1/07-verification.md).
+
+## Release mechanism
+
+CI uses synthetic tests, vet and race on Ubuntu, then QEMU/Buildx runtime checks
+for linux/amd64 and linux/arm64. Production binaries use Go1.26.4, CGO_ENABLED=0,
+embedded assets and the platform-specific `bin/linux/<arch>` layout. Race testing
+uses cgo separately. Every action is pinned to a reviewed commit; update pins
+deliberately. The Alpine base is digest-pinned; APK CA/tz packages are resolved at
+build time, so rebuilding a version is not promised byte-for-byte reproducible.
+
+Only `release.published` with draft=false, prerelease=false and a `vMAJOR.MINOR.PATCH`
+tag can publish, after both architecture gates pass. PR, branch, tag-only and
+workflow_dispatch builds never log in or push. No task07 verification creates a
+tag/release. Release creation remains a separately authorized operator action.
+
+Before enabling releases, configure repository variable DOCKERHUB_IMAGE as
+`timmersuk/energything`. As in logthing, store DOCKERHUB_USERNAME and
+DOCKERHUB_TOKEN as GitHub repository Actions secrets. Use Docker ID `timmersuk`
+and a Docker Hub personal access token with Read & Write permission; Delete is
+not needed. A separately named token can be revoked independently, but its name
+does not restrict it to this image: a personal token can access other repositories
+the account manages. No GitHub environment or environment approval is required.
+Do not put provider credentials in GitHub. Workflow permissions are
+contents:read; no package write or PR write token is required. Configure Docker Hub
+immutable tags for `v*` (including build tags). Never delete/reassign a released
+version to bypass immutability. A rerun of an existing version should fail rather
+than overwrite it; issue a new version after review.
+
+Images carry full version and `<version>-sha-<commit>-run-<run>-<attempt>` tags,
+OCI metadata and the same embedded build ID. No moving latest/minor aliases are
+published. Record the resulting manifest digest and build ID with each deployment.
+Consumers pin `namespace/energything@sha256:<manifest-digest>` so tag reassignment
+cannot change an installed release. Registry publishing itself is not locally
+verified by a dry build.
+
+Secret scanning uses Gitleaks v8.30.1 (security-maintained upstream), installed
+through Go's checksum-verified module download. CI scans an archive of tracked
+source/fixtures, offline with redacted findings; it does not scan private host
+directories or verify credentials with providers. Upstream:
+[Gitleaks](https://github.com/gitleaks/gitleaks). The Docker context is an explicit
+allowlist of Dockerfile and the four release binaries. `verify-image-context.py`
+exports the actual context, verifies that exact file set and inspects saved image
+layers with synthetic private-file sentinels. Probe/test binaries never enter the
+release image. Keep runtime files out of allowed binary paths.
+
+For reproducible synthetic checks run the commands in `.github/workflows/ci.yml`.
+On Windows after building an image, `pwsh -File scripts/verify-container.ps1
+-Image energything:local -Platform linux/amd64 -BuildID local` builds the isolated
+probe and runs the same lifecycle check. Repeat with an arm64 image/platform.
+Context inspection additionally requires pinned Gitleaks: `python
+scripts/verify-image-context.py --image <image> --scanner <gitleaks-executable>`.
+The old task01 probe's unimplemented-API and second-server assumptions are removed.
+
+## Reproducible OMV installation and pinned update
+
+Host acceptance belongs to task08. These commands are generic Linux examples;
+replace paths, image digest, credentials and backup names before executing.
+Use local disk, never SMB/NFS. Run exactly one server per database. Never use a
+second server or verification CLI to migrate/recover a live database.
+
+```sh
+sudo install -d -m 0700 -o 10001 -g 100 /srv/local/energything/data
+sudo install -d -m 0700 /srv/local/energything/backups
+# Place docker-compose.yml and a private mode-0600 .env in this project directory.
+# .env: ENERGYTHING_IMAGE=namespace/energything@sha256:<manifest-digest>
+# ENERGYTHING_DATA_PATH=/srv/local/energything/data
+# ENERGYTHING_HTTP_PORT=8080 and your chosen required username/password.
+docker compose -p energything config --quiet
+docker compose -p energything pull
+docker compose -p energything up -d --no-deps energything
+curl --fail http://127.0.0.1:8080/healthz
+curl --fail --user "$ENERGYTHING_USERNAME" http://127.0.0.1:8080/api/v1/status
+```
+
+The last command prompts for the password; do not paste passwords into shell
+history. Compose substitution does not export variables into the shell. Set the
+username separately for curl. Inspect build_id, provider configuration/discovery,
+last accepted attempt, requested bounds/frontier, retry state and authenticated
+audit. Verify records and selected evidence through the local authenticated API/UI.
+Provider errors do not make `/healthz` fail; it is process liveness only. Collection
+resumes from retained state only while the service runs. Do not assume overnight
+progress. A fetched empty window is not zero generation or complete measurements.
+
+Mount ownership overrides image ownership. UID10001/GID100 needs directory search
+and write access plus access to every existing SQLite file and companion. On a
+restored directory, apply ownership recursively only to that explicitly verified
+application data path. Do not chmod777. An unwritable directory fails before HTTP
+listen. Keep `unless-stopped`, use a 30s grace period (increase with the shutdown
+timeout), and inspect exit code rather than assuming a stop was graceful. The
+image includes CA roots, timezone data and the enqueue CLI and runs UID10001.
+Restrict the published port using host firewall/LAN rules or a trusted HTTPS
+reverse proxy. Basic Auth needs trusted transport; never expose port8080 publicly.
+
+For updates, record the old digest/build ID and schema version (currently8), stop
+and back up as below, then change only the private pinned image reference, pull
+and recreate against the same mount. Confirm health, expected build ID, records,
+audit/evidence and resumed checkpoints/frontiers. Compare accepted row counts and
+audit to pre-update state; ordinary collection can add/update data. Never reset a
+quota ledger or checkpoint to make an update appear successful. If startup fails,
+leave the data intact and inspect sanitized logs. Do not run an older incompatible
+binary on a migrated database; restore its matching backup/image together.
+
+## Supported stopped backup and isolated restore
+
+```sh
+docker compose -p energything stop -t 30 energything
+cid=$(docker compose -p energything ps -a -q energything)
+test "$(docker inspect -f '{{.State.Running}}' "$cid")" = false
+test "$(docker inspect -f '{{.State.ExitCode}}' "$cid")" = 0
+# Choose a new backup path; fail rather than overwrite an existing backup.
+backup=/srv/local/energything/backups/backup-<unique-date-build>
+sudo mkdir -m 0700 "$backup"
+sudo cp -a /srv/local/energything/data "$backup/data"
+# Write the recorded old image digest, build ID and schema version into metadata.
+docker inspect -f '{{.Config.Image}} {{.Image}}' "$cid" | sudo tee "$backup/image.txt" >/dev/null
+printf '%s\n' 'schema=8' 'build_id=<recorded-build-id>' | sudo tee "$backup/schema-build.txt" >/dev/null
+docker compose -p energything start energything
+
+# Restore into a NEW isolated directory, never over the active data mount.
+restore=/srv/local/energything/restore-<unique-id>
+sudo mkdir -m 0700 "$restore"
+sudo cp -a "$backup/data/." "$restore/"
+sudo chown -R 10001:100 "$restore"
+# Use the matching recorded image; omit ALL provider credentials, network isolated.
+docker run -d --name energything-restore-check --network none \
+  -v "$restore:/data" -e ENERGYTHING_USERNAME=restore-check \
+  -e ENERGYTHING_PASSWORD='<temporary-private-password>' \
+  namespace/energything@sha256:<matching-backup-digest>
+docker exec energything-restore-check wget -qO- http://127.0.0.1:8080/healthz
+# Inspect authenticated records, audit/evidence and progress from inside this
+# isolated container using a private HTTP client/config; compare to saved state.
+docker stop -t 30 energything-restore-check
+docker inspect -f '{{.State.ExitCode}}' energything-restore-check
+docker rm energything-restore-check
+```
+
+The copy includes the whole directory and any WAL/SHM companions after confirmed
+exit. Never copy just a live energything.sqlite. Keep backups private, on separate
+storage, with digest/schema/build metadata. Test restoration before relying on a
+backup. Isolated restore must retain records, source identities, canonical keys,
+audit/evidence, jobs/completion checkpoints, schedules and quota reservations. With
+credentials omitted, collectors cannot contact providers and local browsing still
+works. Preserve the original backup while reviewing a restore. A controlled host
+rollout is a separate authorized step.
+
+## Space and storage failures
+
+Use `df -h /srv/local/energything/data` and `sudo du -sh
+/srv/local/energything/data` to inspect free space and total size, including SQLite
+companions. All selected evidence and audit are retained; no automatic deletion,
+pruning or aggregation recovers disk space. Review growth and expand local storage
+before pressure becomes an outage. On disk-full/permission/IO failure an accepted
+transaction cannot advance partially; failure audit itself may also fail. Stored
+reads may return503; process liveness alone is insufficient. Stop cleanly, preserve
+the complete directory and backups, correct capacity/permissions, then inspect
+audit/progress after restart. Never delete WAL/SHM files to repair a running DB.
+
+## Historical implementation notes
 
 Use a local filesystem directory for /data. WAL is unsuitable for SMB/NFS.
 On Linux create the bind mount before Compose starts:
@@ -27,7 +188,7 @@ exports, private evidence or caches.
 
 Stop the service cleanly before backing up the entire data directory, including
 SQLite companions. Do not copy only the main database during live writes.
-Restore validation, release CI and actual host acceptance belong to later tasks.
+Restore validation and release CI are covered by task07 above; actual host acceptance remains task08.
 
 Linux SQLite runtime probes (after cross-compiling storage test executables):
 
