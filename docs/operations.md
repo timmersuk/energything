@@ -1,5 +1,11 @@
 # Release and operations
 
+Planned superseding backup design: [task07a](tasks/milestone-1/07a-online-backups.md)
+requires an ephemeral live database restored from an atomically published mounted
+dump. External backup runs while Energything stays running. Task07a is not yet
+implemented; the stopped-directory procedures below describe the current runtime
+and one-time legacy cutover, not the accepted future routine backup strategy.
+
 Current task07 procedures below supersede historical task handoffs later in this
 file. See [all configuration](configuration.md) and [verification](tasks/milestone-1/07-verification.md).
 
