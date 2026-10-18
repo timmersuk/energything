@@ -94,6 +94,7 @@ func TestBindFailure(t *testing.T) {
 	t.Setenv("ENERGYTHING_USERNAME", "test")
 	t.Setenv("ENERGYTHING_PASSWORD", "test")
 	t.Setenv("ENERGYTHING_DATA_DIR", t.TempDir())
+	t.Setenv("ENERGYTHING_DUMP_DIR", t.TempDir())
 	if err := run(context.Background()); err == nil {
 		t.Fatal("accepted occupied port")
 	}

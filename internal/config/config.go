@@ -18,6 +18,8 @@ type Provider struct {
 	RefreshInterval, LatestInterval, HistoryInterval                    time.Duration
 }
 type Config struct {
+	DumpDir                               string
+	BackupInterval, BackupTimeout         time.Duration
 	HTTPAddr, DataDir, Username, Password string
 	HistoryStart                          time.Time
 	Timezone                              *time.Location
@@ -34,6 +36,16 @@ func Parse(get func(string) string, now time.Time) (Config, error) {
 		return d
 	}
 	c := Config{HTTPAddr: value("ENERGYTHING_HTTP_ADDR", ":8080"), DataDir: value("ENERGYTHING_DATA_DIR", "./energything-data"), Username: get("ENERGYTHING_USERNAME"), Password: get("ENERGYTHING_PASSWORD")}
+	c.DumpDir = value("ENERGYTHING_DUMP_DIR", "./energything-dumps")
+	var backupErr error
+	c.BackupInterval, backupErr = time.ParseDuration(value("ENERGYTHING_BACKUP_INTERVAL", "15m"))
+	if backupErr != nil || c.BackupInterval <= 0 {
+		return c, errors.New("ENERGYTHING_BACKUP_INTERVAL must be a positive duration")
+	}
+	c.BackupTimeout, backupErr = time.ParseDuration(value("ENERGYTHING_BACKUP_TIMEOUT", "5m"))
+	if backupErr != nil || c.BackupTimeout <= 0 {
+		return c, errors.New("ENERGYTHING_BACKUP_TIMEOUT must be a positive duration")
+	}
 	if c.Username == "" || c.Password == "" {
 		return c, errors.New("ENERGYTHING_USERNAME and ENERGYTHING_PASSWORD are required")
 	}

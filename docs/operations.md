@@ -1,13 +1,11 @@
 # Release and operations
 
-Planned superseding backup design: [task07a](tasks/milestone-1/07a-online-backups.md)
-requires an ephemeral live database restored from an atomically published mounted
-dump. External backup runs while Energything stays running. Task07a is not yet
-implemented; the stopped-directory procedures below describe the current runtime
-and one-time legacy cutover, not the accepted future routine backup strategy.
-
-Current task07 procedures below supersede historical task handoffs later in this
-file. See [all configuration](configuration.md) and [verification](tasks/milestone-1/07-verification.md).
+Task07a uses an ephemeral live database and persistent online dumps. The only
+persistent database representation is `/data/latest.tar`; it contains a standalone
+SQLite snapshot and manifest. The runtime directory is in the container writable
+layer and must never be mounted. Existing preview storage is legacy and requires
+the deliberate conversion below. Historical notes later in this file do not
+supersede this storage contract.
 
 ## Release mechanism
 
@@ -95,8 +93,7 @@ Mount ownership overrides image ownership. UID10001/GID100 needs directory searc
 and write access plus access to every existing SQLite file and companion. On a
 restored directory, apply ownership recursively only to that explicitly verified
 application data path. Do not chmod777. An unwritable directory fails before HTTP
-listen. Keep `unless-stopped`, use a 30s grace period (increase with the shutdown
-timeout), and inspect exit code rather than assuming a stop was graceful. The
+listen. Keep `unless-stopped`, use a 6m grace period (increase beyond HTTP drain plus collector cleanup plus backup timeout), and inspect exit code rather than assuming a stop was graceful. The
 image includes CA roots, timezone data and the enqueue CLI and runs UID10001.
 Restrict the published port using host firewall/LAN rules or a trusted HTTPS
 reverse proxy. Basic Auth needs trusted transport; never expose port8080 publicly.
@@ -110,60 +107,120 @@ quota ledger or checkpoint to make an update appear successful. If startup fails
 leave the data intact and inspect sanitized logs. Do not run an older incompatible
 binary on a migrated database; restore its matching backup/image together.
 
-## Supported stopped backup and isolated restore
+## Online backup and isolated restore
+
+The background worker publishes every 15 minutes after the previous publication
+finishes, with a 5-minute deadline. A synchronous startup dump must succeed before
+HTTP or collection starts. Graceful shutdown cancels and joins collection, HTTP
+mutations and the periodic worker, then publishes with a fresh bounded context
+before closing SQLite. A failed final dump returns exit1. The default Compose 6m
+grace covers 10s HTTP drain, five-second collector cleanup and the 5m backup.
+
+Back up **only `latest.tar`**, while Energything continues running. Exclude
+`.energything-stage-*` and `.energything-marker-*`; `initialized` is application
+publication state, not required to interpret a copied archive. Never copy the
+runtime directory. Linux atomic replacement lets a reader finish copying its open
+old generation. The external tool must open once per copy, not reopen the pathname
+for individual chunks. Verify the actual OMV backup tool in task08. Do not assume
+arbitrary live directory-copy tools pin a generation. Use a pinned-file export
+protocol if the selected tool cannot do this; routine backup never stops Energything.
 
 ```sh
-docker compose -p energything stop -t 30 energything
-cid=$(docker compose -p energything ps -a -q energything)
-test "$(docker inspect -f '{{.State.Running}}' "$cid")" = false
-test "$(docker inspect -f '{{.State.ExitCode}}' "$cid")" = 0
-# Choose a new backup path; fail rather than overwrite an existing backup.
-backup=/srv/local/energything/backups/backup-<unique-date-build>
-sudo mkdir -m 0700 "$backup"
-sudo cp -a /srv/local/energything/data "$backup/data"
-# Write the recorded old image digest, build ID and schema version into metadata.
-docker inspect -f '{{.Config.Image}} {{.Image}}' "$cid" | sudo tee "$backup/image.txt" >/dev/null
-printf '%s\n' 'schema=8' 'build_id=<recorded-build-id>' | sudo tee "$backup/schema-build.txt" >/dev/null
-docker compose -p energything start energything
-
-# Restore into a NEW isolated directory, never over the active data mount.
-restore=/srv/local/energything/restore-<unique-id>
-sudo mkdir -m 0700 "$restore"
-sudo cp -a "$backup/data/." "$restore/"
-sudo chown -R 10001:100 "$restore"
-# Use the matching recorded image; omit ALL provider credentials, network isolated.
+# Source remains running. Destination must be a new private retained file.
+cp --no-clobber /srv/local/energything/data/latest.tar /separate-storage/backup-<unique>.tar
+# New isolated mount, with only the copied archive; omit ALL provider credentials.
+sudo install -d -m 0700 -o 10001 -g 100 /srv/local/energything/restore-<unique>
+sudo cp /separate-storage/backup-<unique>.tar /srv/local/energything/restore-<unique>/latest.tar
+sudo chown 10001:100 /srv/local/energything/restore-<unique>/latest.tar
+sudo chmod 600 /srv/local/energything/restore-<unique>/latest.tar
 docker run -d --name energything-restore-check --network none \
-  -v "$restore:/data" -e ENERGYTHING_USERNAME=restore-check \
-  -e ENERGYTHING_PASSWORD='<temporary-private-password>' \
+  -v /srv/local/energything/restore-<unique>:/data \
+  -e ENERGYTHING_USERNAME=restore-check -e ENERGYTHING_PASSWORD='<private-password>' \
   namespace/energything@sha256:<matching-backup-digest>
-docker exec energything-restore-check wget -qO- http://127.0.0.1:8080/healthz
-# Inspect authenticated records, audit/evidence and progress from inside this
-# isolated container using a private HTTP client/config; compare to saved state.
-docker stop -t 30 energything-restore-check
-docker inspect -f '{{.State.ExitCode}}' energything-restore-check
-docker rm energything-restore-check
 ```
 
-The copy includes the whole directory and any WAL/SHM companions after confirmed
-exit. Never copy just a live energything.sqlite. Keep backups private, on separate
-storage, with digest/schema/build metadata. Test restoration before relying on a
-backup. Isolated restore must retain records, source identities, canonical keys,
-audit/evidence, jobs/completion checkpoints, schedules and quota reservations. With
-credentials omitted, collectors cannot contact providers and local browsing still
-works. Preserve the original backup while reviewing a restore. A controlled host
-rollout is a separate authorized step.
+Inspect authenticated records, audit/evidence, identities, jobs, completions,
+schedules and reservations using a private client inside that isolated container.
+Remove/recreate the container with the same dump mount and compare again. Preserve
+the external original. Never run restored collectors with real credentials beside
+the active service. Inspect exit status after `docker stop -t 360`.
+
+## Restore authority and failures
+
+Every startup, including `docker restart`, restores the completed archive into a
+new private runtime generation, validates SHA-256/length, archive members, SQLite
+integrity, foreign keys and supported schema, then applies normal migrations and
+interrupted-attempt recovery exactly once. It never trusts writable-layer leftovers
+or arbitrarily selects staging files. Unsupported/corrupt dumps fail startup.
+Missing latest on a nonempty/initialized mount fails rather than resetting history.
+A new empty mount creates schema8 directly and publishes before collecting. An
+entirely empty wrong mount is indistinguishable from installation: check the actual
+mount source before starting. Restore an older retained archive deliberately into
+a new mount; never delete initialization state to force an empty start.
+
+Status/UI reports backup running/idle/error, last success, snapshot time/age,
+duration, bytes and next due. `/healthz` remains process-only. Publication writes
+private staging files, flushes the archive and replaces latest atomically, then
+syncs the parent directory on Linux and records initialization. Failure before
+replacement leaves the old dump intact; a later sync/state failure can leave the
+new complete generation published but is reported as failure. Nothing overwrites
+or unlinks latest first. No provider secrets enter archives.
+
+Committed rows live only as long as the ephemeral database until captured in a
+published dump. Crash/SIGKILL can lose readings, evidence, audit, checkpoints and
+quota reservations since that snapshot. Healthy recovery gap includes interval,
+scheduling and snapshot duration, not a hard 15-minute maximum. Repeated failures
+make it unbounded. The external backup schedule adds a separate host-disk-loss gap.
+After every restore, aggregate calls wait five minutes from startup, or 24 hours
+if the optional daily cap is enabled. Lost calls might have occurred just before
+restart even if the dump is old. Captured provider deadlines remain lower bounds.
+No unsnapshotted calls/audit are invented. Other collection semantics are unchanged.
+
+## Deliberate one-time legacy conversion
+
+The retained preview must not be switched automatically. Its original mount and
+private override stay unchanged until the owner authorizes cutover. Readiness for
+conversion is separate from task08 deployment. New startup refuses any legacy
+`energything.sqlite`, WAL or SHM in the persistent mount.
+
+1. Record the exact old image/build/Compose invocation and stop the original
+   cleanly. Verify stopped state and exit0. This maintenance stop is only for the
+   storage-layout transition, never for routine backup.
+2. Preserve a new complete private copy of the entire stopped directory including
+   companions, plus the original mount/override and all previous backups. Work only
+   on another copy. Never migrate/recover the live directory with a second process.
+3. With Go1.26.4 and this checkout, run the offline conversion against that copy:
+
+   `go run ./cmd/dump -mode convert -stopped-copy -source <copied-stopped-directory> -destination <new-private-dump-directory>`
+
+   Destination must not exist. The tool validates without source migration/recovery,
+   snapshots through the incremental API, publishes an archive and restores it in
+   isolation, comparing all tables and declared identities to the stopped source.
+   A partial failed destination must not be deployed; preserve it for diagnosis.
+4. Optionally inspect offline with `go run ./cmd/dump -mode restore -source
+   <new-private-dump-directory>/latest.tar -destination <new-private-inspection-directory>`.
+   Never use the extracted SQLite directory as the persistent server mount.
+5. Restore into an isolated new container with providers disabled and compare all
+   retained state/keys/evidence. Verify mount ownership UID10001/GID100, directories
+   0700 and archive 0600. Only then deliberately change the private Compose override
+   to mount the new dump directory at `/data`, leaving runtime unmounted. Preserve
+   old backups and override for rollback with the matching old image.
 
 ## Space and storage failures
 
-Use `df -h /srv/local/energything/data` and `sudo du -sh
-/srv/local/energything/data` to inspect free space and total size, including SQLite
-companions. All selected evidence and audit are retained; no automatic deletion,
-pruning or aggregation recovers disk space. Review growth and expand local storage
-before pressure becomes an outage. On disk-full/permission/IO failure an accepted
-transaction cannot advance partially; failure audit itself may also fail. Stored
-reads may return503; process liveness alone is insufficient. Stop cleanly, preserve
-the complete directory and backups, correct capacity/permissions, then inspect
-audit/progress after restart. Never delete WAL/SHM files to repair a running DB.
+Budget disk for the live database and WAL in the writable layer, plus a staging
+SQLite snapshot, staging archive and previous completed archive on the dump mount.
+A stable read transaction pins WAL during page-stepped backup; writers continue
+but WAL can grow for up to the backup deadline. Monitor both filesystems and
+measure real household restore time/capacity at task08. Synthetic timings are not
+a realistic archive-size benchmark. No readings/evidence/audit are pruned for space.
+
+Check free space with `df` for both container runtime and dump storage. On storage
+failure, backup status becomes error and latest remains a completed generation.
+Reads/collection can continue if live storage permits. Preserve the dump, correct
+capacity/permissions and confirm a subsequent successful publication. Restarting
+before a successful dump loses unsnapshotted changes. Never delete live WAL/SHM to
+repair the running database. Local Linux filesystems only, not SMB/NFS.
 
 ## Historical implementation notes
 
@@ -210,6 +267,9 @@ pragmas on replacement connections, writes, closes and reopens the same value.
 Cross-builds alone do not satisfy the runtime gate.
 
 ## Standard local preview update
+
+Task07a exception: do not run this legacy update procedure for the retained preview.
+Use the deliberate conversion above only after authorized cutover.
 
 After implementing and verifying a task, update and restart the local preview as
 part of the normal handoff so localhost:8080 serves the current task build.
@@ -338,7 +398,7 @@ scripts/task06-preview-browser.ps1 for private browser checks. Earlier task05
 preview helpers preserve historical verification procedures and are superseded.
 
 The task06 image ships `/usr/local/bin/energything-enqueue` for same-OS repair:
-`docker exec energything-preview energything-enqueue -data-dir /data -identity <id> -from <date> -to <date> -operation-id <id>`.
+For task07a, run enqueue inside the container against its current private runtime generation: `-data-dir /var/lib/energything-runtime/.energything-runtime-<current>`. Resolve exactly one current generation after startup; never point enqueue at `/data`. Enqueued work becomes persistent only after a successful dump.
 This action only inserts immutable durable work; the existing server performs it.
 
 ## Whole-history correction (15 October2026)

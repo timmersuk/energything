@@ -29,7 +29,7 @@ real secrets in commands that are echoed to chat, shell history or CI logs.
 
 1. **Host preflight.** Verify architecture is supported by the image, the mount is
    local rather than SMB/NFS, disk space is adequate and UID 10001 can create/write
-   database companions. Confirm one instance per DB. Choose a free HTTP port and
+   published dumps and private staging files. Confirm runtime has no bind/volume/tmpfs mount, sufficient writable-layer capacity, and exactly one server per dump mount. Choose a free HTTP port and
    intended trusted LAN or HTTPS reverse-proxy access. Logthing is the deployment
    pattern; do not overwrite its container, mount or occupied port.
 2. **Deployment.** Configure required credentials and chosen identities privately;
@@ -67,7 +67,7 @@ real secrets in commands that are echoed to chat, shell history or CI logs.
    last-snapshot recovery gap and conservative quota restart behavior.
 10. **Backup/restore.** Keep Energything running while the actual host backup
     service copies its published dump. Verify this while collection and dump
-    publication continue. Restore the external backup into a separate dump mount
+    publication continue. Record the actual tool/version and demonstrate it holds one file generation open across replacement (not pathname reopens per chunk). Inspect authenticated backup age/failure and measure restore duration with realistic private data. Restore the external backup into a separate dump mount
     and a new container with the matching image and provider credentials omitted.
     Validate records/checkpoints/audit/evidence and DB health. No shutdown of the
     source service, copying live SQLite, second live-DB recovery process or parallel

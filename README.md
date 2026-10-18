@@ -67,8 +67,9 @@ ENERGYTHING_IMAGE, ENERGYTHING_HTTP_PORT and ENERGYTHING_DATA_PATH select the
 image, host port and bind mount. Never use sibling .env files.
 
 The image is Alpine 3.23, includes CA roots and UK timezone support,
-runs as UID 10001/GID 100, exposes only 8080 and stores energything.sqlite under
-/data. See [operations](docs/operations.md) for mount permissions and
+runs as UID 10001/GID 100 and exposes only 8080. Live SQLite exists only in the
+ephemeral container layer. `/data/latest.tar` is atomically published online and
+restored on every startup; only the dump mount persists. See [operations](docs/operations.md) for mount permissions and
 [task 01 verification](docs/tasks/milestone-1/01-verification.md) for executed
 checks and remaining gates. The SQLite runtime gate passed on both architectures.
 Storage opens with transactional versioned migrations and interrupted-attempt
@@ -86,7 +87,8 @@ for immutable image tags/digests, UID10001 permissions, pinned updates, stopped
 full-directory backups and isolated restores. Publishing and private host rollout
 require separate authorization. CI never receives household provider credentials.
 
-After task verification, rebuild and recreate the existing local preview on its
+Task07a requires deliberate authorized legacy conversion before updating the retained
+preview; leave it unchanged during implementation. For other tasks, after verification, rebuild and recreate the existing local preview on its
 original mount so localhost:8080 serves the current implementation. Follow the
 [standard preview update procedure](docs/operations.md#standard-local-preview-update),
 including the saved Compose override, safe metadata checks and build verification.

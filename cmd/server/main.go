@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"github.com/timmersuk/energything/internal/backup"
 	"github.com/timmersuk/energything/internal/collection"
 	"github.com/timmersuk/energything/internal/config"
 	"github.com/timmersuk/energything/internal/storage"
@@ -31,18 +32,34 @@ func run(ctx context.Context) (err error) {
 	if err != nil {
 		return err
 	}
-	db, err := storage.Open(ctx, c.DataDir)
+	startup, cancelStartup := context.WithTimeout(ctx, c.BackupTimeout)
+	runtimeDir, restored, err := backup.Prepare(startup, c.DataDir, c.DumpDir)
 	if err != nil {
+		cancelStartup()
+		return errors.New("dump restore failed; check storage configuration, legacy layout or restore a valid retained archive")
+	}
+	db, err := storage.Open(startup, runtimeDir)
+	if err != nil {
+		cancelStartup()
 		return err
 	}
 	defer func() { err = errors.Join(err, db.Close()) }()
+	if restored {
+		db.HoldAggregateCalls(time.Now(), c.Growatt.AggregateDailyCapEnabled)
+	}
+	backups := &backup.Publisher{Dir: c.DumpDir, Build: BuildID, Interval: c.BackupInterval, Timeout: c.BackupTimeout}
+	if err = backups.Publish(startup, db); err != nil {
+		cancelStartup()
+		return err
+	}
+	cancelStartup()
 	if c.Growatt.State == "valid" {
 		if err := db.ReconsiderAggregateDeferrals(ctx, storage.At(time.Now()), c.Growatt.AggregateDailyCapEnabled); err != nil {
 			return errors.New("aggregate budget configuration could not be applied")
 		}
 	}
 	scheduler := collection.NewScheduler(db, c)
-	handler, err := web.NewRouterWithRefresh(c, BuildID, db, scheduler.Refresh)
+	handler, err := web.NewRouterWithBackup(c, BuildID, db, scheduler.Refresh, backups.Status)
 	if err != nil {
 		return errors.New("web initialization failed")
 	}
@@ -56,10 +73,15 @@ func run(ctx context.Context) (err error) {
 		defer close(done)
 		scheduler.Run(workerCtx)
 	}()
+	backupDone := make(chan struct{})
+	go func() { defer close(backupDone); backups.Run(workerCtx, db) }()
 	serveErr := serve(ctx, listener, handler, c.ShutdownTimeout)
 	cancelWorker()
 	<-done // HTTP and cleanup requests are bounded; close storage last.
-	return serveErr
+	<-backupDone
+	cleanup, cancelCleanup := context.WithTimeout(context.Background(), c.BackupTimeout)
+	defer cancelCleanup()
+	return errors.Join(serveErr, backups.Publish(cleanup, db))
 }
 func serve(ctx context.Context, listener net.Listener, handler http.Handler, timeout time.Duration) error {
 	server := &http.Server{Handler: handler, ReadHeaderTimeout: 5 * time.Second, BaseContext: func(net.Listener) context.Context { return ctx }}

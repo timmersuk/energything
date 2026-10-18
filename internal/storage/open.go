@@ -15,8 +15,10 @@ import (
 // Open applies pragmas on every connection using a constructed, escaped DSN.
 // Store keeps SQL private; consumers use typed storage operations.
 type Store struct {
-	db  *sql.DB
-	now func() time.Time
+	db            *sql.DB
+	path          string
+	aggregateHold time.Time
+	now           func() time.Time
 	// Test-only fault injection at transactional boundaries. Never exported.
 	fault func(string) error
 }
@@ -76,7 +78,7 @@ func open(ctx context.Context, dir string, server bool) (*Store, error) {
 		db.Close()
 		return nil, errors.New("SQLite cannot open DATA_DIR/energything.sqlite; check directory and database permissions")
 	}
-	s := &Store{db: db, now: time.Now}
+	s := &Store{db: db, path: path, now: time.Now}
 	var initErr error
 	if server {
 		initErr = s.initialize(ctx)

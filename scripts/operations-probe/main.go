@@ -9,10 +9,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"time"
 
+	"github.com/timmersuk/energything/internal/backup"
 	"github.com/timmersuk/energything/internal/storage"
 	"github.com/timmersuk/energything/internal/testsupport"
 )
@@ -37,7 +39,10 @@ func main() {
 		}
 	case "seed":
 		ctx := context.Background()
-		s, err := storage.Open(ctx, dir)
+		runtime, err := os.MkdirTemp("", "synthetic-runtime-")
+		must(err)
+		defer os.RemoveAll(runtime)
+		s, err := storage.Open(ctx, runtime)
 		must(err)
 		must(testsupport.SeedBrowsing(ctx, s))
 		must(testsupport.SeedAggregates(ctx, s))
@@ -49,10 +54,17 @@ func main() {
 		// startup recovery before recording the stable lifecycle comparison.
 		_, err = s.RecoverInterruptedAttempts(ctx, storage.At(time.Now()))
 		must(err)
+		p := backup.Publisher{Dir: dir, Build: "synthetic-seed", Interval: time.Second, Timeout: time.Minute}
+		must(p.Publish(ctx, s))
 		must(s.Close())
 	case "snapshot":
-		// Called only while the synthetic server is stopped; no migration/recovery.
-		db, err := sql.Open("sqlite", "file:"+dir+"/energything.sqlite?mode=ro")
+		// Read only an immutable published dump, including while the server runs.
+		runtime, err := os.MkdirTemp("", "synthetic-restore-")
+		must(err)
+		defer os.RemoveAll(runtime)
+		_, err = backup.Restore(context.Background(), filepath.Join(dir, backup.Latest), runtime)
+		must(err)
+		db, err := sql.Open("sqlite", "file:"+runtime+"/energything.sqlite?mode=ro")
 		must(err)
 		defer db.Close()
 		var integrity string
