@@ -134,8 +134,16 @@ copying, validation, atomic replacement, shutdown ordering and quota holds remai
 Other audit recommendations are deferred; no replacement system was added.
 
 Targeted backup/server/configuration/conversion checks and the full Go test suite
-passed. Final container and review results are recorded below when complete.
+passed. The final checks below also passed.
 Standing instructions are installed in repository AGENTS.md and the user's global
 Codex AGENTS.md. The immediate next task is a read-only simplicity review of the
 earlier tasks01-07, including05a/06a, before task08; changes need concrete findings
 and discussion first. No preview cutover or deployment was performed.
+
+Fixed-filename follow-up results: full Go tests and vet passed; Linux race checks
+for backup/server passed. Both amd64 and emulated arm64 backup suites passed,
+including fixed saved filenames, no temporary files left after completion, stale
+working-file cleanup and restart into the same runtime path. Both full container
+probes passed with fixed-path/no-generated-subdirectory checks, live external copy,
+restoration, crash recovery and failed shutdown export. Build ID:
+`task07a-fixed-paths`. Standards review: no findings. Spec review: no findings.

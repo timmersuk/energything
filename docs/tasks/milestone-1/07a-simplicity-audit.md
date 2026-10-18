@@ -1,7 +1,7 @@
 # Task07a: what should be simpler?
 
 I reviewed the backup changes through commit cc998db. This was initially a read-only review. The user subsequently approved fixed runtime
-and backup working filenames; that change is now being applied. Other findings
+and backup working filenames; that change is implemented in the current WIP. Other findings
 remain proposals.
 This review covers task07a, not the earlier tasks. My own plan is not proof that
 all the code it called for was necessary.

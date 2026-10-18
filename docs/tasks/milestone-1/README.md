@@ -1,7 +1,7 @@
 # Milestone 1 execution briefs
 
-Status: tasks through 07 are merged. Task07a is the required backup redesign plan
-before task08 host acceptance. Updated 18 October 2026. Read individual verification
+Status: tasks through 07 are merged. Task07a is implemented in a draft PR; the fixed-filename simplification and
+review of earlier tasks come before task08 host acceptance. Updated 18 October 2026. Read individual verification
 handoffs for actual gates.
 
 Parent: [Milestone 1](../../plans/milestone-1-service-and-collection.md).
