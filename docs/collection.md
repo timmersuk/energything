@@ -157,7 +157,7 @@ the current existing schema, performs no migrations or interrupted-attempt recov
 and never fetches. Run a container server's enqueue command in its Linux lock domain, never a Windows
 host executable against a live Docker bind-mounted WAL. SQLite immediate transactions serialize cross-process enqueue
 and claims. The running server performs all provider requests. The image includes
-`energything-enqueue`; invoke it with docker exec and `-data-dir /var/lib/energything-runtime/.energything-runtime-<current>` to share
+`energything-enqueue`; invoke it with docker exec and `-data-dir /var/lib/energything-runtime` to share
 the server's Linux SQLite lock domain.
 
 ## Time interpretation

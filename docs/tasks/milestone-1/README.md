@@ -7,6 +7,14 @@ handoffs for actual gates.
 Parent: [Milestone 1](../../plans/milestone-1-service-and-collection.md).
 Direction: [Staged delivery](../../plans/goal.md).
 
+## Immediate next step
+
+Finish the task07a fixed-filename WIP, then review tasks01–07 (including05a/06a)
+for unnecessary complexity before task08. Use plain activity-and-consequence
+language: what happens, what trouble it causes, and what to keep or change.
+Start read-only and bring concrete findings back before making changes.
+See [the task07a audit](07a-simplicity-audit.md) and repository AGENTS.md.
+
 ## Start here
 
 Read the [shared execution contract](execution-contract.md), the selected task,

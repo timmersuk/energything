@@ -85,3 +85,8 @@ shutdown export follows joined writers. Crash loses unsnapshotted state; aggrega
 restart holds are five minutes or 24 hours with the daily cap. Legacy preview
 conversion requires a deliberate clean-stop copied-directory transition and
 isolated validation; never automatically switch its retained mount.
+
+Immediate next step after task07a fixed-filename WIP: review earlier tasks01–07,
+including05a/06a, for unnecessary complexity. Report what happens and its consequence
+in plain language; propose bounded changes before implementing any. Do this before
+starting task08. See AGENTS.md.

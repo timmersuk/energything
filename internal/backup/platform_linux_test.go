@@ -39,19 +39,18 @@ func TestPrivateDirectoriesAndMountIsolation(t *testing.T) {
 		t.Fatal("rejected ordinary destination parent", e)
 	}
 }
-func TestInitialCrashStagingCleanup(t *testing.T) {
+func TestInitialCrashWorkingFilesCleanup(t *testing.T) {
 	runtime, dumps := privateTemp(t), privateTemp(t)
-	stage := filepath.Join(dumps, ".energything-stage-synthetic")
-	if e := os.Mkdir(stage, 0700); e != nil {
-		t.Fatal(e)
-	}
-	if e := os.WriteFile(filepath.Join(stage, "partial"), []byte("incomplete"), 0600); e != nil {
-		t.Fatal(e)
+	for _, name := range backupTemps {
+		if e := os.WriteFile(filepath.Join(dumps, name), []byte("incomplete"), 0600); e != nil {
+			t.Fatal(e)
+		}
 	}
 	if _, restored, e := Prepare(context.Background(), runtime, dumps); e != nil || restored {
 		t.Fatal(restored, e)
 	}
-	if _, e := os.Stat(stage); !os.IsNotExist(e) {
-		t.Fatal("abandoned stage retained", e)
+	entries, e := os.ReadDir(dumps)
+	if e != nil || len(entries) != 0 {
+		t.Fatal("working files retained", e)
 	}
 }

@@ -184,12 +184,23 @@ func TestStartupFailuresAndAuthoritativeRestore(t *testing.T) {
 	if e != nil || !restored {
 		t.Fatal(restored, e)
 	}
+	if dir != runtime {
+		t.Fatal("runtime path changed", dir)
+	}
 	if e = os.WriteFile(filepath.Join(dir, "energything.sqlite"), []byte("crashed leftovers"), 0600); e != nil {
 		t.Fatal(e)
+	}
+	for _, name := range []string{"energything.sqlite-wal", "energything.sqlite-shm", "energything.sqlite.tmp"} {
+		if e = os.WriteFile(filepath.Join(runtime, name), []byte("incomplete"), 0600); e != nil {
+			t.Fatal(e)
+		}
 	}
 	dir, restored, e = Prepare(ctx, runtime, p.Dir)
 	if e != nil || !restored {
 		t.Fatal(restored, e)
+	}
+	if dir != runtime {
+		t.Fatal("restart changed runtime path", dir)
 	}
 	if _, e = storage.ValidateSnapshot(ctx, filepath.Join(dir, "energything.sqlite")); e != nil {
 		t.Fatal(e)
@@ -213,6 +224,27 @@ func TestStartupFailuresAndAuthoritativeRestore(t *testing.T) {
 	}
 	if e = ValidatePaths(runtime, runtime); e == nil {
 		t.Fatal("accepted overlap")
+	}
+}
+
+func TestCompletedBackupHasOneFixedName(t *testing.T) {
+	p, s := setup(t)
+	for i := 0; i < 2; i++ {
+		if e := p.Publish(context.Background(), s); e != nil {
+			t.Fatal(e)
+		}
+		entries, e := os.ReadDir(p.Dir)
+		if e != nil {
+			t.Fatal(e)
+		}
+		if len(entries) != 2 {
+			t.Fatal("unexpected backup files", entries)
+		}
+		for _, entry := range entries {
+			if entry.IsDir() || (entry.Name() != Latest && entry.Name() != marker) {
+				t.Fatal("unexpected backup path", entry.Name())
+			}
+		}
 	}
 }
 func TestStrictArchiveAndDeadline(t *testing.T) {

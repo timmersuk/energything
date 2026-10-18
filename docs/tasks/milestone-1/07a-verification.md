@@ -118,3 +118,24 @@ recheck reported no remaining actionable findings.
 Standards:0 findings. Spec:2 findings fixed,0 remaining. No material plan deviation.
 Preview cutover remains deliberately unperformed; conversion/isolated-restore
 procedure and tool are ready for separate authorized transition.
+
+## Fixed-filename simplification follow-up
+
+The user selected fixed runtime and backup working paths. The live database is
+now `/var/lib/energything-runtime/energything.sqlite`; backup work uses
+`/data/snapshot.tmp` and `/data/latest.tar.tmp`, then replaces `/data/latest.tar`.
+Startup restores through `energything.sqlite.tmp`. The `initialized` marker also
+uses a fixed `.tmp` name. Random runtime/staging directories and their discovery
+and recursive cleanup have been removed. Cleanup touches only known working files.
+
+The local runtime default is `./energything-runtime`, keeping legacy
+`./energything-data` out of the disposable location. Published dump format, online
+copying, validation, atomic replacement, shutdown ordering and quota holds remain.
+Other audit recommendations are deferred; no replacement system was added.
+
+Targeted backup/server/configuration/conversion checks and the full Go test suite
+passed. Final container and review results are recorded below when complete.
+Standing instructions are installed in repository AGENTS.md and the user's global
+Codex AGENTS.md. The immediate next task is a read-only simplicity review of the
+earlier tasks01-07, including05a/06a, before task08; changes need concrete findings
+and discussion first. No preview cutover or deployment was performed.

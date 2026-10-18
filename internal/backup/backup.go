@@ -21,6 +21,30 @@ import (
 const Latest = "latest.tar"
 const marker = "initialized"
 
+var backupTemps = []string{"snapshot.tmp", "snapshot.tmp-wal", "snapshot.tmp-shm", "snapshot.tmp-journal", "latest.tar.tmp", "initialized.tmp"}
+
+// Only remove these known service working files. Never follow links or delete
+// directories, published backups, or arbitrary mount contents.
+func removeWorkingFiles(dir string, names []string) error {
+	for _, name := range names {
+		path := filepath.Join(dir, name)
+		info, err := os.Lstat(path)
+		if os.IsNotExist(err) {
+			continue
+		}
+		if err != nil {
+			return err
+		}
+		if !info.Mode().IsRegular() {
+			return errors.New("working path must be a regular file")
+		}
+		if err = os.Remove(path); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 type Manifest struct {
 	Format    int       `json:"format_version"`
 	Schema    int       `json:"schema_version"`
@@ -94,12 +118,11 @@ func (p *Publisher) Publish(ctx context.Context, s *storage.Store) (err error) {
 			return e
 		}
 	}
-	stage, err := os.MkdirTemp(p.Dir, ".energything-stage-")
-	if err != nil {
+	if err = removeWorkingFiles(p.Dir, backupTemps); err != nil {
 		return err
 	}
-	defer os.RemoveAll(stage)
-	dbPath := filepath.Join(stage, "energything.sqlite")
+	defer removeWorkingFiles(p.Dir, backupTemps)
+	dbPath := filepath.Join(p.Dir, "snapshot.tmp")
 	if err = s.Snapshot(ctx, dbPath); err != nil {
 		return err
 	}
@@ -124,7 +147,7 @@ func (p *Publisher) Publish(ctx context.Context, s *storage.Store) (err error) {
 	if _, err = f.Seek(0, 0); err != nil {
 		return err
 	}
-	archive, err := os.OpenFile(filepath.Join(stage, Latest), os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+	archive, err := os.OpenFile(filepath.Join(p.Dir, "latest.tar.tmp"), os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
 	if err != nil {
 		return err
 	}
@@ -163,7 +186,7 @@ func (p *Publisher) Publish(ctx context.Context, s *storage.Store) (err error) {
 	if err = ctx.Err(); err != nil {
 		return err
 	}
-	if err = os.Rename(filepath.Join(stage, Latest), filepath.Join(p.Dir, Latest)); err != nil {
+	if err = os.Rename(filepath.Join(p.Dir, "latest.tar.tmp"), filepath.Join(p.Dir, Latest)); err != nil {
 		return err
 	}
 	if err = p.checkpoint("after_rename"); err != nil {
@@ -220,7 +243,7 @@ func writeMarker(dir string) error {
 	} else if !os.IsNotExist(err) {
 		return err
 	}
-	f, err := os.CreateTemp(dir, ".energything-marker-")
+	f, err := os.OpenFile(filepath.Join(dir, "initialized.tmp"), os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
 	if err != nil {
 		return err
 	}
@@ -240,49 +263,28 @@ func writeMarker(dir string) error {
 	return syncDirectory(dir)
 }
 
-// Prepare never opens leftover runtime databases. Each startup uses a new
-// private generation; only owned stale generations are removed after validation.
+// Prepare always restores the published dump before storage opens. The runtime
+// directory is service-owned and ephemeral, so its known database files can be
+// discarded on restart. A failed restore never opens leftover data.
 func Prepare(ctx context.Context, runtime, dumps string) (dir string, restored bool, err error) {
 	if err = ValidatePaths(runtime, dumps); err != nil {
 		return
 	}
-	for _, root := range []string{dumps, runtime} {
-		for _, name := range []string{"energything.sqlite", "energything.sqlite-wal", "energything.sqlite-shm"} {
-			if _, e := os.Lstat(filepath.Join(root, name)); !os.IsNotExist(e) {
-				err = errors.New("legacy persistent database detected; perform deliberate stopped-copy conversion")
-				return
-			}
+	for _, name := range []string{"energything.sqlite", "energything.sqlite-wal", "energything.sqlite-shm"} {
+		if _, e := os.Lstat(filepath.Join(dumps, name)); !os.IsNotExist(e) {
+			return "", false, errors.New("legacy persistent database detected; perform deliberate stopped-copy conversion")
 		}
 	}
-	entries, err := os.ReadDir(dumps)
-	if err != nil {
-		return "", false, err
-	}
-	for _, entry := range entries {
-		if strings.HasPrefix(entry.Name(), ".energything-stage-") && entry.IsDir() {
-			if err = os.RemoveAll(filepath.Join(dumps, entry.Name())); err != nil {
-				return "", false, err
-			}
-		}
-		if strings.HasPrefix(entry.Name(), ".energything-marker-") && entry.Type().IsRegular() {
-			if err = os.Remove(filepath.Join(dumps, entry.Name())); err != nil {
-				return "", false, err
-			}
-		}
-	}
-	dir, err = os.MkdirTemp(runtime, ".energything-runtime-")
-	if err != nil {
+	if err = removeWorkingFiles(dumps, backupTemps); err != nil {
 		return
 	}
-	ok := false
-	defer func() {
-		if !ok {
-			os.RemoveAll(dir)
-		}
-	}()
-	_, e := os.Lstat(filepath.Join(dumps, Latest))
+	if err = removeWorkingFiles(runtime, []string{"energything.sqlite.tmp"}); err != nil {
+		return
+	}
+	archive := filepath.Join(dumps, Latest)
+	_, e := os.Lstat(archive)
 	if e == nil {
-		_, err = Restore(ctx, filepath.Join(dumps, Latest), dir)
+		_, err = restore(ctx, archive, filepath.Join(runtime, "energything.sqlite.tmp"))
 		if err != nil {
 			return
 		}
@@ -290,32 +292,23 @@ func Prepare(ctx context.Context, runtime, dumps string) (dir string, restored b
 	} else if os.IsNotExist(e) {
 		entries, readErr := os.ReadDir(dumps)
 		if readErr != nil {
-			err = readErr
-			return
+			return "", false, readErr
 		}
-		// Any state means this is not an unambiguous initial install.
 		if len(entries) != 0 {
-			err = errors.New("published dump missing on nonempty mount; restore a retained latest.tar")
-			return
+			return "", false, errors.New("published dump missing on nonempty mount; restore a retained latest.tar")
 		}
 	} else {
-		err = e
+		return "", false, e
+	}
+	if err = removeWorkingFiles(runtime, []string{"energything.sqlite", "energything.sqlite-wal", "energything.sqlite-shm", "energything.sqlite-journal"}); err != nil {
 		return
 	}
-	entries, e = os.ReadDir(runtime)
-	if e != nil {
-		err = e
-		return
-	}
-	for _, entry := range entries {
-		if strings.HasPrefix(entry.Name(), ".energything-runtime-") && entry.IsDir() && entry.Name() != filepath.Base(dir) {
-			if err = os.RemoveAll(filepath.Join(runtime, entry.Name())); err != nil {
-				return
-			}
+	if restored {
+		if err = os.Rename(filepath.Join(runtime, "energything.sqlite.tmp"), filepath.Join(runtime, "energything.sqlite")); err != nil {
+			return
 		}
 	}
-	ok = true
-	return
+	return runtime, restored, nil
 }
 
 func checkDirectoryLinks(path string) error {
@@ -353,7 +346,10 @@ func privateDirectory(path string) error {
 	if err = checkPrivateDirectory(abs); err != nil {
 		return err
 	}
-	f, err := os.CreateTemp(abs, ".energything-write-")
+	if err = removeWorkingFiles(abs, []string{".write-check.tmp"}); err != nil {
+		return err
+	}
+	f, err := os.OpenFile(filepath.Join(abs, ".write-check.tmp"), os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
 	if err != nil {
 		return errors.New("backup and runtime directories must be writable by UID 10001")
 	}
@@ -415,7 +411,11 @@ func ValidatePaths(runtime, dumps string) error {
 
 // Restore accepts exactly two regular archive entries, and never extracts paths.
 // The caller supplies a new empty private directory, not a running database.
-func Restore(ctx context.Context, archivePath, destination string) (m Manifest, err error) {
+func Restore(ctx context.Context, archivePath, destination string) (Manifest, error) {
+	return restore(ctx, archivePath, filepath.Join(destination, "energything.sqlite"))
+}
+
+func restore(ctx context.Context, archivePath, path string) (m Manifest, err error) {
 	info, err := os.Lstat(archivePath)
 	if err != nil || !info.Mode().IsRegular() {
 		return m, errors.New("published dump must be a regular file")
@@ -427,7 +427,6 @@ func Restore(ctx context.Context, archivePath, destination string) (m Manifest, 
 	defer f.Close()
 	tr := tar.NewReader(contextReader{ctx, f})
 	seen := map[string]bool{}
-	path := filepath.Join(destination, "energything.sqlite")
 	ok := false
 	created := false
 	defer func() {

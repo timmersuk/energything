@@ -57,6 +57,9 @@ def start(volume):
     else:
         raise AssertionError('server not ready')
     assert docker('exec', name, 'id', '-u').stdout.strip() == b'10001'
+    docker('exec', name, 'test', '-f', '/var/lib/energything-runtime/energything.sqlite')
+    runtime_dirs = docker('exec', name, 'find', '/var/lib/energything-runtime', '-mindepth', '1', '-type', 'd').stdout
+    assert not runtime_dirs, 'runtime unexpectedly uses generated subdirectories'
     for binary in ('energything', 'energything-enqueue'):
         copied = docker('cp', name + ':/usr/local/bin/' + binary, '-').stdout
         with tarfile.open(fileobj=io.BytesIO(copied)) as archive:

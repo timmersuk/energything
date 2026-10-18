@@ -31,7 +31,7 @@ make build
 In PowerShell, set ENERGYTHING_USERNAME and ENERGYTHING_PASSWORD to your chosen
 nonempty credentials, then run `go run ./cmd/server`. The application reads only
 the process environment; it does not load any .env file. Local defaults are
-:8080, ./energything-data as runtime root, ./energything-dumps as persistent
+:8080, ./energything-runtime as runtime root, ./energything-dumps as persistent
 dump directory, Europe/London and a 10s HTTP drain timeout.
 See [.env.example](.env.example) for every supported environment name and
 the [configuration reference](docs/configuration.md)

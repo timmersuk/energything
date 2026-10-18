@@ -35,7 +35,7 @@ func Parse(get func(string) string, now time.Time) (Config, error) {
 		}
 		return d
 	}
-	c := Config{HTTPAddr: value("ENERGYTHING_HTTP_ADDR", ":8080"), DataDir: value("ENERGYTHING_DATA_DIR", "./energything-data"), Username: get("ENERGYTHING_USERNAME"), Password: get("ENERGYTHING_PASSWORD")}
+	c := Config{HTTPAddr: value("ENERGYTHING_HTTP_ADDR", ":8080"), DataDir: value("ENERGYTHING_DATA_DIR", "./energything-runtime"), Username: get("ENERGYTHING_USERNAME"), Password: get("ENERGYTHING_PASSWORD")}
 	c.DumpDir = value("ENERGYTHING_DUMP_DIR", "./energything-dumps")
 	var backupErr error
 	c.BackupInterval, backupErr = time.ParseDuration(value("ENERGYTHING_BACKUP_INTERVAL", "15m"))

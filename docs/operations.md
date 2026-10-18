@@ -110,6 +110,13 @@ binary on a migrated database; restore its matching backup/image together.
 
 ## Online backup and isolated restore
 
+The running database is always `/var/lib/energything-runtime/energything.sqlite`.
+The saved backup is always `/data/latest.tar`. Backup work uses fixed `snapshot.tmp`
+and `latest.tar.tmp` names, then atomically replaces `latest.tar` after completion.
+Startup restores through `energything.sqlite.tmp` before opening the database.
+The `initialized` marker remembers that the dump mount has been used; it is not
+another backup. No randomly named runtime or backup folders are created.
+
 The background worker publishes every 15 minutes after the previous publication
 finishes, with a 5-minute deadline. A synchronous startup dump must succeed before
 HTTP or collection starts. Graceful shutdown cancels and joins collection, HTTP
@@ -118,7 +125,7 @@ before closing SQLite. A failed final dump returns exit1. The default Compose 6m
 grace covers 10s HTTP drain, five-second collector cleanup and the 5m backup.
 
 Back up **only `latest.tar`**, while Energything continues running. Exclude
-`.energything-stage-*` and `.energything-marker-*`; `initialized` is application
+`snapshot.tmp*`, `latest.tar.tmp` and `initialized.tmp`; `initialized` is application
 publication state, not required to interpret a copied archive. Never copy the
 runtime directory. Linux atomic replacement lets a reader finish copying its open
 old generation. The external tool must open once per copy, not reopen the pathname
@@ -148,8 +155,8 @@ the active service. Inspect exit status after `docker stop -t 360`.
 
 ## Restore authority and failures
 
-Every startup, including `docker restart`, restores the completed archive into a
-new private runtime generation, validates SHA-256/length, archive members, SQLite
+Every startup, including `docker restart`, restores the completed archive into the
+fixed ephemeral runtime path, validates SHA-256/length, archive members, SQLite
 integrity, foreign keys and supported schema, then applies normal migrations and
 interrupted-attempt recovery exactly once. It never trusts writable-layer leftovers
 or arbitrarily selects staging files. Unsupported/corrupt dumps fail startup.
@@ -399,7 +406,7 @@ scripts/task06-preview-browser.ps1 for private browser checks. Earlier task05
 preview helpers preserve historical verification procedures and are superseded.
 
 The task06 image ships `/usr/local/bin/energything-enqueue` for same-OS repair:
-For task07a, run enqueue inside the container against its current private runtime generation: `-data-dir /var/lib/energything-runtime/.energything-runtime-<current>`. Resolve exactly one current generation after startup; never point enqueue at `/data`. Enqueued work becomes persistent only after a successful dump.
+For task07a, run enqueue inside the container with `-data-dir /var/lib/energything-runtime`; never point it at `/data`. Enqueued work becomes persistent only after a successful dump.
 This action only inserts immutable durable work; the existing server performs it.
 
 ## Whole-history correction (15 October2026)

@@ -9,7 +9,7 @@ use another project's credentials. Empty optional values use defaults.
 | ENERGYTHING_USERNAME | Required, nonempty, no colon; Basic Auth username |
 | ENERGYTHING_PASSWORD | Required, nonempty; no shipped password |
 | ENERGYTHING_HTTP_ADDR | `:8080`; IP or localhost and port 1–65535 |
-| ENERGYTHING_DATA_DIR | `./energything-data`; image `/var/lib/energything-runtime`; unmounted ephemeral runtime root |
+| ENERGYTHING_DATA_DIR | `./energything-runtime`; image `/var/lib/energything-runtime`; unmounted ephemeral runtime root |
 | ENERGYTHING_DUMP_DIR | `./energything-dumps`; image `/data`; persistent private dump directory |
 | ENERGYTHING_BACKUP_INTERVAL | `15m`; positive duration, wait after previous publication |
 | ENERGYTHING_BACKUP_TIMEOUT | `5m`; positive duration, startup/restore/each publication deadline |
@@ -60,3 +60,8 @@ uses ENERGYTHING_TIMEZONE. Neither setting establishes Growatt absolute timestam
 Build controls: `make build CI_BUILD_ID=<public-id>` (or `go run ./scripts/build.go
 -build-id <public-id>`), `GO`, `DOCKER`, `IMAGE` are build tooling settings, never
 provider configuration. Build IDs appear in authenticated status and must be public.
+
+The local runtime default is now `./energything-runtime`, separate from the old
+`./energything-data` directory so retained legacy data is not treated as disposable.
+Inside the runtime directory the live filename is always `energything.sqlite`.
+Each startup replaces it from the dump before opening storage.

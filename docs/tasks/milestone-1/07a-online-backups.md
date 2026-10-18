@@ -42,8 +42,8 @@ enter its contents. No automatic private-host access or alerts are added.
 - The host backup service backs up `/data/latest.tar`, not the live database or
   the whole working directory. It retains historical versions on separate storage.
   Application overwrite of latest is not an off-device backup or history policy.
-- Temporary snapshots/archives use a dedicated excluded staging directory on the
-  same local filesystem as the published archive. Plan capacity for staging plus
+- Temporary snapshots/archives use fixed `snapshot.tmp` and `latest.tar.tmp` files
+  beside the published archive, excluded from external backups. Plan capacity for staging plus
   the previous completed archive and the separate runtime database/WAL.
 
 ## Online snapshot mechanism
@@ -75,7 +75,7 @@ Any change of mechanism requires evidence and a documented plan amendment.
 
 ## Atomic publication and external-copy contract
 
-1. Create a unique private staging generation; never modify published latest.
+1. Create the fixed private working files `snapshot.tmp` and `latest.tar.tmp`; never modify published latest. Only one backup runs at a time.
 2. Produce a complete, closed standalone SQLite snapshot. Verify integrity,
    foreign keys and supported schema without migration or recovery; ensure no
    companion file is needed to read it. Compute its hash and manifest.
@@ -96,7 +96,7 @@ generation-pinning/export protocol rather than stopping the application.
 
 Reject symlinks/path traversal and source/destination overlap. Enforce UID10001
 ownership/access, private directory/file modes and exclusive creation of staging
-files. Archive restore accepts only the two expected regular files, with bounded
+files. Temporary filenames are fixed and cleaned before retry; no random generation directories. Archive restore accepts only the two expected regular files, with bounded
 manifest parsing and validated lengths/hashes; never extract arbitrary archive paths.
 
 ## Lifecycle and restore
@@ -104,7 +104,7 @@ manifest parsing and validated lengths/hashes; never extract arbitrary archive p
 ### Startup
 
 1. Validate paths, writable mount, runtime isolation and supported configuration.
-2. Restore `latest.tar` into a new ephemeral staging directory. Validate format,
+2. Restore `latest.tar` through `energything.sqlite.tmp` into the fixed ephemeral runtime database path. Validate format,
    checksum, database integrity/foreign keys and schema compatibility before
    making it the runtime database. Never mutate the mounted dump during validation.
 3. Open the restored runtime database using normal server migration/recovery, once,
