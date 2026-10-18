@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 )
@@ -32,8 +33,16 @@ func run(ctx context.Context) (err error) {
 	if err != nil {
 		return err
 	}
+	runtimeRoot, err := filepath.Abs("energything-runtime")
+	if err != nil {
+		return errors.New("runtime path cannot be resolved")
+	}
+	c.DataDir, err = filepath.Abs(c.DataDir)
+	if err != nil {
+		return errors.New("ENERGYTHING_DATA_DIR cannot be resolved")
+	}
 	startup, cancelStartup := context.WithTimeout(ctx, c.BackupTimeout)
-	runtimeDir, restored, err := backup.Prepare(startup, "energything-runtime", c.DataDir)
+	runtimeDir, restored, err := backup.Prepare(startup, runtimeRoot, c.DataDir)
 	if err != nil {
 		cancelStartup()
 		return errors.New("dump restore failed; check storage configuration, legacy layout or restore a valid retained archive")

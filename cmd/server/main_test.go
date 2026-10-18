@@ -96,14 +96,13 @@ func TestBindFailure(t *testing.T) {
 	t.Setenv("ENERGYTHING_HTTP_ADDR", listener.Addr().String())
 	t.Setenv("ENERGYTHING_USERNAME", "test")
 	t.Setenv("ENERGYTHING_PASSWORD", "test")
-	dumps := t.TempDir()
 	t.Chdir(t.TempDir())
-	if e := os.Chmod(dumps, 0700); e != nil {
-		t.Fatal(e)
-	}
+	dumps := "data"
 	t.Setenv("ENERGYTHING_DATA_DIR", dumps)
-	if err := run(context.Background()); err == nil || !strings.Contains(err.Error(), "HTTP listen failed") {
-		t.Fatal("accepted occupied port")
+	for i := 0; i < 2; i++ {
+		if err := run(context.Background()); err == nil || !strings.Contains(err.Error(), "HTTP listen failed") {
+			t.Fatal("startup did not reach the occupied port", err)
+		}
 	}
 	if _, err := os.Stat(filepath.Join(dumps, "latest.tar")); err != nil {
 		t.Fatal("DATA_DIR did not receive the backup", err)
