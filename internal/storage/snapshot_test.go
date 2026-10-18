@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -89,5 +90,89 @@ func TestSnapshotCancellationAndQuotaRestartHold(t *testing.T) {
 		if e != nil || !due.Equal(now.Add(want)) {
 			t.Fatal(due, e)
 		}
+	}
+}
+
+func TestSnapshotDeadlineReleasesPinnedReadAndUnsupportedSchema(t *testing.T) {
+	s, _, _, _ := fixture(t, "octopus")
+	if _, e := s.db.Exec(`CREATE TABLE padding(payload BLOB); INSERT INTO padding VALUES(zeroblob(4194304))`); e != nil {
+		t.Fatal(e)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 40*time.Millisecond)
+	defer cancel()
+	started := time.Now()
+	e := s.snapshot(ctx, filepath.Join(t.TempDir(), "cancel.sqlite"), 1, 2*time.Millisecond)
+	if !errors.Is(e, context.DeadlineExceeded) || time.Since(started) > time.Second {
+		t.Fatal("unbounded/ignored cancellation", e)
+	}
+	var busy, log, checkpointed int
+	if e = s.db.QueryRow("PRAGMA wal_checkpoint(TRUNCATE)").Scan(&busy, &log, &checkpointed); e != nil || busy != 0 {
+		t.Fatal("cancelled snapshot leaked read pin", e)
+	}
+	if _, e = s.db.Exec("INSERT INTO schema_migrations VALUES(9)"); e != nil {
+		t.Fatal(e)
+	}
+	path := filepath.Join(t.TempDir(), "future.sqlite")
+	if e = s.Snapshot(context.Background(), path); e != nil {
+		t.Fatal(e)
+	}
+	if _, e = ValidateSnapshot(context.Background(), path); e == nil {
+		t.Fatal("accepted future schema")
+	}
+}
+
+func TestSnapshotPreservesOldSchemaForNormalUpgrade(t *testing.T) {
+	ctx := context.Background()
+	source := filepath.Join(t.TempDir(), "energything.sqlite")
+	db, e := sql.Open("sqlite", snapshotURI(source, ""))
+	if e != nil {
+		t.Fatal(e)
+	}
+	if e = migrate(ctx, db, legacyScripts(t)[:7], ""); e != nil {
+		t.Fatal(e)
+	}
+	if e = db.Close(); e != nil {
+		t.Fatal(e)
+	}
+	s, e := SnapshotSource(ctx, source)
+	if e != nil {
+		t.Fatal(e)
+	}
+	dest := t.TempDir()
+	path := filepath.Join(dest, "energything.sqlite")
+	if e = s.Snapshot(ctx, path); e != nil {
+		t.Fatal(e)
+	}
+	if v, e := ValidateSnapshot(ctx, path); e != nil || v != 7 {
+		t.Fatal(v, e)
+	}
+	upgraded, e := Open(ctx, dest)
+	if e != nil {
+		t.Fatal(e)
+	}
+	defer upgraded.Close()
+	var v int
+	if e = upgraded.db.QueryRow("SELECT max(version) FROM schema_migrations").Scan(&v); e != nil || v != 8 {
+		t.Fatal(v, e)
+	}
+}
+
+func TestSnapshotBusySourceIsBounded(t *testing.T) {
+	s, _, _, _ := fixture(t, "octopus")
+	if _, e := s.db.Exec("PRAGMA journal_mode=DELETE"); e != nil {
+		t.Fatal(e)
+	}
+	if _, e := s.db.Exec("BEGIN EXCLUSIVE"); e != nil {
+		t.Fatal(e)
+	}
+	defer s.db.Exec("ROLLBACK")
+	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+	defer cancel()
+	started := time.Now()
+	if e := s.Snapshot(ctx, filepath.Join(t.TempDir(), "busy.sqlite")); e == nil {
+		t.Fatal("ignored locked source")
+	}
+	if time.Since(started) > time.Second {
+		t.Fatal("lock wait exceeded bound")
 	}
 }

@@ -6,11 +6,11 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"errors"
 	"io"
 	"os"
 	"path/filepath"
 	"runtime"
+	"syscall"
 	"testing"
 	"time"
 
@@ -18,14 +18,23 @@ import (
 	"github.com/timmersuk/energything/internal/testsupport"
 )
 
+func privateTemp(t *testing.T) string {
+	t.Helper()
+	path := t.TempDir()
+	if e := os.Chmod(path, 0700); e != nil {
+		t.Fatal(e)
+	}
+	return path
+}
+
 func setup(t *testing.T) (*Publisher, *storage.Store) {
 	t.Helper()
-	s, e := storage.Open(context.Background(), t.TempDir())
+	s, e := storage.Open(context.Background(), privateTemp(t))
 	if e != nil {
 		t.Fatal(e)
 	}
 	t.Cleanup(func() { s.Close() })
-	p := &Publisher{Dir: t.TempDir(), Build: "synthetic", Interval: time.Second, Timeout: 10 * time.Second}
+	p := &Publisher{Dir: privateTemp(t), Build: "synthetic", Interval: time.Second, Timeout: 10 * time.Second}
 	return p, s
 }
 func TestPublishRestoreAllTablesAndImmutableOpenGeneration(t *testing.T) {
@@ -51,11 +60,11 @@ func TestPublishRestoreAllTablesAndImmutableOpenGeneration(t *testing.T) {
 	}
 	defer old.Close()
 	// Multiple atomic replacements while an external reader holds an old inode.
-	first := t.TempDir()
+	first := privateTemp(t)
 	if _, e = Restore(ctx, filepath.Join(p.Dir, Latest), first); e != nil {
 		t.Fatal(e)
 	}
-	reference := filepath.Join(t.TempDir(), "reference.sqlite")
+	reference := filepath.Join(privateTemp(t), "reference.sqlite")
 	if e = s.Snapshot(ctx, reference); e != nil {
 		t.Fatal(e)
 	}
@@ -65,7 +74,7 @@ func TestPublishRestoreAllTablesAndImmutableOpenGeneration(t *testing.T) {
 			t.Fatal(e)
 		}
 	}
-	copied := filepath.Join(t.TempDir(), Latest)
+	copied := filepath.Join(privateTemp(t), Latest)
 	f, e := os.Create(copied)
 	if e != nil {
 		t.Fatal(e)
@@ -88,7 +97,7 @@ func TestPublishRestoreAllTablesAndImmutableOpenGeneration(t *testing.T) {
 	if e = f.Close(); e != nil {
 		t.Fatal(e)
 	}
-	restored := t.TempDir()
+	restored := privateTemp(t)
 	if _, e = Restore(ctx, copied, restored); e != nil {
 		t.Fatal(e)
 	}
@@ -141,7 +150,7 @@ func TestPublicationFaultsKeepCompleteGenerationAndVisibleError(t *testing.T) {
 			}
 			p.fault = func(x string) error {
 				if x == point {
-					return errors.New("synthetic disk fault")
+					return syscall.ENOSPC
 				}
 				return nil
 			}
@@ -155,7 +164,7 @@ func TestPublicationFaultsKeepCompleteGenerationAndVisibleError(t *testing.T) {
 			if point != "after_rename" && !bytes.Equal(before, after) {
 				t.Fatal("previous generation overwritten")
 			}
-			if _, e = Restore(ctx, filepath.Join(p.Dir, Latest), t.TempDir()); e != nil {
+			if _, e = Restore(ctx, filepath.Join(p.Dir, Latest), privateTemp(t)); e != nil {
 				t.Fatal(e)
 			}
 			if p.Status().State != "error" || p.Status().LastSuccess.IsZero() {
@@ -170,7 +179,7 @@ func TestStartupFailuresAndAuthoritativeRestore(t *testing.T) {
 	if e := p.Publish(ctx, s); e != nil {
 		t.Fatal(e)
 	}
-	runtime := t.TempDir()
+	runtime := privateTemp(t)
 	dir, restored, e := Prepare(ctx, runtime, p.Dir)
 	if e != nil || !restored {
 		t.Fatal(restored, e)
@@ -197,7 +206,7 @@ func TestStartupFailuresAndAuthoritativeRestore(t *testing.T) {
 	if _, _, e = Prepare(ctx, runtime, p.Dir); e == nil {
 		t.Fatal("accepted corrupt dump")
 	}
-	legacy := t.TempDir()
+	legacy := privateTemp(t)
 	os.WriteFile(filepath.Join(legacy, "energything.sqlite"), nil, 0600)
 	if _, _, e = Prepare(ctx, runtime, legacy); e == nil {
 		t.Fatal("accepted legacy layout")
@@ -208,7 +217,7 @@ func TestStartupFailuresAndAuthoritativeRestore(t *testing.T) {
 }
 func TestStrictArchiveAndDeadline(t *testing.T) {
 	for _, name := range []string{"../energything.sqlite", "/energything.sqlite", "unexpected"} {
-		path := filepath.Join(t.TempDir(), Latest)
+		path := filepath.Join(privateTemp(t), Latest)
 		f, e := os.Create(path)
 		if e != nil {
 			t.Fatal(e)
@@ -218,7 +227,7 @@ func TestStrictArchiveAndDeadline(t *testing.T) {
 		tw.Write([]byte("x"))
 		tw.Close()
 		f.Close()
-		if _, e = Restore(context.Background(), path, t.TempDir()); e == nil {
+		if _, e = Restore(context.Background(), path, privateTemp(t)); e == nil {
 			t.Fatal(name)
 		}
 	}
@@ -231,7 +240,7 @@ func TestStrictArchiveAndDeadline(t *testing.T) {
 	if e := p.Publish(ctx, s); e == nil {
 		t.Fatal("ignored cancellation")
 	}
-	if _, e := Restore(context.Background(), filepath.Join(p.Dir, Latest), t.TempDir()); e != nil {
+	if _, e := Restore(context.Background(), filepath.Join(p.Dir, Latest), privateTemp(t)); e != nil {
 		t.Fatal(e)
 	}
 }
@@ -307,20 +316,39 @@ func TestManifestCorruptionAndUnexpectedEntries(t *testing.T) {
 			if e = tw.Close(); e != nil {
 				t.Fatal(e)
 			}
-			path := filepath.Join(t.TempDir(), Latest)
+			path := filepath.Join(privateTemp(t), Latest)
 			if e = os.WriteFile(path, out.Bytes(), 0600); e != nil {
 				t.Fatal(e)
 			}
-			if _, e = Restore(ctx, path, t.TempDir()); e == nil {
+			if _, e = Restore(ctx, path, privateTemp(t)); e == nil {
 				t.Fatal("accepted", kind)
 			}
 		})
 	}
 }
 
+func TestRestoreDoesNotDeleteExistingDestination(t *testing.T) {
+	p, s := setup(t)
+	if e := p.Publish(context.Background(), s); e != nil {
+		t.Fatal(e)
+	}
+	destination := privateTemp(t)
+	path := filepath.Join(destination, "energything.sqlite")
+	if e := os.WriteFile(path, []byte("keep-existing"), 0600); e != nil {
+		t.Fatal(e)
+	}
+	if _, e := Restore(context.Background(), filepath.Join(p.Dir, Latest), destination); e == nil {
+		t.Fatal("accepted existing file")
+	}
+	data, e := os.ReadFile(path)
+	if e != nil || string(data) != "keep-existing" {
+		t.Fatal("damaged existing destination", e)
+	}
+}
+
 func TestCrashLosesOnlyUnsnapshottedStateAndFreshRestore(t *testing.T) {
 	ctx := context.Background()
-	runtime, dumps := t.TempDir(), t.TempDir()
+	runtime, dumps := privateTemp(t), privateTemp(t)
 	dir, restored, e := Prepare(ctx, runtime, dumps)
 	if e != nil || restored {
 		t.Fatal(restored, e)
@@ -337,7 +365,7 @@ func TestCrashLosesOnlyUnsnapshottedStateAndFreshRestore(t *testing.T) {
 	if e = p.Publish(ctx, s); e != nil {
 		t.Fatal(e)
 	}
-	ref := filepath.Join(t.TempDir(), "ref.sqlite")
+	ref := filepath.Join(privateTemp(t), "ref.sqlite")
 	if e = s.Snapshot(ctx, ref); e != nil {
 		t.Fatal(e)
 	}

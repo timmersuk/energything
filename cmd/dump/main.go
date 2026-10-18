@@ -44,9 +44,13 @@ func run(args []string) error {
 		if !*stopped {
 			return errors.New("requires stopped-copy confirmation")
 		}
-		if e = backup.CheckOfflinePaths(src, dst); e != nil {
-			return e
-		}
+	}
+	validationSource := src
+	if *mode == "restore" {
+		validationSource = filepath.Dir(src)
+	}
+	if e = backup.CheckOfflinePaths(validationSource, dst); e != nil {
+		return e
 	}
 	// Exclusively create a new destination; never overwrite an existing backup.
 	if e = os.Mkdir(dst, 0700); e != nil {

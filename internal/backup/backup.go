@@ -246,10 +246,28 @@ func Prepare(ctx context.Context, runtime, dumps string) (dir string, restored b
 	if err = ValidatePaths(runtime, dumps); err != nil {
 		return
 	}
-	for _, name := range []string{"energything.sqlite", "energything.sqlite-wal", "energything.sqlite-shm"} {
-		if _, e := os.Lstat(filepath.Join(dumps, name)); !os.IsNotExist(e) {
-			err = errors.New("legacy persistent database detected; perform deliberate stopped-copy conversion")
-			return
+	for _, root := range []string{dumps, runtime} {
+		for _, name := range []string{"energything.sqlite", "energything.sqlite-wal", "energything.sqlite-shm"} {
+			if _, e := os.Lstat(filepath.Join(root, name)); !os.IsNotExist(e) {
+				err = errors.New("legacy persistent database detected; perform deliberate stopped-copy conversion")
+				return
+			}
+		}
+	}
+	entries, err := os.ReadDir(dumps)
+	if err != nil {
+		return "", false, err
+	}
+	for _, entry := range entries {
+		if strings.HasPrefix(entry.Name(), ".energything-stage-") && entry.IsDir() {
+			if err = os.RemoveAll(filepath.Join(dumps, entry.Name())); err != nil {
+				return "", false, err
+			}
+		}
+		if strings.HasPrefix(entry.Name(), ".energything-marker-") && entry.Type().IsRegular() {
+			if err = os.Remove(filepath.Join(dumps, entry.Name())); err != nil {
+				return "", false, err
+			}
 		}
 	}
 	dir, err = os.MkdirTemp(runtime, ".energything-runtime-")
@@ -284,7 +302,7 @@ func Prepare(ctx context.Context, runtime, dumps string) (dir string, restored b
 		err = e
 		return
 	}
-	entries, e := os.ReadDir(runtime)
+	entries, e = os.ReadDir(runtime)
 	if e != nil {
 		err = e
 		return
@@ -300,7 +318,7 @@ func Prepare(ctx context.Context, runtime, dumps string) (dir string, restored b
 	return
 }
 
-func privateDirectory(path string) error {
+func checkDirectoryLinks(path string) error {
 	abs, err := filepath.Abs(path)
 	if err != nil {
 		return err
@@ -318,7 +336,21 @@ func privateDirectory(path string) error {
 			break
 		}
 	}
+	return nil
+}
+
+func privateDirectory(path string) error {
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		return err
+	}
+	if err = checkDirectoryLinks(abs); err != nil {
+		return err
+	}
 	if err = os.MkdirAll(abs, 0700); err != nil {
+		return err
+	}
+	if err = checkPrivateDirectory(abs); err != nil {
 		return err
 	}
 	f, err := os.CreateTemp(abs, ".energything-write-")
@@ -333,9 +365,15 @@ func privateDirectory(path string) error {
 // server's unmounted-runtime requirement to a stopped copy on external storage.
 func CheckOfflinePaths(source, destination string) error {
 	for _, path := range []string{source, filepath.Dir(destination)} {
-		if e := privateDirectory(path); e != nil {
+		if e := checkDirectoryLinks(path); e != nil {
 			return e
 		}
+	}
+	if info, e := os.Stat(source); e != nil || !info.IsDir() {
+		return errors.New("offline source directory must exist")
+	}
+	if e := checkPrivateDirectory(source); e != nil {
+		return e
 	}
 	for _, pair := range [][2]string{{source, destination}, {destination, source}} {
 		rel, e := filepath.Rel(pair[0], pair[1])

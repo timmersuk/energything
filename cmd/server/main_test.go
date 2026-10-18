@@ -5,6 +5,8 @@ import (
 	"errors"
 	"net"
 	"net/http"
+	"os"
+	"strings"
 	"testing"
 	"time"
 )
@@ -93,9 +95,16 @@ func TestBindFailure(t *testing.T) {
 	t.Setenv("ENERGYTHING_HTTP_ADDR", listener.Addr().String())
 	t.Setenv("ENERGYTHING_USERNAME", "test")
 	t.Setenv("ENERGYTHING_PASSWORD", "test")
-	t.Setenv("ENERGYTHING_DATA_DIR", t.TempDir())
-	t.Setenv("ENERGYTHING_DUMP_DIR", t.TempDir())
-	if err := run(context.Background()); err == nil {
+	runtime, dumps := t.TempDir(), t.TempDir()
+	if e := os.Chmod(runtime, 0700); e != nil {
+		t.Fatal(e)
+	}
+	if e := os.Chmod(dumps, 0700); e != nil {
+		t.Fatal(e)
+	}
+	t.Setenv("ENERGYTHING_DATA_DIR", runtime)
+	t.Setenv("ENERGYTHING_DUMP_DIR", dumps)
+	if err := run(context.Background()); err == nil || !strings.Contains(err.Error(), "HTTP listen failed") {
 		t.Fatal("accepted occupied port")
 	}
 }

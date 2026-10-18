@@ -11,6 +11,9 @@ import (
 
 func TestConvertStoppedCopyWithoutMutatingAndRestore(t *testing.T) {
 	source := t.TempDir()
+	if e := os.Chmod(source, 0700); e != nil {
+		t.Fatal(e)
+	}
 	ctx := context.Background()
 	s, e := storage.Open(ctx, source)
 	if e != nil {
