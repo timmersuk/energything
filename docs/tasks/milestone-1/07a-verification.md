@@ -162,3 +162,12 @@ data folder and starts twice, proving fresh creation and restore, backup placeme
 under DATA_DIR and live SQLite outside it. Targeted tests/vet and review passed
 after this correction. Linux amd64 and emulated arm64 lifecycle/external-copy/restore checks both passed
 with build ID task07a-data-dir. The retained preview is unchanged.
+
+## Audit item 2: remove Linux mount inspection
+
+This update implements item 2 only. Removed validateRuntimeMount, its Linux
+mountinfo parser, the non-Linux no-op and the parser-specific test. Startup no
+longer inspects mounts. Docker/Compose still leave the live database unmounted;
+the existing container probe inspects Docker mounts to check that requirement.
+Linux directory sync and ownership checks remain. Item1 was completed previously;
+items3,4,5 remain undone. Verification results follow below.

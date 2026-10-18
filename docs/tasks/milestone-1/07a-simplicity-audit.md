@@ -1,10 +1,22 @@
 # Task07a: what should be simpler?
 
 I reviewed the backup changes through commit cc998db. This was initially a read-only review. The user subsequently approved fixed runtime
-and backup working filenames; that change is implemented in the current WIP. Other findings
-remain proposals.
+and backup working filenames, followed by removal of Linux mount inspection.
+Items 3, 4 and 5 remain proposals.
 This review covers task07a, not the earlier tasks. My own plan is not proof that
 all the code it called for was necessary.
+
+## Current status
+
+| Item | Status |
+| --- | --- |
+| 1. Fixed running-database location | Done previously |
+| 2. Remove Linux mount inspection | Done in this update |
+| 3. Remove the redundant backup lock | Not done |
+| 4. Remove the half-built Store | Not done |
+| 5. Improve backup failure messages | Not done |
+
+This update does item 2 only. It does not implement items 3, 4 or 5.
 
 ## What I would change
 
@@ -34,9 +46,10 @@ the container tests we already have. Remove the inspection from the app.
 
 **Consequence:** less startup code. A manually altered Docker setup would be the
 operator's responsibility; the app would no longer detect that mistake itself.
-The database must still be temporary. This tradeoff needs agreement before changing it.
+The database must still be temporary. The user has approved this change.
 
-Code: internal/backup/platform_linux.go, validateRuntimeMount.
+Removed: validateRuntimeMount in internal/backup/platform_linux.go. The mount
+check remains in scripts/verify-operations.py.
 
 ### 3. Remove the second way of preventing two backups running together
 

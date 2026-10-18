@@ -406,7 +406,7 @@ func ValidatePaths(runtime, dumps string) error {
 	if e = privateDirectory(d); e != nil {
 		return e
 	}
-	return validateRuntimeMount(r)
+	return nil
 }
 
 // Restore accepts exactly two regular archive entries, and never extracts paths.

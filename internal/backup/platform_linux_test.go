@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestPrivateDirectoriesAndMountIsolation(t *testing.T) {
+func TestPrivateDirectories(t *testing.T) {
 	path := privateTemp(t)
 	if e := os.Chmod(path, 0777); e != nil {
 		t.Fatal(e)
@@ -27,9 +27,6 @@ func TestPrivateDirectoriesAndMountIsolation(t *testing.T) {
 	}
 	if e := privateDirectory(filepath.Join(link, "child")); e == nil {
 		t.Fatal("followed ancestor symlink")
-	}
-	if e := validateRuntimeMount("/proc/energything-runtime"); e == nil {
-		t.Fatal("accepted runtime beneath a separate mount")
 	}
 	parent := privateTemp(t)
 	if e := os.Chmod(parent, 0755); e != nil {

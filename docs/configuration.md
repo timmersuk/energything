@@ -49,7 +49,7 @@ authentication. Errors name settings without echoing secret values.
 | ENERGYTHING_DATA_PATH | `./energything-data`; pre-created persistent dump directory mapped to `/data` |
 | ENERGYTHING_STOP_GRACE_PERIOD | `6m`; allow HTTP drain, collector cleanup and final dump before SIGKILL |
 
-Compose fixes HTTP to `:8080`, runtime to unmounted `/var/lib/energything-runtime` and dumps to `/data`. Runtime/dump paths must be disjoint and traverse no symlinks. On Linux the actual storage directories must be owned by the service UID and mode 0700 (UID10001 in the image). Linux refuses any separate mount covering runtime. Never mount it or declare a Docker VOLUME there.
+Compose fixes HTTP to `:8080`, runtime to unmounted `/var/lib/energything-runtime` and dumps to `/data`. Runtime/dump paths must be disjoint and traverse no symlinks. On Linux the actual storage directories must be owned by the service UID and mode 0700 (UID10001 in the image). Container tests check that no mount covers the runtime directory; the app does not inspect Linux mounts. Never mount it or declare a Docker VOLUME there.
 Set stop grace above the configured HTTP drain timeout plus five seconds collector
 cleanup plus the backup timeout. Increase it whenever either timeout is increased. Runtime
 secrets are visible to Docker administrators; restrict host and Docker access.

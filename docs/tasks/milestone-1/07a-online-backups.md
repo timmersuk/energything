@@ -103,7 +103,7 @@ manifest parsing and validated lengths/hashes; never extract arbitrary archive p
 
 ### Startup
 
-1. Validate paths, writable mount, runtime isolation and supported configuration.
+1. Validate paths, writable storage and supported configuration. Keep the runtime directory unmounted in Docker/Compose; container tests check this. The app does not inspect Linux mounts.
 2. Restore `latest.tar` through `energything.sqlite.tmp` into the fixed ephemeral runtime database path. Validate format,
    checksum, database integrity/foreign keys and schema compatibility before
    making it the runtime database. Never mutate the mounted dump during validation.
