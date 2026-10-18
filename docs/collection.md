@@ -1,3 +1,10 @@
+Task07a persistence correction: live SQLite is ephemeral. Every captured table is
+included in online `latest.tar` snapshots; only successfully published state
+survives container replacement. Unsnapshotted readings, evidence, audit, progress
+and reservations can be lost on crash. Restore retains provider deadlines and
+holds aggregate calls five minutes from startup (24 hours with the daily cap).
+See [operations](operations.md) for recovery gaps, validation and conversion.
+
 # Automatic collection and recovery
 
 Task06 implementation introduces migrations006 and007 and two independent in-process
@@ -150,7 +157,7 @@ the current existing schema, performs no migrations or interrupted-attempt recov
 and never fetches. Run a container server's enqueue command in its Linux lock domain, never a Windows
 host executable against a live Docker bind-mounted WAL. SQLite immediate transactions serialize cross-process enqueue
 and claims. The running server performs all provider requests. The image includes
-`energything-enqueue`; invoke it with docker exec and `-data-dir /data` to share
+`energything-enqueue`; invoke it with docker exec and `-data-dir /var/lib/energything-runtime` to share
 the server's Linux SQLite lock domain.
 
 ## Time interpretation

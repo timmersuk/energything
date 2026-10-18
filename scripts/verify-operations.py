@@ -43,6 +43,8 @@ def start(volume):
            '-p', '127.0.0.1::8080', '-v', volume + ':/data',
            '-e', 'ENERGYTHING_USERNAME=synthetic-user',
            '-e', 'ENERGYTHING_PASSWORD=synthetic-password',
+           '-e', 'ENERGYTHING_BACKUP_INTERVAL=1s',
+           '-e', 'ENERGYTHING_BACKUP_TIMEOUT=20s',
            '-e', 'OCTOPUS_API_KEY=' + sentinel.decode(), a.image)
     base = 'http://' + docker('port', name, '8080/tcp').stdout.decode().strip()
     for _ in range(100):
@@ -55,6 +57,9 @@ def start(volume):
     else:
         raise AssertionError('server not ready')
     assert docker('exec', name, 'id', '-u').stdout.strip() == b'10001'
+    docker('exec', name, 'test', '-f', '/var/lib/energything-runtime/energything.sqlite')
+    runtime_dirs = docker('exec', name, 'find', '/var/lib/energything-runtime', '-mindepth', '1', '-type', 'd').stdout
+    assert not runtime_dirs, 'runtime unexpectedly uses generated subdirectories'
     for binary in ('energything', 'energything-enqueue'):
         copied = docker('cp', name + ':/usr/local/bin/' + binary, '-').stdout
         with tarfile.open(fileobj=io.BytesIO(copied)) as archive:
@@ -99,6 +104,15 @@ def stop():
     docker('rm', name)
 
 
+def copy_running(source, dest):
+    # One open descriptor pins one immutable generation across publication.
+    copied = run('--network', 'none', '-v', source + ':/source:ro', '-v', dest + ':/dest',
+                 '--entrypoint', 'sh', a.image, '-c',
+                 'exec 3</source/latest.tar; sleep 3; cat <&3 > /dest/latest.tar')
+    assert copied.returncode == 0
+    assert before == helper(dest, 'snapshot'), 'concurrent external-only copy changed rows'
+
+
 try:
     for volume in volumes:
         docker('volume', 'create', volume)
@@ -111,24 +125,54 @@ try:
     for table in ('samples', 'intervals', 'energy_aggregates', 'attempts', 'evidence',
                   'retrievals', 'jobs', 'schedules', 'completions', 'aggregate_calls'):
         assert counts[table] > 0, table
-    start(volumes[0]); stop()
+    start(volumes[0])
+    # A backup timer publishes while the service remains healthy and authenticated.
+    time.sleep(2)
+    listing = docker('exec', name, 'find', '/data', '-maxdepth', '1', '-type', 'f').stdout
+    assert b'energything.sqlite' not in listing and b'latest.tar' in listing
+    mounts = json.loads(docker('inspect', name).stdout)[0]['Mounts']
+    assert all(not '/var/lib/energything-runtime'.startswith(m['Destination'].rstrip('/') + '/')
+               and m['Destination'] != '/var/lib/energything-runtime' for m in mounts)
+    copy_running(volumes[0], volumes[1])
+    stop()
     assert before == helper(volumes[0], 'snapshot'), 'first run changed retained rows'
     start(volumes[0]); stop()
     assert before == helper(volumes[0], 'snapshot'), 'replacement changed retained rows'
-    # Both copies occur after confirmed clean exit, and copy the entire directory.
-    for source, dest in ((volumes[0], volumes[1]), (volumes[1], volumes[2])):
+    # Only the externally copied dump is available in an isolated new volume.
+    for source, dest in ((volumes[1], volumes[2]),):
         run('--network', 'none', '-v', source + ':/source:ro', '-v', dest + ':/dest',
-            '--entrypoint', 'sh', a.image, '-c', 'cp -a /source/. /dest/')
+            '--entrypoint', 'sh', a.image, '-c', 'cp /source/latest.tar /dest/latest.tar')
     assert before == helper(volumes[2], 'snapshot'), 'restored rows differ'
     start(volumes[2]); stop()
     assert before == helper(volumes[2], 'snapshot'), 'restored startup changed rows'
+    # SIGKILL has no final export. Recreate solely from the last mounted dump.
+    start(volumes[2])
+    docker('kill', name)
+    docker('rm', name)
+    start(volumes[2]); stop()
+    assert before == helper(volumes[2], 'snapshot'), 'crash recovery changed captured state'
+    start(volumes[2])
+    docker('exec', '--user', '0', name, 'chmod', '500', '/data')
+    time.sleep(3)
+    base = 'http://' + docker('port', name, '8080/tcp').stdout.decode().strip()
+    request = urllib.request.Request(base + '/api/v1/status', headers={
+        'Authorization': 'Basic ' + base64.b64encode(b'synthetic-user:synthetic-password').decode()})
+    with urllib.request.urlopen(request, timeout=20) as response:
+        state = json.load(response)['backup']
+        assert state['state'] == 'error' and state['last_failure']
+    docker('stop', '-t', '30', name)
+    assert docker('inspect', '--format', '{{.State.ExitCode}}', name).stdout.strip() == b'1'
+    docker('rm', name)
+    run('--network', 'none', '--user', '0', '-v', volumes[2] + ':/data', '--entrypoint', 'chmod',
+        a.image, '700', '/data')
+    assert before == helper(volumes[2], 'snapshot'), 'failed final dump damaged last good state'
     run('--network', 'none', '--user', '0', '-v', volumes[3] + ':/data', '--entrypoint', 'sh',
         a.image, '-c', 'touch /data/.ownership-test && chown 0:0 /data && chmod 700 /data')
     failed = run('--network', 'none', '-v', volumes[3] + ':/data',
                  '-e', 'ENERGYTHING_USERNAME=synthetic-user', '-e', 'ENERGYTHING_PASSWORD=synthetic-password',
                  a.image, check=False)
-    assert failed.returncode != 0 and b'must be writable' in failed.stderr + failed.stdout
-    print(a.platform + ': roots/timezone, SQLite, UID, API/redaction, replacement, stopped backup/restore, permissions and SIGTERM passed')
+    assert failed.returncode != 0 and b'dump restore failed' in failed.stderr + failed.stdout
+    print(a.platform + ': roots/timezone, SQLite, UID, API/redaction, timer, ephemeral replacement, running external copy/isolated restore, crash, permissions and SIGTERM passed')
 finally:
     docker('rm', '-f', name, check=False)
     for volume in volumes:

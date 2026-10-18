@@ -15,8 +15,10 @@ import (
 // Open applies pragmas on every connection using a constructed, escaped DSN.
 // Store keeps SQL private; consumers use typed storage operations.
 type Store struct {
-	db  *sql.DB
-	now func() time.Time
+	db            *sql.DB
+	path          string
+	aggregateHold time.Time
+	now           func() time.Time
 	// Test-only fault injection at transactional boundaries. Never exported.
 	fault func(string) error
 }
@@ -40,21 +42,21 @@ func open(ctx context.Context, dir string, server bool) (*Store, error) {
 		}
 	}
 	if err := os.MkdirAll(dir, 0700); err != nil {
-		return nil, errors.New("ENERGYTHING_DATA_DIR cannot be created; grant the service directory access")
+		return nil, errors.New("SQLite runtime directory cannot be created; grant the service directory access")
 	}
 	probe, err := os.CreateTemp(dir, ".write-check-*")
 	if err != nil {
-		return nil, errors.New("ENERGYTHING_DATA_DIR must be writable by the service user (container UID 10001)")
+		return nil, errors.New("SQLite runtime directory must be writable by the service user (container UID 10001)")
 	}
 	name := probe.Name()
 	closeErr := probe.Close()
 	removeErr := os.Remove(name)
 	if closeErr != nil || removeErr != nil {
-		return nil, errors.New("ENERGYTHING_DATA_DIR write check could not be cleaned up")
+		return nil, errors.New("SQLite runtime directory write check could not be cleaned up")
 	}
 	path, err := filepath.Abs(filepath.Join(dir, "energything.sqlite"))
 	if err != nil {
-		return nil, errors.New("ENERGYTHING_DATA_DIR path cannot be resolved")
+		return nil, errors.New("SQLite runtime directory path cannot be resolved")
 	}
 	slash := filepath.ToSlash(path)
 	if !strings.HasPrefix(slash, "/") {
@@ -74,9 +76,9 @@ func open(ctx context.Context, dir string, server bool) (*Store, error) {
 	db.SetMaxOpenConns(1)
 	if err = db.PingContext(ctx); err != nil {
 		db.Close()
-		return nil, errors.New("SQLite cannot open DATA_DIR/energything.sqlite; check directory and database permissions")
+		return nil, errors.New("SQLite cannot open the runtime database; check directory and database permissions")
 	}
-	s := &Store{db: db, now: time.Now}
+	s := &Store{db: db, path: path, now: time.Now}
 	var initErr error
 	if server {
 		initErr = s.initialize(ctx)

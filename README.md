@@ -10,8 +10,8 @@ lifetime and seasonal clock semantics remain qualified. See
 
 Readings retain one current accepted value per source period. Refetches update
 that row and corrections overwrite values; no value-version history is kept.
-Growatt uses its reported device timestamp as the period key. Schema008 upgrades
-require a stopped data-directory backup; see [operations](docs/operations.md).
+Growatt uses its reported device timestamp as the period key. Legacy persistent databases require deliberate stopped-copy conversion before
+task07a cutover; see [operations](docs/operations.md).
 A fresh installation creates the final schema directly; it does not replay
 superseded development migrations. Existing databases apply only missing upgrades.
 
@@ -31,7 +31,8 @@ make build
 In PowerShell, set ENERGYTHING_USERNAME and ENERGYTHING_PASSWORD to your chosen
 nonempty credentials, then run `go run ./cmd/server`. The application reads only
 the process environment; it does not load any .env file. Local defaults are
-:8080, ./energything-data, Europe/London and a 10s shutdown timeout.
+:8080, ./energything-data for saved backups, Europe/London and a 10s HTTP drain
+timeout. The temporary database uses ./energything-runtime; its path is internal.
 See [.env.example](.env.example) for every supported environment name and
 the [configuration reference](docs/configuration.md)
 for their meaning. Provider settings are parsed independently; invalid or partial
@@ -67,8 +68,9 @@ ENERGYTHING_IMAGE, ENERGYTHING_HTTP_PORT and ENERGYTHING_DATA_PATH select the
 image, host port and bind mount. Never use sibling .env files.
 
 The image is Alpine 3.23, includes CA roots and UK timezone support,
-runs as UID 10001/GID 100, exposes only 8080 and stores energything.sqlite under
-/data. See [operations](docs/operations.md) for mount permissions and
+runs as UID 10001/GID 100 and exposes only 8080. Live SQLite exists only in the
+ephemeral container layer. `/data/latest.tar` is atomically published online and
+restored on every startup; only the dump mount persists. See [operations](docs/operations.md) for mount permissions and
 [task 01 verification](docs/tasks/milestone-1/01-verification.md) for executed
 checks and remaining gates. The SQLite runtime gate passed on both architectures.
 Storage opens with transactional versioned migrations and interrupted-attempt
@@ -83,10 +85,11 @@ isolated synthetic browser acceptance and remaining gates.
 Task07 release/CI verification uses disposable synthetic volumes and does not
 require restarting the retained preview. See [release and OMV operations](docs/operations.md)
 for immutable image tags/digests, UID10001 permissions, pinned updates, stopped
-full-directory backups and isolated restores. Publishing and private host rollout
+online dump backups, deliberate legacy conversion and isolated restores. Publishing and private host rollout
 require separate authorization. CI never receives household provider credentials.
 
-After task verification, rebuild and recreate the existing local preview on its
+Task07a requires deliberate authorized legacy conversion before updating the retained
+preview; leave it unchanged during implementation. For other tasks, after verification, rebuild and recreate the existing local preview on its
 original mount so localhost:8080 serves the current implementation. Follow the
 [standard preview update procedure](docs/operations.md#standard-local-preview-update),
 including the saved Compose override, safe metadata checks and build verification.

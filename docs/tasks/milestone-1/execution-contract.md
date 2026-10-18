@@ -6,6 +6,13 @@ This contract provides common behavior; it does not authorize implementing other
 
 ## Authority and change boundaries
 
+18 October2026 storage/backup correction: [task07a](07a-online-backups.md) is a
+required implementation task before 08. The user requires an ephemeral live SQLite
+database, restored from a mounted dump on startup, with periodic online and final
+shutdown exports. External backups must not stop Energything. This supersedes the
+earlier persistent-live-DB and routine stopped-backup design when 07a is implemented;
+the current merged runtime is unchanged by this planning amendment.
+
 1. Human decisions recorded below override older contradictory planning text.
 2. This contract and the individual task specify milestone 1 implementation.
 3. The overall goal supplies future context, not additional current scope.
@@ -76,7 +83,7 @@ baseline in the task before handoff to a dependent task.
 | Variable | Meaning and default |
 | --- | --- |
 | ENERGYTHING_HTTP_ADDR | Listen address; :8080 |
-| ENERGYTHING_DATA_DIR | Directory holding energything.sqlite and companions; /data in image, ./energything-data locally |
+| ENERGYTHING_DATA_DIR | Persistent folder holding latest.tar and backup working files; /data in image, ./energything-data locally; runtime database path is internal |
 | ENERGYTHING_USERNAME / ENERGYTHING_PASSWORD | Required, nonempty; no shipped defaults |
 | ENERGYTHING_TIMEZONE | Europe/London; validate IANA location at startup |
 | OCTOPUS_API_KEY / OCTOPUS_ACCOUNT_NUMBER | Both needed to configure Octopus; no automatic .env loading |

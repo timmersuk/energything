@@ -26,6 +26,12 @@ APIs first.
 
 ## Storage recommendation: SQLite first
 
+18 October2026 amendment: [task07a](../tasks/milestone-1/07a-online-backups.md)
+supersedes the persistent live SQLite and stopped routine backup proposal below.
+The live DB will be ephemeral; periodic/final online dumps are mounted/persistent
+and restored at startup. External host backups must not stop the service. This is
+required before task08, with crash recovery limited to the last completed dump.
+
 Use `database/sql` with `modernc.org/sqlite`, subject to a small build/runtime
 check on the deployment architecture. Pin a compatible maintained version when
 implementing; old project toolchain versions do not establish compatibility.

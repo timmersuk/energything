@@ -1,3 +1,10 @@
+Task07a persistence correction: live SQLite is ephemeral. Every captured table is
+included in online `latest.tar` snapshots; only successfully published state
+survives container replacement. Unsnapshotted readings, evidence, audit, progress
+and reservations can be lost on crash. Restore retains provider deadlines and
+holds aggregate calls five minutes from startup (24 hours with the daily cap).
+See [operations](operations.md) for recovery gaps, validation and conversion.
+
 # Current canonical-reading policy (schema008)
 
 Schema008 supersedes earlier attempt/ordinal and append-only value-history rules

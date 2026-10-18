@@ -1,11 +1,19 @@
 # Milestone 1 execution briefs
 
-Status: tasks 01–04 are merged; task05 implementation/research is in PR #5.
-Task05a aggregate-ingestion scope is agreed; implementation has not started.
-Updated 15 October 2026. Read individual verification handoffs for actual gates.
+Status: tasks through 07 are merged. Task07a is implemented in a draft PR; the fixed-filename simplification and
+review of earlier tasks come before task08 host acceptance. Updated 18 October 2026. Read individual verification
+handoffs for actual gates.
 
 Parent: [Milestone 1](../../plans/milestone-1-service-and-collection.md).
 Direction: [Staged delivery](../../plans/goal.md).
+
+## Immediate next step
+
+Finish the task07a fixed-filename WIP, then review tasks01�07 (including05a/06a)
+for unnecessary complexity before task08. Use plain activity-and-consequence
+language: what happens, what trouble it causes, and what to keep or change.
+Start read-only and bring concrete findings back before making changes.
+See [the task07a audit](07a-simplicity-audit.md) and repository AGENTS.md.
 
 ## Start here
 
@@ -45,7 +53,8 @@ uncompacted initially; retention is revisited using observed storage growth.
 | [06 Scheduling and recovery](06-scheduling.md) | Durable independent jobs, bounded backfill/retries and secure refresh enqueue | 04, 05, 05a |
 | [06a REST/UI audit](06a-audit.md) | Inspectable attempt history, source/time/reason filters and repeated-failure counts | 02, 03, 06 |
 | [07 Release and operations](07-release-operations.md) | Synthetic CI, reproducible images, privacy review and backup/restore procedure | 01–06, 05a, 06a |
-| [08 OMV acceptance](08-omv-acceptance.md) | Actual automatic collection, audit, independent failures and persistence/restore verified | 07 |
+| [07a Ephemeral SQLite and online dumps](07a-online-backups.md) | Restore ephemeral SQLite at startup; periodic/final atomic mounted dumps copied by external backups without stopping service | 07 |
+| [08 OMV acceptance](08-omv-acceptance.md) | Actual collection, audit, independent failures and external live-backup/restore verified | 07, 07a |
 
 04 and 05 have no logical dependency on each other, but share reviewed storage/API
 contracts. This is a dependency statement, not authorization to spawn agents.

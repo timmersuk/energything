@@ -5,6 +5,9 @@ import (
 	"errors"
 	"net"
 	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -93,8 +96,21 @@ func TestBindFailure(t *testing.T) {
 	t.Setenv("ENERGYTHING_HTTP_ADDR", listener.Addr().String())
 	t.Setenv("ENERGYTHING_USERNAME", "test")
 	t.Setenv("ENERGYTHING_PASSWORD", "test")
-	t.Setenv("ENERGYTHING_DATA_DIR", t.TempDir())
-	if err := run(context.Background()); err == nil {
-		t.Fatal("accepted occupied port")
+	t.Chdir(t.TempDir())
+	dumps := "data"
+	t.Setenv("ENERGYTHING_DATA_DIR", dumps)
+	for i := 0; i < 2; i++ {
+		if err := run(context.Background()); err == nil || !strings.Contains(err.Error(), "HTTP listen failed") {
+			t.Fatal("startup did not reach the occupied port", err)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(dumps, "latest.tar")); err != nil {
+		t.Fatal("DATA_DIR did not receive the backup", err)
+	}
+	if _, err := os.Stat(filepath.Join(dumps, "energything.sqlite")); !os.IsNotExist(err) {
+		t.Fatal("live SQLite appeared in DATA_DIR", err)
+	}
+	if _, err := os.Stat(filepath.Join("energything-runtime", "energything.sqlite")); err != nil {
+		t.Fatal("internal runtime database missing", err)
 	}
 }

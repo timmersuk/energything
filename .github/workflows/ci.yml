@@ -71,7 +71,7 @@ jobs:
         run: |
           mkdir -p "bin/probes/$ARCH"
           go build -o "bin/probes/$ARCH/operations-probe" ./scripts/operations-probe
-          for package in storage collection; do
+          for package in storage collection backup; do
             go test -c -o "bin/probes/$ARCH/$package.test" "./internal/$package"
             docker run --rm --network none --platform "linux/$ARCH" --entrypoint /probe -v "$PWD/bin/probes/$ARCH/$package.test:/probe:ro" "energything:ci-$ARCH" -test.timeout=10m
           done

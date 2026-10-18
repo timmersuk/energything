@@ -18,6 +18,8 @@ profile.cov
 go.work
 go.work.sum
 energything-data/
+energything-runtime/
+energything-dumps/
 *.sqlite
 *.sqlite-*
 exports/

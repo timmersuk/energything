@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"github.com/timmersuk/energything/internal/backup"
 	"github.com/timmersuk/energything/internal/config"
 	"github.com/timmersuk/energything/internal/storage"
 	"net/http"
@@ -21,6 +22,9 @@ func NewRouter(c config.Config, buildID string, store recordStore) (http.Handler
 	return NewRouterWithRefresh(c, buildID, store, nil)
 }
 func NewRouterWithRefresh(c config.Config, buildID string, store recordStore, refresh Refresh) (http.Handler, error) {
+	return NewRouterWithBackup(c, buildID, store, refresh, nil)
+}
+func NewRouterWithBackup(c config.Config, buildID string, store recordStore, refresh Refresh, backupStatus func() backup.Status) (http.Handler, error) {
 	token, err := csrfToken()
 	if err != nil {
 		return nil, err
@@ -70,6 +74,10 @@ func NewRouterWithRefresh(c config.Config, buildID string, store recordStore, re
 			}
 			data, err = statusData(r.Context(), store, c, buildID)
 			if view, ok := data.(statusView); ok {
+				if backupStatus != nil {
+					state := backupStatus()
+					view.Backup = &state
+				}
 				view.CSRFToken = token
 				data = view
 			}

@@ -83,6 +83,9 @@ func (s *Store) ReserveAggregateCallWithDailyCap(ctx context.Context, now Instan
 	if !validInstant(now) {
 		return due, ErrInvalid
 	}
+	if time.UnixMicro(int64(now)).Before(s.aggregateHold) {
+		return s.aggregateHold, nil
+	}
 	err = s.write(ctx, func(tx *sql.Tx) error {
 		next, e := aggregateNextDue(ctx, tx, now, dailyCapEnabled)
 		if e != nil {
@@ -96,6 +99,16 @@ func (s *Store) ReserveAggregateCallWithDailyCap(ctx context.Context, now Instan
 		return e
 	})
 	return
+}
+
+// HoldAggregateCalls is set before collectors start after restoration. Lost
+// reservations may have occurred immediately before restart, even with an old dump.
+func (s *Store) HoldAggregateCalls(now time.Time, dailyCap bool) {
+	delay := 5 * time.Minute
+	if dailyCap {
+		delay = 24 * time.Hour
+	}
+	s.aggregateHold = now.Add(delay)
 }
 
 func aggregateNextDue(ctx context.Context, tx *sql.Tx, now Instant, dailyCapEnabled bool) (Instant, error) {

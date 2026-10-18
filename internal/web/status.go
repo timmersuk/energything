@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"github.com/timmersuk/energything/internal/backup"
 
 	"strings"
 	"time"
@@ -115,6 +116,7 @@ type providerView struct {
 	Sources       []sourceView    `json:"sources"`
 }
 type statusView struct {
+	Backup    *backup.Status `json:"backup,omitempty"`
 	CSRFToken string         `json:"csrf_token"`
 	Schedules []scheduleView `json:"schedules,omitempty"`
 	Version   string         `json:"version"`

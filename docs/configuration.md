@@ -9,7 +9,9 @@ use another project's credentials. Empty optional values use defaults.
 | ENERGYTHING_USERNAME | Required, nonempty, no colon; Basic Auth username |
 | ENERGYTHING_PASSWORD | Required, nonempty; no shipped password |
 | ENERGYTHING_HTTP_ADDR | `:8080`; IP or localhost and port 1–65535 |
-| ENERGYTHING_DATA_DIR | `./energything-data`; image `/data`; local writable filesystem |
+| ENERGYTHING_DATA_DIR | `./energything-data`; image `/data`; persistent mounted folder holding `latest.tar` and backup working files |
+| ENERGYTHING_BACKUP_INTERVAL | `15m`; positive duration, wait after previous publication |
+| ENERGYTHING_BACKUP_TIMEOUT | `5m`; positive duration, startup/restore/each publication deadline |
 | ENERGYTHING_TIMEZONE | `Europe/London`; valid IANA zone, display/calendar interpretation only |
 | ENERGYTHING_HISTORY_START | `2022-01-01`, inclusive ISO date, not future; Octopus UTC / Growatt reported dates |
 | ENERGYTHING_SHUTDOWN_TIMEOUT | `10s`; positive Go duration, HTTP drain timeout |
@@ -44,12 +46,12 @@ authentication. Errors name settings without echoing secret values.
 | --- | --- |
 | ENERGYTHING_IMAGE | `energything:local`; deployment should set a released digest |
 | ENERGYTHING_HTTP_PORT | `8080`; host published port, restrict with firewall/reverse proxy |
-| ENERGYTHING_DATA_PATH | `./energything-data`; pre-created host directory mapped to `/data` |
-| ENERGYTHING_STOP_GRACE_PERIOD | `30s`; allow collector cancellation/audit plus HTTP drain before SIGKILL |
+| ENERGYTHING_DATA_PATH | `./energything-data`; pre-created persistent dump directory mapped to `/data` |
+| ENERGYTHING_STOP_GRACE_PERIOD | `6m`; allow HTTP drain, collector cleanup and final dump before SIGKILL |
 
-Compose fixes the internal HTTP address to `:8080` and data path to `/data`.
-Increase stop grace beyond the configured HTTP timeout plus collector cleanup
-(at least five additional seconds) when increasing the drain timeout. Runtime
+Compose fixes HTTP to `:8080`, runtime to unmounted `/var/lib/energything-runtime` and dumps to `/data`. Runtime/dump paths must be disjoint and traverse no symlinks. On Linux the actual storage directories must be owned by the service UID and mode 0700 (UID10001 in the image). Container tests check that no mount covers the runtime directory; the app does not inspect Linux mounts. Never mount it or declare a Docker VOLUME there.
+Set stop grace above the configured HTTP drain timeout plus five seconds collector
+cleanup plus the backup timeout. Increase it whenever either timeout is increased. Runtime
 secrets are visible to Docker administrators; restrict host and Docker access.
 `TZ=Europe/London` is set in the image for shell tools; application interpretation
 uses ENERGYTHING_TIMEZONE. Neither setting establishes Growatt absolute timestamps.
@@ -57,3 +59,10 @@ uses ENERGYTHING_TIMEZONE. Neither setting establishes Growatt absolute timestam
 Build controls: `make build CI_BUILD_ID=<public-id>` (or `go run ./scripts/build.go
 -build-id <public-id>`), `GO`, `DOCKER`, `IMAGE` are build tooling settings, never
 provider configuration. Build IDs appear in authenticated status and must be public.
+
+The runtime database path is internal, with no environment setting. It uses
+`energything-runtime/energything.sqlite` under the process working directory.
+Docker sets that working directory to `/var/lib`, giving the fixed unmounted path
+`/var/lib/energything-runtime/energything.sqlite`. Locally it is
+`./energything-runtime/energything.sqlite`. `ENERGYTHING_DUMP_DIR` has been removed;
+use `ENERGYTHING_DATA_DIR` for the persistent backup folder.

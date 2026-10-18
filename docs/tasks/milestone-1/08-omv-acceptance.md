@@ -1,6 +1,7 @@
 # 08 — Private OMV deployed acceptance
 
-Status: planning draft. Depends on: 07, including 06a audit. Completes milestone 1.
+Status: planning draft. Depends on: 07 and [07a](07a-online-backups.md), including
+06a audit. Completes milestone 1. Task07a is required before deployed acceptance.
 Read: [execution contract](execution-contract.md), final operations/configuration docs.
 
 ## Objective and boundary
@@ -28,11 +29,12 @@ real secrets in commands that are echoed to chat, shell history or CI logs.
 
 1. **Host preflight.** Verify architecture is supported by the image, the mount is
    local rather than SMB/NFS, disk space is adequate and UID 10001 can create/write
-   database companions. Confirm one instance per DB. Choose a free HTTP port and
+   published dumps and private staging files. Confirm runtime has no bind/volume/tmpfs mount, sufficient writable-layer capacity, and exactly one server per dump mount. Choose a free HTTP port and
    intended trusted LAN or HTTPS reverse-proxy access. Logthing is the deployment
    pattern; do not overwrite its container, mount or occupied port.
 2. **Deployment.** Configure required credentials and chosen identities privately;
-   deploy the pinned image with Compose and the persistent directory. Record image
+   deploy the pinned image with Compose and the persistent dump directory. The live
+   SQLite database must be ephemeral, never mounted. Record image
    digest/build ID and schema version in private evidence. No public workflow connects
    to this host. Verify non-root operation and configured restart behavior.
 3. **Authentication.** Unauthenticated /healthz is fixed/detail-free. Pages, assets,
@@ -58,14 +60,18 @@ real secrets in commands that are echoed to chat, shell history or CI logs.
    accepted data. Use synthetic rejection injection if actual provider data does
    not fail validation; do not fabricate live invalid readings in accepted history.
    Verify historical failure remains inspectable after a later success/restart.
-9. **Restart.** Gracefully restart, then replace the container with the same pinned
-   image/data mount. Verify actual observations, evidence, audit and checkpoints
-   survive and pending bounded work resumes without DB repair or archive-wide fetch.
-10. **Backup/restore.** Stop, back up the full directory and verify isolated restore
-    with matching image. Validate retained records/checkpoints/audit and DB health.
-    Do not run a second collector against the production DB or race two restored
-    collectors using the same live credentials. Use provider-disabled restore checks
-    before any intentional switch of the live instance.
+9. **Restart.** Gracefully restart, then replace the container including its
+   ephemeral writable layer, keeping only the mounted dump. Verify startup restores
+   observations, evidence, audit and checkpoints from the published dump and pending
+   bounded work resumes. Test abrupt termination separately: verify the documented
+   last-snapshot recovery gap and conservative quota restart behavior.
+10. **Backup/restore.** Keep Energything running while the actual host backup
+    service copies its published dump. Verify this while collection and dump
+    publication continue. Record the actual tool/version and demonstrate it holds one file generation open across replacement (not pathname reopens per chunk). Inspect authenticated backup age/failure and measure restore duration with realistic private data. Restore the external backup into a separate dump mount
+    and a new container with the matching image and provider credentials omitted.
+    Validate records/checkpoints/audit/evidence and DB health. No shutdown of the
+    source service, copying live SQLite, second live-DB recovery process or parallel
+    restored collectors with live credentials may be required for routine backups.
 11. **Operational handoff.** Confirm update, permissions, storage monitoring,
     graceful stop, outage interpretation and backup/restore instructions are usable.
     Record any deviations and unresolved gates privately with explicit disposition.
@@ -77,7 +83,8 @@ real secrets in commands that are echoed to chat, shell history or CI logs.
 - [ ] Provider failure is independent and local reads remain usable.
 - [ ] REST/UI durable audit shows error reasons and repeated attempts.
 - [ ] Restart/image replacement retain history and progress.
-- [ ] Clean-stop backup and isolated restore verified.
+- [ ] External backup copies atomic dumps while service runs; isolated restore verified.
+- [ ] Ephemeral live database reconstructed from mounted dump after container removal.
 - [ ] Auth, privacy, non-root storage and read-only provider behavior verified.
 - [ ] Generic operations docs complete; all private evidence excluded from public artifacts.
 
