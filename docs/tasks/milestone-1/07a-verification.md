@@ -154,3 +154,11 @@ ENERGYTHING_DUMP_DIR and Config.DumpDir are removed. The runtime location is
 internal: energything-runtime/energything.sqlite under the working directory.
 Docker sets WORKDIR /var/lib; no runtime-path environment variable is exposed.
 This supersedes the earlier variable/default descriptions in this record.
+
+DATA_DIR follow-up checks: full Go tests and vet passed. The first container run
+caught relative runtime paths being passed to SQLite during restore; startup now
+resolves both paths before using them. The server regression test uses a relative
+data folder and starts twice, proving fresh creation and restore, backup placement
+under DATA_DIR and live SQLite outside it. Targeted tests/vet and review passed
+after this correction. Linux amd64 and emulated arm64 lifecycle/external-copy/restore checks both passed
+with build ID task07a-data-dir. The retained preview is unchanged.
