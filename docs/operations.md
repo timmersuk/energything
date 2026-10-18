@@ -111,7 +111,9 @@ binary on a migrated database; restore its matching backup/image together.
 ## Online backup and isolated restore
 
 The running database is always `/var/lib/energything-runtime/energything.sqlite`.
-The saved backup is always `/data/latest.tar`. Backup work uses fixed `snapshot.tmp`
+The saved backup is always `/data/latest.tar`. `ENERGYTHING_DATA_DIR` names this
+persistent mounted folder. There is no runtime-path environment setting; Docker
+runs in `/var/lib`, with the internal database under `energything-runtime`. Backup work uses fixed `snapshot.tmp`
 and `latest.tar.tmp` names, then atomically replaces `latest.tar` after completion.
 Startup restores through `energything.sqlite.tmp` before opening the database.
 The `initialized` marker remembers that the dump mount has been used; it is not

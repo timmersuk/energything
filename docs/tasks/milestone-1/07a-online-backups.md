@@ -29,7 +29,7 @@ enter its contents. No automatic private-host access or alerts are added.
   proposed `/var/lib/energything-runtime/energything.sqlite`. No Docker VOLUME,
   bind mount or named volume covers it. Companions and temporary SQLite files stay
   there. A disk-backed container layer avoids requiring the entire archive in RAM.
-- Persistent mount: `/data`, containing published `latest.tar` and publication
+- Persistent mount: `ENERGYTHING_DATA_DIR` (`/data` in Docker), containing published `latest.tar` and publication
   state. It contains no live SQLite database or live WAL/SHM files after cutover.
 - `latest.tar` contains a standalone SQLite snapshot named `energything.sqlite`
   and `manifest.json`. The manifest records format version, schema version,

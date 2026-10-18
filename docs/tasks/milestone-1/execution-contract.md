@@ -83,7 +83,7 @@ baseline in the task before handoff to a dependent task.
 | Variable | Meaning and default |
 | --- | --- |
 | ENERGYTHING_HTTP_ADDR | Listen address; :8080 |
-| ENERGYTHING_DATA_DIR | Directory holding energything.sqlite and companions; /data in image, ./energything-data locally |
+| ENERGYTHING_DATA_DIR | Persistent folder holding latest.tar and backup working files; /data in image, ./energything-data locally; runtime database path is internal |
 | ENERGYTHING_USERNAME / ENERGYTHING_PASSWORD | Required, nonempty; no shipped defaults |
 | ENERGYTHING_TIMEZONE | Europe/London; validate IANA location at startup |
 | OCTOPUS_API_KEY / OCTOPUS_ACCOUNT_NUMBER | Both needed to configure Octopus; no automatic .env loading |

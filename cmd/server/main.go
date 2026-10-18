@@ -33,7 +33,7 @@ func run(ctx context.Context) (err error) {
 		return err
 	}
 	startup, cancelStartup := context.WithTimeout(ctx, c.BackupTimeout)
-	runtimeDir, restored, err := backup.Prepare(startup, c.DataDir, c.DumpDir)
+	runtimeDir, restored, err := backup.Prepare(startup, "energything-runtime", c.DataDir)
 	if err != nil {
 		cancelStartup()
 		return errors.New("dump restore failed; check storage configuration, legacy layout or restore a valid retained archive")
@@ -47,7 +47,7 @@ func run(ctx context.Context) (err error) {
 	if restored {
 		db.HoldAggregateCalls(time.Now(), c.Growatt.AggregateDailyCapEnabled)
 	}
-	backups := &backup.Publisher{Dir: c.DumpDir, Build: BuildID, Interval: c.BackupInterval, Timeout: c.BackupTimeout}
+	backups := &backup.Publisher{Dir: c.DataDir, Build: BuildID, Interval: c.BackupInterval, Timeout: c.BackupTimeout}
 	if err = backups.Publish(startup, db); err != nil {
 		cancelStartup()
 		return err

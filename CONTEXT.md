@@ -90,3 +90,8 @@ Immediate next step after task07a fixed-filename WIP: review earlier tasks01–07,
 including05a/06a, for unnecessary complexity. Report what happens and its consequence
 in plain language; propose bounded changes before implementing any. Do this before
 starting task08. See AGENTS.md.
+
+Configuration correction: ENERGYTHING_DATA_DIR is the persistent backup folder
+(`/data` in Docker, `./energything-data` locally). ENERGYTHING_DUMP_DIR is removed.
+The live database is internal at `energything-runtime/energything.sqlite` relative
+to the working directory; Docker uses WORKDIR /var/lib. No runtime-path env var.

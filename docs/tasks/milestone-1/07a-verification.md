@@ -147,3 +147,10 @@ working-file cleanup and restart into the same runtime path. Both full container
 probes passed with fixed-path/no-generated-subdirectory checks, live external copy,
 restoration, crash recovery and failed shutdown export. Build ID:
 `task07a-fixed-paths`. Standards review: no findings. Spec review: no findings.
+
+Configuration naming follow-up: ENERGYTHING_DATA_DIR now means the persistent
+folder holding latest.tar (/data in Docker, ./energything-data locally).
+ENERGYTHING_DUMP_DIR and Config.DumpDir are removed. The runtime location is
+internal: energything-runtime/energything.sqlite under the working directory.
+Docker sets WORKDIR /var/lib; no runtime-path environment variable is exposed.
+This supersedes the earlier variable/default descriptions in this record.

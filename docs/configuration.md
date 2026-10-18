@@ -9,8 +9,7 @@ use another project's credentials. Empty optional values use defaults.
 | ENERGYTHING_USERNAME | Required, nonempty, no colon; Basic Auth username |
 | ENERGYTHING_PASSWORD | Required, nonempty; no shipped password |
 | ENERGYTHING_HTTP_ADDR | `:8080`; IP or localhost and port 1–65535 |
-| ENERGYTHING_DATA_DIR | `./energything-runtime`; image `/var/lib/energything-runtime`; unmounted ephemeral runtime root |
-| ENERGYTHING_DUMP_DIR | `./energything-dumps`; image `/data`; persistent private dump directory |
+| ENERGYTHING_DATA_DIR | `./energything-data`; image `/data`; persistent mounted folder holding `latest.tar` and backup working files |
 | ENERGYTHING_BACKUP_INTERVAL | `15m`; positive duration, wait after previous publication |
 | ENERGYTHING_BACKUP_TIMEOUT | `5m`; positive duration, startup/restore/each publication deadline |
 | ENERGYTHING_TIMEZONE | `Europe/London`; valid IANA zone, display/calendar interpretation only |
@@ -47,7 +46,7 @@ authentication. Errors name settings without echoing secret values.
 | --- | --- |
 | ENERGYTHING_IMAGE | `energything:local`; deployment should set a released digest |
 | ENERGYTHING_HTTP_PORT | `8080`; host published port, restrict with firewall/reverse proxy |
-| ENERGYTHING_DATA_PATH | `./energything-dumps`; pre-created persistent dump directory mapped to `/data` |
+| ENERGYTHING_DATA_PATH | `./energything-data`; pre-created persistent dump directory mapped to `/data` |
 | ENERGYTHING_STOP_GRACE_PERIOD | `6m`; allow HTTP drain, collector cleanup and final dump before SIGKILL |
 
 Compose fixes HTTP to `:8080`, runtime to unmounted `/var/lib/energything-runtime` and dumps to `/data`. Runtime/dump paths must be disjoint and traverse no symlinks. On Linux the actual storage directories must be owned by the service UID and mode 0700 (UID10001 in the image). Linux refuses any separate mount covering runtime. Never mount it or declare a Docker VOLUME there.
@@ -61,7 +60,9 @@ Build controls: `make build CI_BUILD_ID=<public-id>` (or `go run ./scripts/build
 -build-id <public-id>`), `GO`, `DOCKER`, `IMAGE` are build tooling settings, never
 provider configuration. Build IDs appear in authenticated status and must be public.
 
-The local runtime default is now `./energything-runtime`, separate from the old
-`./energything-data` directory so retained legacy data is not treated as disposable.
-Inside the runtime directory the live filename is always `energything.sqlite`.
-Each startup replaces it from the dump before opening storage.
+The runtime database path is internal, with no environment setting. It uses
+`energything-runtime/energything.sqlite` under the process working directory.
+Docker sets that working directory to `/var/lib`, giving the fixed unmounted path
+`/var/lib/energything-runtime/energything.sqlite`. Locally it is
+`./energything-runtime/energything.sqlite`. `ENERGYTHING_DUMP_DIR` has been removed;
+use `ENERGYTHING_DATA_DIR` for the persistent backup folder.
