@@ -170,4 +170,11 @@ mountinfo parser, the non-Linux no-op and the parser-specific test. Startup no
 longer inspects mounts. Docker/Compose still leave the live database unmounted;
 the existing container probe inspects Docker mounts to check that requirement.
 Linux directory sync and ownership checks remain. Item1 was completed previously;
-items3,4,5 remain undone. Verification results follow below.
+items3,4,5 remain undone.
+
+Item2 verification: full Go tests and vet passed. Backup suites and complete
+container probes passed on linux/amd64 and emulated linux/arm64, including the
+retained Docker mount-layout check, external copying and restoration. Build ID:
+`task07a-audit-item2`. Standards and Spec reviews found no actionable issues.
+No mountinfo parser or validateRuntimeMount function remains in application code.
+This update completed item2 only; overall items1/2 are done and items3/4/5 are not.

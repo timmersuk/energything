@@ -115,11 +115,11 @@ what matters is whether each function inside it earns its place.
 
 ## How to act on this
 
-Approved work: change 1, plus fixed `snapshot.tmp` and `latest.tar.tmp` working
-filenames and the standing engineering instructions. Check that restart still restores the saved data and
+Approved work: items 1 and 2, plus fixed `snapshot.tmp` and `latest.tar.tmp`
+working filenames and the standing engineering instructions. Check that restart still restores the saved data and
 that a failed restore never starts the app using leftovers. Keep the preview untouched.
 
-The other changes are proposals, not permission for me to do them all. For any
+Items 3, 4 and 5 remain proposals and have not been implemented. For any
 chosen change, remove the stated complication and keep the stated behavior. If I
 find it cannot work, I must show the concrete problem before taking a different
 approach. I must not quietly build a new system to replace the one being removed.
