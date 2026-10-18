@@ -98,9 +98,10 @@ image includes CA roots, timezone data and the enqueue CLI and runs UID10001.
 Restrict the published port using host firewall/LAN rules or a trusted HTTPS
 reverse proxy. Basic Auth needs trusted transport; never expose port8080 publicly.
 
-For updates, record the old digest/build ID and schema version (currently8), stop
-and back up as below, then change only the private pinned image reference, pull
-and recreate against the same mount. Confirm health, expected build ID, records,
+For updates, record the old digest/build ID and schema version (currently8), retain
+a copy of latest.tar while running, stop cleanly and optionally retain the final
+published dump too. Then change only the private pinned image reference, pull
+and recreate against the same dump mount. Confirm health, expected build ID, records,
 audit/evidence and resumed checkpoints/frontiers. Compare accepted row counts and
 audit to pre-update state; ordinary collection can add/update data. Never reset a
 quota ledger or checkpoint to make an update appear successful. If startup fails,

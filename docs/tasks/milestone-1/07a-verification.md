@@ -26,10 +26,10 @@ occurred immediately before restart even with an old dump. Captured provider
 backoffs remain lower bounds. History start, canonical keys/corrections, spacing,
 cap default false and pagination contracts remain unchanged.
 
-## Executed evidence (in progress)
+## Executed evidence
 
 - Full Windows Go tests passed; vet passed after rerunning a probe import check
-  that overlapped an edit. Final regression rerun is recorded below.
+  that overlapped an edit. Subsequent full regression suite and vet passed.
 - Slow incremental snapshot synthetic test passed: normal commits and stored reads
   complete while copying; observed pinned WAL 4,556,752 bytes for the fixture;
   checkpoint truncates WAL to zero after backup, proving the read pin is released.
@@ -64,3 +64,57 @@ application dumps are neither off-device backup nor historical retention.
 Actual OMV backup-tool single-open copying, host filesystem/permissions, realistic
 archive restore duration/capacity and private deployed-provider acceptance remain
 task08 gates. Empty wrong mounts cannot be distinguished from a first install.
+
+## Final checks and review
+
+- `go test -timeout 3m ./...` and `go vet ./...` passed on Windows. Added/changed
+  backup, conversion, server and storage checks were rerun after review.
+- Full `CGO_ENABLED=1 go test -race -timeout 5m ./...` passed in
+  `golang:1.26.4-bookworm` from a committed-source-only archive. After review,
+  race checks of backup/storage/dump/server passed again. Native Windows race is
+  unavailable without a cgo compiler; production binaries remain cgo-disabled.
+- Added actual authenticated HTTP status browsing plus a committed reservation
+  during a deliberately large online snapshot; both finish before backup does.
+  Tests also cover cancellation during copying, released WAL pins, a real SQLite
+  exclusive source lock with bounded wait, schema7 snapshot then normal schema8
+  upgrade, and future-schema refusal. Physical online copy preserves all rows;
+  conversion compares all tables, declared identities, schema and row counts.
+- Archive tests reject wrong checksum, length, format/schema, duplicate/missing
+  entries, traversal/unexpected paths and symlinks. A refused pre-existing restore
+  destination remains untouched. Crash tests explicitly lose unsnapshotted later
+  aggregates while restoring the exact previously published complete state.
+- ENOSPC is injected at pre-sync/pre-rename/post-rename boundaries; no real host
+  filesystem was filled. Before rename latest stays byte-for-byte old; after rename
+  it is a complete new generation. Actual unwritable-mount tests show visible
+  authenticated failure, preserved last dump and shutdown exit1.
+- Go1.26 testing temporary directories needed explicit0700 after Linux enforcement
+  was added. Initial platform tests exposed these permissive synthetic fixtures;
+  fixtures were fixed and both architecture backup suites then passed.
+- Both final platform lifecycle probes passed: CA/timezone, UID10001, authenticated
+  API and secret redaction, timer publication, no mounted live database, container
+  removal/recreation, slow held-open external copy during repeated publication,
+  isolated external-only restoration, SIGKILL recovery, denied permissions and
+  graceful/failing shutdown. Tests use disposable synthetic volumes only.
+- Python release-policy matrix and actionlint passed. Gitleaks scanned the reviewed
+  tracked-source archive (about1.11MB) with no leaks. Both image/context inspections
+  passed exact allowlisting and private-file sentinel/layer exclusion. Application
+  image tags used only locally: energything:task07a-amd64 and task07a-arm64.
+- Fetched origin/main again: zero commits missing from the implementation branch.
+
+### Standards review
+
+No actionable findings. SQL ownership, module boundaries, diagnostics and cleanup
+follow repository conventions; no baseline smell required changes.
+
+### Spec review
+
+Two findings fixed: enforce existing Linux storage directory ownership/private
+modes; validate ancestor links/overlap for offline restore as well as conversion.
+A destination-parent regression was also fixed: ordinary0755 parents are allowed
+while the actual new destination is0700. Added regression tests cover permissions,
+links, separate runtime mounts and initial-crash staging cleanup. Final reviewer
+recheck reported no remaining actionable findings.
+
+Standards:0 findings. Spec:2 findings fixed,0 remaining. No material plan deviation.
+Preview cutover remains deliberately unperformed; conversion/isolated-restore
+procedure and tool are ready for separate authorized transition.

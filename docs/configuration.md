@@ -50,9 +50,9 @@ authentication. Errors name settings without echoing secret values.
 | ENERGYTHING_DATA_PATH | `./energything-dumps`; pre-created persistent dump directory mapped to `/data` |
 | ENERGYTHING_STOP_GRACE_PERIOD | `6m`; allow HTTP drain, collector cleanup and final dump before SIGKILL |
 
-Compose fixes HTTP to `:8080`, runtime to unmounted `/var/lib/energything-runtime` and dumps to `/data`. Runtime/dump paths must be disjoint and traverse no symlinks. Linux refuses any separate mount covering runtime. Never mount it or declare a Docker VOLUME there.
-Increase stop grace beyond the configured HTTP timeout plus collector cleanup
-(plus backup timeout and at least five seconds collector cleanup) when increasing the drain timeout. Runtime
+Compose fixes HTTP to `:8080`, runtime to unmounted `/var/lib/energything-runtime` and dumps to `/data`. Runtime/dump paths must be disjoint and traverse no symlinks. On Linux the actual storage directories must be owned by the service UID and mode 0700 (UID10001 in the image). Linux refuses any separate mount covering runtime. Never mount it or declare a Docker VOLUME there.
+Set stop grace above the configured HTTP drain timeout plus five seconds collector
+cleanup plus the backup timeout. Increase it whenever either timeout is increased. Runtime
 secrets are visible to Docker administrators; restrict host and Docker access.
 `TZ=Europe/London` is set in the image for shell tools; application interpretation
 uses ENERGYTHING_TIMEZONE. Neither setting establishes Growatt absolute timestamps.

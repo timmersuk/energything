@@ -10,8 +10,8 @@ lifetime and seasonal clock semantics remain qualified. See
 
 Readings retain one current accepted value per source period. Refetches update
 that row and corrections overwrite values; no value-version history is kept.
-Growatt uses its reported device timestamp as the period key. Schema008 upgrades
-require a stopped data-directory backup; see [operations](docs/operations.md).
+Growatt uses its reported device timestamp as the period key. Legacy persistent databases require deliberate stopped-copy conversion before
+task07a cutover; see [operations](docs/operations.md).
 A fresh installation creates the final schema directly; it does not replay
 superseded development migrations. Existing databases apply only missing upgrades.
 
@@ -31,7 +31,8 @@ make build
 In PowerShell, set ENERGYTHING_USERNAME and ENERGYTHING_PASSWORD to your chosen
 nonempty credentials, then run `go run ./cmd/server`. The application reads only
 the process environment; it does not load any .env file. Local defaults are
-:8080, ./energything-data, Europe/London and a 10s shutdown timeout.
+:8080, ./energything-data as runtime root, ./energything-dumps as persistent
+dump directory, Europe/London and a 10s HTTP drain timeout.
 See [.env.example](.env.example) for every supported environment name and
 the [configuration reference](docs/configuration.md)
 for their meaning. Provider settings are parsed independently; invalid or partial
@@ -84,7 +85,7 @@ isolated synthetic browser acceptance and remaining gates.
 Task07 release/CI verification uses disposable synthetic volumes and does not
 require restarting the retained preview. See [release and OMV operations](docs/operations.md)
 for immutable image tags/digests, UID10001 permissions, pinned updates, stopped
-full-directory backups and isolated restores. Publishing and private host rollout
+online dump backups, deliberate legacy conversion and isolated restores. Publishing and private host rollout
 require separate authorization. CI never receives household provider credentials.
 
 Task07a requires deliberate authorized legacy conversion before updating the retained

@@ -1,7 +1,8 @@
 # 07a — Ephemeral SQLite and persistent online dumps
 
-Status: implementation plan, 18 October 2026. Depends on: merged 07. Required
-before 08. Planning only: this task does not authorize implementation or deployment.
+Status: implemented 18 October 2026; see [verification](07a-verification.md) for
+executed checks and remaining private host gates. Depends on merged 07; required
+before 08. This document does not authorize preview cutover or deployment.
 Read: [execution contract](execution-contract.md), [operations](../../operations.md),
 [configuration](../../configuration.md), [task07 evidence](07-verification.md).
 
